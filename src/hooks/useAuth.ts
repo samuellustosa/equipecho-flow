@@ -46,39 +46,30 @@ export const useAuthProvider = () => {
   useEffect(() => {
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+      (event, session) => {
         console.log('Auth state changed:', event, session);
         
+        // Only update session state synchronously
+        setAuthState(prev => ({
+          ...prev,
+          session,
+          isAuthenticated: !!session,
+          isLoading: false
+        }));
+        
+        // Defer profile fetching to avoid deadlock
         if (session?.user) {
-          // Fetch user profile
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', session.user.id)
-            .single();
-
-          if (profile) {
-            setAuthState({
-              user: profile,
-              session,
-              isLoading: false,
-              isAuthenticated: true
-            });
-          } else {
-            setAuthState({
-              user: null,
-              session: null,
-              isLoading: false,
-              isAuthenticated: false
-            });
-          }
+          setTimeout(() => {
+            fetchUserProfile(session.user.id);
+          }, 0);
         } else {
-          setAuthState({
+          setAuthState(prev => ({
+            ...prev,
             user: null,
             session: null,
             isLoading: false,
             isAuthenticated: false
-          });
+          }));
         }
       }
     );
@@ -99,6 +90,26 @@ export const useAuthProvider = () => {
 
     return () => subscription.unsubscribe();
   }, []);
+
+  // Helper function to fetch user profile
+  const fetchUserProfile = async (userId: string) => {
+    try {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
+
+      if (profile) {
+        setAuthState(prev => ({
+          ...prev,
+          user: profile
+        }));
+      }
+    } catch (error) {
+      console.error('Error fetching user profile:', error);
+    }
+  };
 
   const login = async (email: string, password: string) => {
     setAuthState(prev => ({ ...prev, isLoading: true }));
