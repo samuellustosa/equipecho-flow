@@ -1,0 +1,179 @@
+import { useState } from "react";
+import { 
+  LayoutDashboard, 
+  Wrench, 
+  Package, 
+  Users, 
+  Settings,
+  LogOut,
+  ChevronRight
+} from "lucide-react";
+import { NavLink, useLocation } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
+
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarHeader,
+  SidebarFooter,
+  useSidebar,
+} from "@/components/ui/sidebar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+
+const navigationItems = [
+  { 
+    title: "Dashboard", 
+    url: "/", 
+    icon: LayoutDashboard,
+    allowedRoles: ['Admin', 'Manager', 'User']
+  },
+  { 
+    title: "Equipamentos", 
+    url: "/equipments", 
+    icon: Wrench,
+    allowedRoles: ['Admin', 'Manager', 'User']
+  },
+  { 
+    title: "Inventário", 
+    url: "/inventory", 
+    icon: Package,
+    allowedRoles: ['Admin', 'Manager']
+  },
+  { 
+    title: "Usuários", 
+    url: "/users", 
+    icon: Users,
+    allowedRoles: ['Admin']
+  },
+  { 
+    title: "Configurações", 
+    url: "/settings", 
+    icon: Settings,
+    allowedRoles: ['Admin', 'Manager', 'User']
+  },
+];
+
+export function AppSidebar() {
+  const { state } = useSidebar();
+  const location = useLocation();
+  const { authState, logout } = useAuth();
+  const currentPath = location.pathname;
+  
+  const isCollapsed = state === "collapsed";
+
+  const filteredItems = navigationItems.filter(item => 
+    authState.user && item.allowedRoles.includes(authState.user.role)
+  );
+
+  const isActive = (path: string) => {
+    if (path === "/") {
+      return currentPath === "/";
+    }
+    return currentPath.startsWith(path);
+  };
+
+  const getNavClassName = (path: string) => {
+    const baseClasses = "w-full justify-start transition-smooth";
+    return isActive(path) 
+      ? `${baseClasses} bg-accent text-accent-foreground font-medium`
+      : `${baseClasses} hover:bg-accent/50`;
+  };
+
+  const getUserInitials = (name: string) => {
+    return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+  };
+
+  return (
+    <Sidebar
+      className="transition-smooth border-r"
+      collapsible="icon"
+    >
+      <SidebarHeader className="border-b p-4">
+        <div className="flex items-center gap-3">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg gradient-primary text-primary-foreground font-bold text-sm">
+            EE
+          </div>
+          {!isCollapsed && (
+            <div>
+              <h1 className="font-bold text-lg">EquipEcho</h1>
+              <p className="text-xs text-muted-foreground">
+                Gestão de Equipamentos
+              </p>
+            </div>
+          )}
+        </div>
+      </SidebarHeader>
+
+      <SidebarContent className="px-4 py-4">
+        <SidebarGroup>
+          <SidebarGroupLabel className={isCollapsed ? "sr-only" : ""}>
+            Navegação
+          </SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu className="space-y-1">
+              {filteredItems.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton asChild>
+                    <NavLink to={item.url} className={getNavClassName(item.url)}>
+                      <item.icon className="h-4 w-4 flex-shrink-0" />
+                      {!isCollapsed && (
+                        <>
+                          <span className="ml-3">{item.title}</span>
+                          {isActive(item.url) && (
+                            <ChevronRight className="h-4 w-4 ml-auto" />
+                          )}
+                        </>
+                      )}
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+      </SidebarContent>
+
+      <SidebarFooter className="border-t p-4">
+        {authState.user && (
+          <div className="space-y-3">
+            <div className="flex items-center gap-3">
+              <Avatar className="h-8 w-8">
+                <AvatarFallback className="text-xs">
+                  {getUserInitials(authState.user.name)}
+                </AvatarFallback>
+              </Avatar>
+              {!isCollapsed && (
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate">
+                    {authState.user.name}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {authState.user.role}
+                  </p>
+                </div>
+              )}
+            </div>
+            {!isCollapsed && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={logout}
+                className="w-full justify-start"
+              >
+                <LogOut className="h-4 w-4 mr-2" />
+                Sair
+              </Button>
+            )}
+          </div>
+        )}
+      </SidebarFooter>
+    </Sidebar>
+  );
+}
