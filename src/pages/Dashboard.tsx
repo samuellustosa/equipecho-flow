@@ -2,6 +2,8 @@ import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { useEquipments } from '@/hooks/useEquipments';
+import { useInventory } from '@/hooks/useInventory';
 import { 
   Wrench, 
   Package, 
@@ -14,48 +16,49 @@ import {
 } from 'lucide-react';
 
 export const Dashboard: React.FC = () => {
-  // Mock data - replace with real data from Supabase
+  const { data: equipments = [], isLoading: equipmentsLoading } = useEquipments();
+  const { data: inventory = [], isLoading: inventoryLoading } = useInventory();
+
+  const isLoading = equipmentsLoading || inventoryLoading;
+
+  // Calculate real stats from data
   const stats = {
-    totalEquipments: 156,
-    activeEquipments: 142,
-    maintenanceNeeded: 8,
-    inventoryItems: 89,
-    lowStockItems: 12,
-    pendingMaintenance: 5
+    totalEquipments: equipments.length,
+    activeEquipments: equipments.filter(e => e.status === 'operacional').length,
+    maintenanceNeeded: equipments.filter(e => e.status === 'manutencao').length,
+    inventoryItems: inventory.length,
+    lowStockItems: inventory.filter(i => i.status === 'baixo' || i.status === 'critico').length,
+    pendingMaintenance: equipments.filter(e => {
+      const nextCleaning = new Date(e.next_cleaning);
+      const today = new Date();
+      const diffDays = Math.ceil((nextCleaning.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+      return diffDays <= 7; // Due in 7 days or less
+    }).length
   };
 
-  const recentMaintenances = [
-    {
-      id: 1,
-      equipment: 'Compressor AC-001',
-      type: 'Preventiva',
-      status: 'Concluída',
-      date: '2024-01-15',
-      technician: 'João Silva'
-    },
-    {
-      id: 2,
-      equipment: 'Gerador GE-205',
-      type: 'Corretiva',
-      status: 'Em andamento',
-      date: '2024-01-14',
-      technician: 'Maria Santos'
-    },
-    {
-      id: 3,
-      equipment: 'Bomba BP-103',
-      type: 'Preventiva',
-      status: 'Pendente',
-      date: '2024-01-16',
-      technician: 'Carlos Lima'
-    }
-  ];
+  // Recent cleanings (equipments that had recent next_cleaning updates)
+  const recentMaintenances = equipments
+    .filter(e => e.last_cleaning)
+    .sort((a, b) => new Date(b.last_cleaning!).getTime() - new Date(a.last_cleaning!).getTime())
+    .slice(0, 3)
+    .map(equipment => ({
+      id: equipment.id,
+      equipment: equipment.name,
+      type: 'Limpeza',
+      status: equipment.status === 'operacional' ? 'Concluída' : 'Em andamento',
+      date: equipment.last_cleaning!,
+      technician: equipment.responsibles?.name || 'N/A'
+    }));
 
-  const lowStockItems = [
-    { name: 'Filtro de Ar', current: 5, minimum: 10 },
-    { name: 'Óleo Lubrificante', current: 3, minimum: 8 },
-    { name: 'Correias', current: 2, minimum: 5 }
-  ];
+  // Low stock items
+  const lowStockItems = inventory
+    .filter(i => i.status === 'baixo' || i.status === 'critico')
+    .slice(0, 3)
+    .map(item => ({
+      name: item.name,
+      current: item.current_quantity,
+      minimum: item.minimum_quantity
+    }));
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -65,6 +68,22 @@ export const Dashboard: React.FC = () => {
       default: return 'bg-muted text-muted-foreground';
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="p-6 space-y-6">
+        <div className="animate-pulse space-y-4">
+          <div className="h-8 bg-muted rounded w-1/3"></div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {[...Array(4)].map((_, i) => (
+              <div key={i} className="h-24 bg-muted rounded"></div>
+            ))}
+          </div>
+          <div className="h-64 bg-muted rounded"></div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 space-y-6">
@@ -145,10 +164,10 @@ export const Dashboard: React.FC = () => {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Activity className="h-5 w-5" />
-              Manutenções Recentes
+              Limpezas Recentes
             </CardTitle>
             <CardDescription>
-              Últimas atividades de manutenção registradas
+              Últimas atividades de limpeza registradas
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -173,7 +192,7 @@ export const Dashboard: React.FC = () => {
               ))}
             </div>
             <Button variant="outline" className="w-full mt-4">
-              Ver Todas as Manutenções
+              Ver Todas as Limpezas
             </Button>
           </CardContent>
         </Card>
@@ -192,7 +211,7 @@ export const Dashboard: React.FC = () => {
           <CardContent>
             <div className="space-y-4">
               {lowStockItems.map((item, index) => (
-                <div key={index} className="flex items-center justify-between p-3 rounded-lg bg-warning-light border border-warning/20">
+                <div key={index} className="flex items-center justify-between p-3 rounded-lg bg-warning/10 border border-warning/20">
                   <div>
                     <p className="font-medium text-sm">{item.name}</p>
                     <p className="text-xs text-muted-foreground">
@@ -233,7 +252,7 @@ export const Dashboard: React.FC = () => {
             </Button>
             <Button className="h-20 flex-col gap-2" variant="outline">
               <Calendar className="h-6 w-6" />
-              <span>Agendar Manutenção</span>
+              <span>Agendar Limpeza</span>
             </Button>
             <Button className="h-20 flex-col gap-2" variant="outline">
               <Package className="h-6 w-6" />

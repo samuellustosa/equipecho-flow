@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { useUsers } from '@/hooks/useUsers';
 import { 
   Plus, 
   Search, 
@@ -25,75 +26,23 @@ import {
 } from "@/components/ui/table";
 
 export const Users: React.FC = () => {
-  // Mock data - replace with real data from Supabase
-  const users = [
-    {
-      id: 1,
-      name: 'João Silva',
-      email: 'joao.silva@equipecho.com',
-      role: 'Admin',
-      status: 'Ativo',
-      lastLogin: '2024-01-15T10:30:00Z',
-      createdAt: '2023-06-15T00:00:00Z',
-      department: 'TI'
-    },
-    {
-      id: 2,
-      name: 'Maria Santos',
-      email: 'maria.santos@equipecho.com',
-      role: 'Manager',
-      status: 'Ativo',
-      lastLogin: '2024-01-15T09:15:00Z',
-      createdAt: '2023-08-20T00:00:00Z',
-      department: 'Manutenção'
-    },
-    {
-      id: 3,
-      name: 'Carlos Lima',
-      email: 'carlos.lima@equipecho.com',
-      role: 'User',
-      status: 'Ativo',
-      lastLogin: '2024-01-14T16:45:00Z',
-      createdAt: '2023-09-10T00:00:00Z',
-      department: 'Operações'
-    },
-    {
-      id: 4,
-      name: 'Ana Costa',
-      email: 'ana.costa@equipecho.com',
-      role: 'Manager',
-      status: 'Inativo',
-      lastLogin: '2024-01-10T14:20:00Z',
-      createdAt: '2023-07-05T00:00:00Z',
-      department: 'Qualidade'
-    },
-    {
-      id: 5,
-      name: 'Roberto Oliveira',
-      email: 'roberto.oliveira@equipecho.com',
-      role: 'User',
-      status: 'Ativo',
-      lastLogin: '2024-01-15T11:00:00Z',
-      createdAt: '2023-10-01T00:00:00Z',
-      department: 'Manutenção'
-    }
-  ];
+  const { data: users = [], isLoading, error } = useUsers();
 
   const getRoleInfo = (role: string) => {
     switch (role) {
-      case 'Admin':
+      case 'admin':
         return { 
           color: 'bg-destructive text-destructive-foreground', 
           icon: Crown,
           description: 'Administrador'
         };
-      case 'Manager':
+      case 'manager':
         return { 
           color: 'bg-warning text-warning-foreground', 
           icon: Shield,
           description: 'Gerente'
         };
-      case 'User':
+      case 'user':
         return { 
           color: 'bg-success text-success-foreground', 
           icon: User,
@@ -118,24 +67,40 @@ export const Users: React.FC = () => {
     return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
   };
 
-  const formatLastLogin = (dateString: string) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60);
-    
-    if (diffInHours < 24) {
-      return `Há ${Math.floor(diffInHours)} horas`;
-    } else {
-      return date.toLocaleDateString('pt-BR');
-    }
-  };
-
   const stats = {
     totalUsers: users.length,
-    activeUsers: users.filter(u => u.status === 'Ativo').length,
-    admins: users.filter(u => u.role === 'Admin').length,
-    managers: users.filter(u => u.role === 'Manager').length
+    activeUsers: users.length, // All users from profiles are considered active
+    admins: users.filter(u => u.role === 'admin').length,
+    managers: users.filter(u => u.role === 'manager').length
   };
+
+  if (isLoading) {
+    return (
+      <div className="p-6 space-y-6">
+        <div className="animate-pulse space-y-4">
+          <div className="h-8 bg-muted rounded w-1/3"></div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {[...Array(4)].map((_, i) => (
+              <div key={i} className="h-24 bg-muted rounded"></div>
+            ))}
+          </div>
+          <div className="h-64 bg-muted rounded"></div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-6">
+        <Card>
+          <CardContent className="p-6">
+            <p className="text-destructive">Erro ao carregar usuários: {error.message}</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 space-y-6">
@@ -239,9 +204,7 @@ export const Users: React.FC = () => {
                   <TableHead>Usuário</TableHead>
                   <TableHead>Email</TableHead>
                   <TableHead>Função</TableHead>
-                  <TableHead>Departamento</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Último Acesso</TableHead>
+                  <TableHead>Criado em</TableHead>
                   <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
@@ -262,7 +225,7 @@ export const Users: React.FC = () => {
                           <div>
                             <p className="font-semibold">{user.name}</p>
                             <p className="text-xs text-muted-foreground">
-                              Desde {new Date(user.createdAt).toLocaleDateString('pt-BR')}
+                              ID: {user.id.slice(0, 8)}...
                             </p>
                           </div>
                         </div>
@@ -274,14 +237,8 @@ export const Users: React.FC = () => {
                           {roleInfo.description}
                         </Badge>
                       </TableCell>
-                      <TableCell>{user.department}</TableCell>
-                      <TableCell>
-                        <Badge className={getStatusColor(user.status)}>
-                          {user.status}
-                        </Badge>
-                      </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
-                        {formatLastLogin(user.lastLogin)}
+                        {new Date(user.created_at).toLocaleDateString('pt-BR')}
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
