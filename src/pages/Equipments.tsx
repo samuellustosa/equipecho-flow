@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/hooks/useAuth';
+import { useEquipments } from '@/hooks/useEquipments';
 import { 
   Plus, 
   Search, 
@@ -26,65 +27,51 @@ import {
 
 export const Equipments: React.FC = () => {
   const { authState } = useAuth();
-  
-  // Mock data - replace with real data from Supabase
-  const equipments = [
-    {
-      id: 1,
-      name: 'Compressor AC-001',
-      type: 'Compressor de Ar',
-      location: 'Setor A - Sala 101',
-      status: 'Operacional',
-      lastMaintenance: '2024-01-10',
-      nextMaintenance: '2024-04-10',
-      model: 'Atlas Copco GA22',
-      serialNumber: 'AC2024001'
-    },
-    {
-      id: 2,
-      name: 'Gerador GE-205',
-      type: 'Gerador Diesel',
-      location: 'Área Externa - Bloco B',
-      status: 'Manutenção',
-      lastMaintenance: '2024-01-14',
-      nextMaintenance: '2024-07-14',
-      model: 'Caterpillar C9',
-      serialNumber: 'GE2024002'
-    },
-    {
-      id: 3,
-      name: 'Bomba BP-103',
-      type: 'Bomba Centrífuga',
-      location: 'Casa de Máquinas',
-      status: 'Parado',
-      lastMaintenance: '2023-12-20',
-      nextMaintenance: '2024-03-20',
-      model: 'KSB Etanorm',
-      serialNumber: 'BP2024003'
-    },
-    {
-      id: 4,
-      name: 'Ponte Rolante PR-301',
-      type: 'Ponte Rolante',
-      location: 'Galpão Principal',
-      status: 'Operacional',
-      lastMaintenance: '2024-01-05',
-      nextMaintenance: '2024-04-05',
-      model: 'Munck MK-500',
-      serialNumber: 'PR2024004'
-    }
-  ];
+  const { data: equipments = [], isLoading, error } = useEquipments();
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'Operacional': return 'bg-success text-success-foreground';
-      case 'Manutenção': return 'bg-warning text-warning-foreground';
-      case 'Parado': return 'bg-destructive text-destructive-foreground';
+      case 'operacional': return 'bg-success text-success-foreground';
+      case 'manutencao': return 'bg-warning text-warning-foreground';
+      case 'parado': return 'bg-destructive text-destructive-foreground';
       default: return 'bg-muted text-muted-foreground';
     }
   };
 
-  const canEdit = authState.user?.role === 'Admin' || authState.user?.role === 'Manager';
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case 'operacional': return 'Operacional';
+      case 'manutencao': return 'Manutenção';
+      case 'parado': return 'Parado';
+      default: return status;
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="p-6 space-y-6">
+        <div className="animate-pulse space-y-4">
+          <div className="h-8 bg-muted rounded w-1/3"></div>
+          <div className="h-32 bg-muted rounded"></div>
+          <div className="h-64 bg-muted rounded"></div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-6">
+        <Card>
+          <CardContent className="p-6">
+            <p className="text-destructive">Erro ao carregar equipamentos: {error.message}</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  const canEdit = authState.user?.role === 'admin' || authState.user?.role === 'manager';
 
   return (
     <div className="p-6 space-y-6">
@@ -143,7 +130,7 @@ export const Equipments: React.FC = () => {
               <div>
                 <p className="text-sm text-muted-foreground">Operacionais</p>
                 <p className="text-2xl font-bold text-success">
-                  {equipments.filter(e => e.status === 'Operacional').length}
+                  {equipments.filter(e => e.status === 'operacional').length}
                 </p>
               </div>
               <Activity className="h-8 w-8 text-success" />
@@ -157,7 +144,7 @@ export const Equipments: React.FC = () => {
               <div>
                 <p className="text-sm text-muted-foreground">Em Manutenção</p>
                 <p className="text-2xl font-bold text-warning">
-                  {equipments.filter(e => e.status === 'Manutenção').length}
+                  {equipments.filter(e => e.status === 'manutencao').length}
                 </p>
               </div>
               <Calendar className="h-8 w-8 text-warning" />
@@ -171,7 +158,7 @@ export const Equipments: React.FC = () => {
               <div>
                 <p className="text-sm text-muted-foreground">Parados</p>
                 <p className="text-2xl font-bold text-destructive">
-                  {equipments.filter(e => e.status === 'Parado').length}
+                  {equipments.filter(e => e.status === 'parado').length}
                 </p>
               </div>
               <MapPin className="h-8 w-8 text-destructive" />
@@ -194,11 +181,11 @@ export const Equipments: React.FC = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead>Nome</TableHead>
-                  <TableHead>Tipo</TableHead>
-                  <TableHead>Localização</TableHead>
+                  <TableHead>Setor</TableHead>
+                  <TableHead>Responsável</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Última Manutenção</TableHead>
-                  <TableHead>Próxima Manutenção</TableHead>
+                  <TableHead>Última Limpeza</TableHead>
+                  <TableHead>Próxima Limpeza</TableHead>
                   {canEdit && <TableHead className="text-right">Ações</TableHead>}
                 </TableRow>
               </TableHeader>
@@ -209,34 +196,34 @@ export const Equipments: React.FC = () => {
                       <div>
                         <p className="font-semibold">{equipment.name}</p>
                         <p className="text-xs text-muted-foreground">
-                          {equipment.model}
+                          {equipment.model || 'N/A'}
                         </p>
                       </div>
                     </TableCell>
-                    <TableCell>{equipment.type}</TableCell>
+                    <TableCell>{equipment.sectors?.name || 'N/A'}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1">
                         <MapPin className="h-3 w-3 text-muted-foreground" />
-                        {equipment.location}
+                        {equipment.responsibles?.name || 'N/A'}
                       </div>
                     </TableCell>
                     <TableCell>
                       <Badge className={getStatusColor(equipment.status)}>
-                        {equipment.status}
+                        {getStatusLabel(equipment.status)}
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      {new Date(equipment.lastMaintenance).toLocaleDateString('pt-BR')}
+                      {equipment.last_cleaning ? new Date(equipment.last_cleaning).toLocaleDateString('pt-BR') : 'N/A'}
                     </TableCell>
                     <TableCell>
-                      {new Date(equipment.nextMaintenance).toLocaleDateString('pt-BR')}
+                      {new Date(equipment.next_cleaning).toLocaleDateString('pt-BR')}
                     </TableCell>
                     {canEdit && (
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
                           <Button variant="outline" size="sm">
                             <Calendar className="h-3 w-3 mr-1" />
-                            Manutenção
+                            Limpeza
                           </Button>
                           <Button variant="outline" size="sm">
                             <Edit className="h-3 w-3" />

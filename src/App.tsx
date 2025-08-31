@@ -49,7 +49,7 @@ const App = () => (
             } />
             
             <Route path="/inventory" element={
-              <ProtectedRoute allowedRoles={['Admin', 'Manager']}>
+              <ProtectedRoute allowedRoles={['admin', 'manager']}>
                 <MainLayout>
                   <Inventory />
                 </MainLayout>
@@ -57,7 +57,7 @@ const App = () => (
             } />
             
             <Route path="/users" element={
-              <ProtectedRoute allowedRoles={['Admin']}>
+              <ProtectedRoute allowedRoles={['admin']}>
                 <MainLayout>
                   <Users />
                 </MainLayout>

@@ -5,12 +5,12 @@ import { Loader2 } from 'lucide-react';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
-  allowedRoles?: Array<'Admin' | 'Manager' | 'User'>;
+  allowedRoles?: Array<'admin' | 'manager' | 'user'>;
 }
 
 export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ 
   children, 
-  allowedRoles = ['Admin', 'Manager', 'User'] 
+  allowedRoles = ['admin', 'manager', 'user'] 
 }) => {
   const { authState } = useAuth();
   const location = useLocation();

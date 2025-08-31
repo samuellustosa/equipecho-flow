@@ -1,51 +1,30 @@
 import { useState, useEffect, createContext, useContext } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import type { User as SupabaseUser, Session } from '@supabase/supabase-js';
 
 // User types
 export interface User {
   id: string;
   email: string;
   name: string;
-  role: 'Admin' | 'Manager' | 'User';
-  avatar?: string;
-  createdAt: string;
+  role: 'admin' | 'manager' | 'user';
+  avatar_url?: string;
+  created_at: string;
 }
 
 export interface AuthState {
   user: User | null;
+  session: Session | null;
   isLoading: boolean;
   isAuthenticated: boolean;
 }
-
-// Mock authentication for demo - replace with Supabase
-const mockUsers: User[] = [
-  {
-    id: '1',
-    email: 'admin@equipecho.com',
-    name: 'João Silva',
-    role: 'Admin',
-    createdAt: '2024-01-01T00:00:00Z'
-  },
-  {
-    id: '2',
-    email: 'manager@equipecho.com',
-    name: 'Maria Santos',
-    role: 'Manager',
-    createdAt: '2024-01-01T00:00:00Z'
-  },
-  {
-    id: '3',
-    email: 'user@equipecho.com',
-    name: 'Carlos Lima',
-    role: 'User',
-    createdAt: '2024-01-01T00:00:00Z'
-  }
-];
 
 // Auth Context
 const AuthContext = createContext<{
   authState: AuthState;
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
+  signUp: (email: string, password: string, name: string) => Promise<void>;
 } | null>(null);
 
 export const useAuth = () => {
@@ -59,82 +38,128 @@ export const useAuth = () => {
 export const useAuthProvider = () => {
   const [authState, setAuthState] = useState<AuthState>({
     user: null,
+    session: null,
     isLoading: true,
     isAuthenticated: false
   });
 
   useEffect(() => {
-    // Check for existing session
-    const checkAuth = async () => {
-      try {
-        const storedUser = localStorage.getItem('equipecho_user');
-        if (storedUser) {
-          const user = JSON.parse(storedUser);
-          setAuthState({
-            user,
-            isLoading: false,
-            isAuthenticated: true
-          });
+    // Set up auth state listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        console.log('Auth state changed:', event, session);
+        
+        if (session?.user) {
+          // Fetch user profile
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', session.user.id)
+            .single();
+
+          if (profile) {
+            setAuthState({
+              user: profile,
+              session,
+              isLoading: false,
+              isAuthenticated: true
+            });
+          } else {
+            setAuthState({
+              user: null,
+              session: null,
+              isLoading: false,
+              isAuthenticated: false
+            });
+          }
         } else {
           setAuthState({
             user: null,
+            session: null,
             isLoading: false,
             isAuthenticated: false
           });
         }
-      } catch (error) {
-        console.error('Auth check failed:', error);
+      }
+    );
+
+    // Check for existing session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        // Will trigger the onAuthStateChange callback
+      } else {
         setAuthState({
           user: null,
+          session: null,
           isLoading: false,
           isAuthenticated: false
         });
       }
-    };
+    });
 
-    checkAuth();
+    return () => subscription.unsubscribe();
   }, []);
 
   const login = async (email: string, password: string) => {
     setAuthState(prev => ({ ...prev, isLoading: true }));
     
     try {
-      // Mock login - replace with Supabase auth
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      const user = mockUsers.find(u => u.email === email);
-      if (!user || password !== 'password') {
-        throw new Error('Credenciais inválidas');
-      }
-
-      localStorage.setItem('equipecho_user', JSON.stringify(user));
-      setAuthState({
-        user,
-        isLoading: false,
-        isAuthenticated: true
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password
       });
-    } catch (error) {
+
+      if (error) {
+        throw error;
+      }
+    } catch (error: any) {
       setAuthState({
         user: null,
+        session: null,
         isLoading: false,
         isAuthenticated: false
       });
-      throw error;
+      throw new Error(error.message || 'Credenciais inválidas');
     }
   };
 
-  const logout = () => {
-    localStorage.removeItem('equipecho_user');
-    setAuthState({
-      user: null,
-      isLoading: false,
-      isAuthenticated: false
-    });
+  const signUp = async (email: string, password: string, name: string) => {
+    setAuthState(prev => ({ ...prev, isLoading: true }));
+    
+    try {
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/`,
+          data: {
+            name
+          }
+        }
+      });
+
+      if (error) {
+        throw error;
+      }
+    } catch (error: any) {
+      setAuthState({
+        user: null,
+        session: null,
+        isLoading: false,
+        isAuthenticated: false
+      });
+      throw new Error(error.message || 'Erro ao criar conta');
+    }
+  };
+
+  const logout = async () => {
+    await supabase.auth.signOut();
   };
 
   return {
     authState,
     login,
+    signUp,
     logout
   };
 };

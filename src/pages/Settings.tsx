@@ -253,7 +253,7 @@ export const Settings: React.FC = () => {
                   <div className="text-sm text-muted-foreground space-y-1">
                     <p>Função: {authState.user?.role}</p>
                     <p>ID: {authState.user?.id}</p>
-                    <p>Criado em: {authState.user?.createdAt ? new Date(authState.user.createdAt).toLocaleDateString('pt-BR') : 'N/A'}</p>
+                    <p>Criado em: {authState.user?.created_at ? new Date(authState.user.created_at).toLocaleDateString('pt-BR') : 'N/A'}</p>
                   </div>
                 </div>
               </div>
