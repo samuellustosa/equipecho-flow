@@ -14,16 +14,217 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      equipments: {
+        Row: {
+          cleaning_frequency_days: number
+          created_at: string
+          id: string
+          last_cleaning: string | null
+          model: string | null
+          name: string
+          next_cleaning: string
+          notes: string | null
+          responsible_id: string | null
+          sector_id: string | null
+          serial_number: string | null
+          status: Database["public"]["Enums"]["equipment_status"]
+          updated_at: string
+        }
+        Insert: {
+          cleaning_frequency_days?: number
+          created_at?: string
+          id?: string
+          last_cleaning?: string | null
+          model?: string | null
+          name: string
+          next_cleaning: string
+          notes?: string | null
+          responsible_id?: string | null
+          sector_id?: string | null
+          serial_number?: string | null
+          status?: Database["public"]["Enums"]["equipment_status"]
+          updated_at?: string
+        }
+        Update: {
+          cleaning_frequency_days?: number
+          created_at?: string
+          id?: string
+          last_cleaning?: string | null
+          model?: string | null
+          name?: string
+          next_cleaning?: string
+          notes?: string | null
+          responsible_id?: string | null
+          sector_id?: string | null
+          serial_number?: string | null
+          status?: Database["public"]["Enums"]["equipment_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "equipments_responsible_id_fkey"
+            columns: ["responsible_id"]
+            isOneToOne: false
+            referencedRelation: "responsibles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "equipments_sector_id_fkey"
+            columns: ["sector_id"]
+            isOneToOne: false
+            referencedRelation: "sectors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inventory: {
+        Row: {
+          category: string | null
+          created_at: string
+          current_quantity: number
+          description: string | null
+          id: string
+          location: string | null
+          minimum_quantity: number
+          name: string
+          status: Database["public"]["Enums"]["inventory_status"]
+          unit: string
+          updated_at: string
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          current_quantity?: number
+          description?: string | null
+          id?: string
+          location?: string | null
+          minimum_quantity?: number
+          name: string
+          status?: Database["public"]["Enums"]["inventory_status"]
+          unit?: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          current_quantity?: number
+          description?: string | null
+          id?: string
+          location?: string | null
+          minimum_quantity?: number
+          name?: string
+          status?: Database["public"]["Enums"]["inventory_status"]
+          unit?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          email: string
+          id: string
+          name: string
+          role: Database["public"]["Enums"]["user_role"]
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          email: string
+          id: string
+          name: string
+          role?: Database["public"]["Enums"]["user_role"]
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          email?: string
+          id?: string
+          name?: string
+          role?: Database["public"]["Enums"]["user_role"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      responsibles: {
+        Row: {
+          created_at: string
+          email: string | null
+          id: string
+          name: string
+          phone: string | null
+          sector_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          name: string
+          phone?: string | null
+          sector_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          name?: string
+          phone?: string | null
+          sector_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "responsibles_sector_id_fkey"
+            columns: ["sector_id"]
+            isOneToOne: false
+            referencedRelation: "sectors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sectors: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_user_role: {
+        Args: { user_id: string }
+        Returns: Database["public"]["Enums"]["user_role"]
+      }
     }
     Enums: {
-      [_ in never]: never
+      equipment_status: "operacional" | "manutencao" | "parado"
+      inventory_status: "normal" | "baixo" | "critico"
+      user_role: "admin" | "manager" | "user"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +351,10 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      equipment_status: ["operacional", "manutencao", "parado"],
+      inventory_status: ["normal", "baixo", "critico"],
+      user_role: ["admin", "manager", "user"],
+    },
   },
 } as const
