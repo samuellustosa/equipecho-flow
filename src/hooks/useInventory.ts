@@ -5,14 +5,20 @@ export interface InventoryItem {
   id: string;
   name: string;
   description?: string;
-  category?: string;
+  category_id?: string | null;
+  location_id?: string | null;
   current_quantity: number;
   minimum_quantity: number;
   unit: string;
   status: 'normal' | 'baixo' | 'critico';
-  location?: string;
   created_at: string;
   updated_at: string;
+  categories?: {
+    name: string;
+  };
+  locations?: {
+    name: string;
+  };
 }
 
 export const useInventory = () => {
@@ -21,7 +27,11 @@ export const useInventory = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('inventory')
-        .select('*')
+        .select(`
+          *,
+          categories (name),
+          locations (name)
+        `)
         .order('name');
 
       if (error) throw error;
@@ -34,7 +44,7 @@ export const useCreateInventoryItem = () => {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: async (item: Omit<InventoryItem, 'id' | 'created_at' | 'updated_at'>) => {
+    mutationFn: async (item: Omit<InventoryItem, 'id' | 'created_at' | 'updated_at' | 'categories' | 'locations'>) => {
       const { data, error } = await supabase
         .from('inventory')
         .insert(item)

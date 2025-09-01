@@ -32,31 +32,31 @@ const navigationItems = [
     title: "Dashboard", 
     url: "/", 
     icon: LayoutDashboard,
-    allowedRoles: ['Admin', 'Manager', 'User']
+    allowedRoles: ['admin', 'manager', 'user']
   },
   { 
     title: "Equipamentos", 
     url: "/equipments", 
     icon: Wrench,
-    allowedRoles: ['Admin', 'Manager', 'User']
+    allowedRoles: ['admin', 'manager', 'user']
   },
   { 
     title: "Inventário", 
     url: "/inventory", 
     icon: Package,
-    allowedRoles: ['Admin', 'Manager']
+    allowedRoles: ['admin', 'manager']
   },
   { 
     title: "Usuários", 
     url: "/users", 
     icon: Users,
-    allowedRoles: ['Admin']
+    allowedRoles: ['admin']
   },
   { 
     title: "Configurações", 
     url: "/settings", 
     icon: Settings,
-    allowedRoles: ['Admin', 'Manager', 'User']
+    allowedRoles: ['admin', 'manager', 'user']
   },
 ];
 
@@ -98,11 +98,11 @@ export function AppSidebar() {
       <SidebarHeader className="border-b p-4">
         <div className="flex items-center gap-3">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg gradient-primary text-primary-foreground font-bold text-sm">
-            EE
+            CPD
           </div>
           {!isCollapsed && (
             <div>
-              <h1 className="font-bold text-lg">EquipEcho</h1>
+              <h1 className="font-bold text-lg">EquipCPD</h1>
               <p className="text-xs text-muted-foreground">
                 Gestão de Equipamentos
               </p>

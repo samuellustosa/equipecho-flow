@@ -1,20 +1,24 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/hooks/useAuth';
-import { useInventory } from '@/hooks/useInventory';
-import { 
-  Plus, 
-  Search, 
+import { useInventory, useCreateInventoryItem, useUpdateInventoryItem, useDeleteInventoryItem, InventoryItem } from '@/hooks/useInventory';
+import { useCategories, useCreateCategory, useDeleteCategory } from '@/hooks/useCategories';
+import { useLocations, useCreateLocation, useDeleteLocation } from '@/hooks/useLocations';
+import {
+  Plus,
+  Search,
   Filter,
   Edit,
   Trash2,
   Package,
   AlertTriangle,
   TrendingDown,
-  CheckCircle
+  CheckCircle,
+  Loader2,
+  ExternalLink,
 } from 'lucide-react';
 import {
   Table,
@@ -24,20 +28,94 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+  DialogClose,
+} from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { Textarea } from '@/components/ui/textarea';
+import { toast } from '@/components/ui/use-toast';
+import { Label } from '@/components/ui/label';
+
+// Definição do esquema de validação com Zod
+const formSchema = z.object({
+  name: z.string().min(2, "O nome deve ter pelo menos 2 caracteres."),
+  description: z.string().optional().nullable(),
+  category_id: z.string().optional().nullable(),
+  location_id: z.string().optional().nullable(),
+  current_quantity: z.coerce.number().min(0, "A quantidade atual não pode ser negativa."),
+  minimum_quantity: z.coerce.number().min(0, "A quantidade mínima não pode ser negativa."),
+  unit: z.string().min(1, "A unidade é obrigatória."),
+});
+
+type FormValues = z.infer<typeof formSchema>;
 
 export const Inventory: React.FC = () => {
   const { authState } = useAuth();
   const { data: inventoryItems = [], isLoading, error } = useInventory();
+  const { mutate: createItem, isPending: isCreating } = useCreateInventoryItem();
+  const { mutate: updateItem, isPending: isUpdating } = useUpdateInventoryItem();
+  const { mutate: deleteItem, isPending: isDeleting } = useDeleteInventoryItem();
 
-  const getStockStatus = (current: number, minimum: number) => {
-    if (current <= minimum * 0.5) {
-      return { status: 'Crítico', color: 'bg-destructive text-destructive-foreground', icon: AlertTriangle };
-    } else if (current <= minimum) {
-      return { status: 'Baixo', color: 'bg-warning text-warning-foreground', icon: TrendingDown };
-    } else {
-      return { status: 'Normal', color: 'bg-success text-success-foreground', icon: CheckCircle };
-    }
-  };
+  const { data: categories = [] } = useCategories();
+  const { data: locations = [] } = useLocations();
+  const { mutate: createCategory, isPending: isCreatingCategory } = useCreateCategory();
+  const { mutate: deleteCategory, isPending: isDeletingCategory } = useDeleteCategory();
+  const { mutate: createLocation, isPending: isCreatingLocation } = useCreateLocation();
+  const { mutate: deleteLocation, isPending: isDeletingLocation } = useDeleteLocation();
+
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [newLocationName, setNewLocationName] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
+  const [activeFilters, setActiveFilters] = useState({
+    status: 'all',
+    category_id: 'all',
+    location_id: 'all',
+  });
+
+  const form = useForm<FormValues>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      name: "",
+      description: "",
+      category_id: null,
+      location_id: null,
+      current_quantity: 0,
+      minimum_quantity: 0,
+      unit: "un",
+    },
+  });
 
   const getStatusLabel = (status: string) => {
     switch (status) {
@@ -57,11 +135,173 @@ export const Inventory: React.FC = () => {
     }
   };
 
+  const calculateStatus = (current: number, minimum: number): 'normal' | 'baixo' | 'critico' => {
+    if (current <= minimum * 0.5) {
+      return 'critico';
+    } else if (current <= minimum) {
+      return 'baixo';
+    } else {
+      return 'normal';
+    }
+  };
+
+  const filteredItems = inventoryItems.filter(item => {
+    const term = searchTerm.toLowerCase();
+    const matchesSearch = (
+      item.name.toLowerCase().includes(term) ||
+      item.description?.toLowerCase().includes(term) ||
+      (item.categories?.name.toLowerCase() || '').includes(term) ||
+      (item.locations?.name.toLowerCase() || '').includes(term)
+    );
+
+    const matchesFilters = (
+      (activeFilters.status === 'all' || item.status === activeFilters.status) &&
+      (activeFilters.category_id === 'all' || item.category_id === activeFilters.category_id) &&
+      (activeFilters.location_id === 'all' || item.location_id === activeFilters.location_id)
+    );
+    
+    return matchesSearch && matchesFilters;
+  });
+
   const stats = {
-    totalItems: inventoryItems.length,
-    lowStockItems: inventoryItems.filter(item => item.status === 'baixo' || item.status === 'critico').length,
-    criticalItems: inventoryItems.filter(item => item.status === 'critico').length,
-    normalItems: inventoryItems.filter(item => item.status === 'normal').length
+    totalItems: filteredItems.length,
+    lowStockItems: filteredItems.filter(item => item.status === 'baixo' || item.status === 'critico').length,
+    criticalItems: filteredItems.filter(item => item.status === 'critico').length,
+    normalItems: filteredItems.filter(item => item.status === 'normal').length
+  };
+
+  const canEdit = authState.user?.role === 'admin' || authState.user?.role === 'manager';
+  const isAdmin = authState.user?.role === 'admin';
+
+  const handleOpenModal = (item: InventoryItem | null = null) => {
+    setEditingItem(item);
+    if (item) {
+      form.reset({
+        name: item.name,
+        description: item.description,
+        category_id: item.category_id,
+        location_id: item.location_id,
+        current_quantity: item.current_quantity,
+        minimum_quantity: item.minimum_quantity,
+        unit: item.unit,
+      });
+    } else {
+      form.reset({
+        name: "",
+        description: "",
+        category_id: null,
+        location_id: null,
+        current_quantity: 0,
+        minimum_quantity: 0,
+        unit: "un",
+      });
+    }
+    setIsModalOpen(true);
+  };
+
+  const handleCloseModal = (open: boolean) => {
+    if (!open) {
+      setEditingItem(null);
+      form.reset();
+      setIsModalOpen(false);
+    }
+  };
+
+  const onSubmit = (values: FormValues) => {
+    const calculatedStatus = calculateStatus(values.current_quantity, values.minimum_quantity);
+    const itemData = {
+      name: values.name,
+      description: values.description,
+      category_id: values.category_id,
+      location_id: values.location_id,
+      current_quantity: values.current_quantity,
+      minimum_quantity: values.minimum_quantity,
+      unit: values.unit,
+      status: calculatedStatus,
+    };
+
+    if (editingItem) {
+      updateItem({ id: editingItem.id, ...itemData }, {
+        onSuccess: () => {
+          toast({ title: "Item do inventário atualizado com sucesso!" });
+          setIsModalOpen(false);
+        },
+        onError: (err) => {
+          toast({ title: "Erro ao atualizar item", description: err.message, variant: "destructive" });
+        }
+      });
+    } else {
+      createItem(itemData, {
+        onSuccess: () => {
+          toast({ title: "Item do inventário criado com sucesso!" });
+          setIsModalOpen(false);
+        },
+        onError: (err) => {
+          toast({ title: "Erro ao criar item", description: err.message, variant: "destructive" });
+        }
+      });
+    }
+  };
+
+  const handleDelete = (id: string) => {
+    deleteItem(id, {
+      onSuccess: () => {
+        toast({ title: "Item do inventário excluído com sucesso!" });
+      },
+      onError: (err) => {
+        toast({ title: "Erro ao excluir item", description: err.message, variant: "destructive" });
+      }
+    });
+  };
+
+  const handleCreateCategory = () => {
+    if (newCategoryName.trim()) {
+      createCategory({ name: newCategoryName }, {
+        onSuccess: () => {
+          setNewCategoryName('');
+          toast({ title: "Categoria criada com sucesso!" });
+        },
+        onError: (err) => {
+          toast({ title: "Erro ao criar categoria", description: err.message, variant: "destructive" });
+        }
+      });
+    }
+  };
+
+  const handleDeleteCategory = (id: string) => {
+    deleteCategory(id, {
+      onSuccess: () => {
+        toast({ title: "Categoria excluída com sucesso!" });
+      },
+      onError: (err) => {
+        toast({ title: "Erro ao excluir categoria", description: err.message, variant: "destructive" });
+        }
+      });
+  };
+
+  const handleCreateLocation = () => {
+    if (newLocationName.trim()) {
+      createLocation({ name: newLocationName }, {
+        onSuccess: () => {
+          setNewLocationName('');
+          toast({ title: "Localização criada com sucesso!" });
+        },
+        onError: (err) => {
+          toast({ title: "Erro ao criar localização", description: err.message, variant: "destructive" });
+        }
+      });
+    }
+  };
+
+  const handleDeleteLocation = (id: string) => {
+    deleteLocation(id, {
+      onSuccess: () => {
+        toast({ title: "Localização excluída com sucesso!" });
+      },
+      onError: (err) => {
+        toast({ title: "Erro ao excluir localização", description: err.message, variant: "destructive" });
+      }
+    });
   };
 
   if (isLoading) {
@@ -92,8 +332,6 @@ export const Inventory: React.FC = () => {
     );
   }
 
-  const canEdit = authState.user?.role === 'admin' || authState.user?.role === 'manager';
-
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
@@ -105,10 +343,326 @@ export const Inventory: React.FC = () => {
           </p>
         </div>
         {canEdit && (
-          <Button className="gradient-primary text-primary-foreground transition-smooth">
-            <Plus className="h-4 w-4 mr-2" />
-            Novo Item
-          </Button>
+          <Dialog open={isModalOpen} onOpenChange={handleCloseModal}>
+            <DialogTrigger asChild>
+              <Button
+                className="gradient-primary text-primary-foreground transition-smooth"
+                onClick={() => handleOpenModal()}
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Novo Item
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[800px]">
+              <DialogHeader>
+                <DialogTitle>{editingItem ? "Editar Item" : "Adicionar Novo Item"}</DialogTitle>
+                <DialogDescription>
+                  {editingItem ? "Atualize as informações do item do inventário." : "Preencha os campos para adicionar um novo item ao inventário."}
+                </DialogDescription>
+              </DialogHeader>
+              <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-4 py-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="name"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Nome</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Nome do item" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="category_id"
+                      render={({ field }) => (
+                        <FormItem>
+                          <div className="flex items-center justify-between">
+                            <FormLabel>Categoria</FormLabel>
+                            {isAdmin && (
+                              <Dialog>
+                                <DialogTrigger asChild>
+                                  <Button variant="link" size="sm" className="h-4 p-0 text-xs">
+                                    Gerenciar <ExternalLink className="ml-1 h-3 w-3" />
+                                  </Button>
+                                </DialogTrigger>
+                                <DialogContent className="sm:max-w-[425px]">
+                                  <DialogHeader>
+                                    <DialogTitle>Gerenciar Categorias</DialogTitle>
+                                    <DialogDescription>
+                                      Crie ou exclua categorias para o inventário.
+                                    </DialogDescription>
+                                  </DialogHeader>
+                                  <div className="flex gap-2 mb-4">
+                                    <Input
+                                      placeholder="Nova categoria"
+                                      value={newCategoryName}
+                                      onChange={(e) => setNewCategoryName(e.target.value)}
+                                    />
+                                    <Button
+                                      onClick={handleCreateCategory}
+                                      disabled={!newCategoryName || isCreatingCategory}
+                                    >
+                                      {isCreatingCategory ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                                    </Button>
+                                  </div>
+                                  <div className="max-h-[300px] overflow-y-auto">
+                                    {categories.length > 0 ? (
+                                      <ul className="space-y-2">
+                                        {categories.map((category) => (
+                                          <li key={category.id} className="flex items-center justify-between p-2 border rounded-md">
+                                            <span>{category.name}</span>
+                                            <AlertDialog>
+                                              <AlertDialogTrigger asChild>
+                                                <Button variant="ghost" size="sm" className="text-destructive">
+                                                  <Trash2 className="h-4 w-4" />
+                                                </Button>
+                                              </AlertDialogTrigger>
+                                              <AlertDialogContent>
+                                                <AlertDialogHeader>
+                                                  <AlertDialogTitle>Excluir Categoria?</AlertDialogTitle>
+                                                  <AlertDialogDescription>
+                                                    Esta ação é irreversível. Todos os itens de inventário associados a esta categoria terão seu campo de categoria removido.
+                                                  </AlertDialogDescription>
+                                                </AlertDialogHeader>
+                                                <AlertDialogFooter>
+                                                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                                  <AlertDialogAction
+                                                    onClick={() => handleDeleteCategory(category.id)}
+                                                    disabled={isDeletingCategory}
+                                                  >
+                                                    {isDeletingCategory ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Excluir'}
+                                                  </AlertDialogAction>
+                                                </AlertDialogFooter>
+                                              </AlertDialogContent>
+                                            </AlertDialog>
+                                          </li>
+                                        ))}
+                                      </ul>
+                                    ) : (
+                                      <p className="text-center text-muted-foreground">Nenhuma categoria encontrada.</p>
+                                    )}
+                                  </div>
+                                  <DialogFooter>
+                                    <DialogClose asChild>
+                                      <Button type="button" variant="outline">Fechar</Button>
+                                    </DialogClose>
+                                  </DialogFooter>
+                                </DialogContent>
+                              </Dialog>
+                            )}
+                          </div>
+                          <Select onValueChange={field.onChange} value={field.value || ""}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Selecione uma categoria" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {categories.map((category) => (
+                                <SelectItem key={category.id} value={category.id}>
+                                  {category.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  <FormField
+                    control={form.control}
+                    name="description"
+                    render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Descrição</FormLabel>
+                          <FormControl>
+                            <Textarea placeholder="Descrição detalhada do item" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  <div className="grid grid-cols-3 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="current_quantity"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Estoque Atual</FormLabel>
+                          <FormControl>
+                            <Input type="number" {...field} onChange={e => field.onChange(e.target.value ? Number(e.target.value) : undefined)} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="minimum_quantity"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Estoque Mínimo</FormLabel>
+                          <FormControl>
+                            <Input type="number" {...field} onChange={e => field.onChange(e.target.value ? Number(e.target.value) : undefined)} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="unit"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Unidade</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Ex: un, kg, litros" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="location_id"
+                      render={({ field }) => (
+                        <FormItem>
+                          <div className="flex items-center justify-between">
+                            <FormLabel>Localização</FormLabel>
+                            {isAdmin && (
+                              <Dialog>
+                                <DialogTrigger asChild>
+                                  <Button variant="link" size="sm" className="h-4 p-0 text-xs">
+                                    Gerenciar <ExternalLink className="ml-1 h-3 w-3" />
+                                  </Button>
+                                </DialogTrigger>
+                                <DialogContent className="sm:max-w-[425px]">
+                                  <DialogHeader>
+                                    <DialogTitle>Gerenciar Localizações</DialogTitle>
+                                    <DialogDescription>
+                                      Crie ou exclua localizações para o inventário.
+                                    </DialogDescription>
+                                  </DialogHeader>
+                                  <div className="flex gap-2 mb-4">
+                                    <Input
+                                      placeholder="Nova localização"
+                                      value={newLocationName}
+                                      onChange={(e) => setNewLocationName(e.target.value)}
+                                    />
+                                    <Button
+                                      onClick={handleCreateLocation}
+                                      disabled={!newLocationName || isCreatingLocation}
+                                    >
+                                      {isCreatingLocation ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                                    </Button>
+                                  </div>
+                                  <div className="max-h-[300px] overflow-y-auto">
+                                    {locations.length > 0 ? (
+                                      <ul className="space-y-2">
+                                        {locations.map((location) => (
+                                          <li key={location.id} className="flex items-center justify-between p-2 border rounded-md">
+                                            <span>{location.name}</span>
+                                            <AlertDialog>
+                                              <AlertDialogTrigger asChild>
+                                                <Button variant="ghost" size="sm" className="text-destructive">
+                                                  <Trash2 className="h-4 w-4" />
+                                                </Button>
+                                              </AlertDialogTrigger>
+                                              <AlertDialogContent>
+                                                <AlertDialogHeader>
+                                                  <AlertDialogTitle>Excluir Localização?</AlertDialogTitle>
+                                                  <AlertDialogDescription>
+                                                    Esta ação é irreversível. Todos os itens de inventário associados a esta localização terão seu campo de localização removido.
+                                                  </AlertDialogDescription>
+                                                </AlertDialogHeader>
+                                                <AlertDialogFooter>
+                                                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                                  <AlertDialogAction
+                                                    onClick={() => handleDeleteLocation(location.id)}
+                                                    disabled={isDeletingLocation}
+                                                  >
+                                                    {isDeletingLocation ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Excluir'}
+                                                  </AlertDialogAction>
+                                                </AlertDialogFooter>
+                                              </AlertDialogContent>
+                                            </AlertDialog>
+                                          </li>
+                                        ))}
+                                      </ul>
+                                    ) : (
+                                      <p className="text-center text-muted-foreground">Nenhuma localização encontrada.</p>
+                                    )}
+                                  </div>
+                                  <DialogFooter>
+                                    <DialogClose asChild>
+                                      <Button type="button" variant="outline">Fechar</Button>
+                                    </DialogClose>
+                                  </DialogFooter>
+                                </DialogContent>
+                              </Dialog>
+                            )}
+                          </div>
+                          <Select onValueChange={field.onChange} value={field.value || ""}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Selecione uma localização" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {locations.map((location) => (
+                                <SelectItem key={location.id} value={location.id}>
+                                  {location.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="unit"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Unidade</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Ex: un, kg, litros" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  <DialogFooter>
+                    <DialogClose asChild>
+                      <Button type="button" variant="outline">
+                        Cancelar
+                      </Button>
+                    </DialogClose>
+                    <Button type="submit" disabled={isCreating || isUpdating} className="gradient-primary">
+                      {isCreating || isUpdating ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Salvando...
+                        </>
+                      ) : (
+                        "Salvar"
+                      )}
+                    </Button>
+                  </DialogFooter>
+                </form>
+              </Form>
+            </DialogContent>
+          </Dialog>
         )}
       </div>
 
@@ -125,7 +679,7 @@ export const Inventory: React.FC = () => {
             </div>
           </CardContent>
         </Card>
-        
+
         <Card className="shadow-card">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
@@ -137,7 +691,7 @@ export const Inventory: React.FC = () => {
             </div>
           </CardContent>
         </Card>
-        
+
         <Card className="shadow-card">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
@@ -149,7 +703,7 @@ export const Inventory: React.FC = () => {
             </div>
           </CardContent>
         </Card>
-        
+
         <Card className="shadow-card">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
@@ -172,12 +726,94 @@ export const Inventory: React.FC = () => {
               <Input
                 placeholder="Buscar itens do inventário..."
                 className="pl-10"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
-            <Button variant="outline">
-              <Filter className="h-4 w-4 mr-2" />
-              Filtros
-            </Button>
+            <Dialog open={isFilterModalOpen} onOpenChange={setIsFilterModalOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline">
+                  <Filter className="h-4 w-4 mr-2" />
+                  Filtros
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[425px]">
+                <DialogHeader>
+                  <DialogTitle>Filtrar Itens</DialogTitle>
+                  <DialogDescription>
+                    Selecione as opções para filtrar a lista de itens.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                  <div className="space-y-2">
+                    <Label>Status</Label>
+                    <Select
+                      onValueChange={(value) => setActiveFilters({ ...activeFilters, status: value })}
+                      value={activeFilters.status}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Todos os Status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todos</SelectItem>
+                        <SelectItem value="normal">Normal</SelectItem>
+                        <SelectItem value="baixo">Baixo</SelectItem>
+                        <SelectItem value="critico">Crítico</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Categoria</Label>
+                    <Select
+                      onValueChange={(value) => setActiveFilters({ ...activeFilters, category_id: value })}
+                      value={activeFilters.category_id}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Todas as Categorias" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todas</SelectItem>
+                        {categories.map(category => (
+                          <SelectItem key={category.id} value={category.id}>
+                            {category.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Localização</Label>
+                    <Select
+                      onValueChange={(value) => setActiveFilters({ ...activeFilters, location_id: value })}
+                      value={activeFilters.location_id}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Todas as Localizações" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todas</SelectItem>
+                        {locations.map(location => (
+                          <SelectItem key={location.id} value={location.id}>
+                            {location.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button
+                    variant="outline"
+                    onClick={() => setActiveFilters({ status: 'all', category_id: 'all', location_id: 'all' })}
+                  >
+                    Limpar Filtros
+                  </Button>
+                  <Button onClick={() => setIsFilterModalOpen(false)}>
+                    Aplicar
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           </div>
         </CardContent>
       </Card>
@@ -220,7 +856,10 @@ export const Inventory: React.FC = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {inventoryItems.map((item) => {
+                {filteredItems.map((item) => {
+                  const category = categories.find(c => c.id === item.category_id);
+                  const location = locations.find(l => l.id === item.location_id);
+                  const itemStatus = calculateStatus(item.current_quantity, item.minimum_quantity);
                   return (
                     <TableRow key={item.id}>
                       <TableCell className="font-medium">
@@ -233,7 +872,7 @@ export const Inventory: React.FC = () => {
                           )}
                         </div>
                       </TableCell>
-                      <TableCell>{item.category || 'N/A'}</TableCell>
+                      <TableCell>{category?.name || 'N/A'}</TableCell>
                       <TableCell>
                         <div className="font-medium">
                           {item.current_quantity} {item.unit}
@@ -243,20 +882,45 @@ export const Inventory: React.FC = () => {
                         {item.minimum_quantity} {item.unit}
                       </TableCell>
                       <TableCell>
-                        <Badge className={getStatusColor(item.status)}>
-                          {getStatusLabel(item.status)}
+                        <Badge className={getStatusColor(itemStatus)}>
+                          {getStatusLabel(itemStatus)}
                         </Badge>
                       </TableCell>
-                      <TableCell>{item.location || 'N/A'}</TableCell>
+                      <TableCell>{location?.name || 'N/A'}</TableCell>
                       {canEdit && (
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
-                            <Button variant="outline" size="sm">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleOpenModal(item)}
+                            >
                               <Edit className="h-3 w-3" />
                             </Button>
-                            <Button variant="outline" size="sm">
-                              <Trash2 className="h-3 w-3" />
-                            </Button>
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button variant="outline" size="sm">
+                                  <Trash2 className="h-3 w-3" />
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    Esta ação não pode ser desfeita. Isso excluirá permanentemente o item <strong style={{ color: 'red' }}>{item.name}</strong> do inventário.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                  <AlertDialogAction
+                                    onClick={() => handleDelete(item.id)}
+                                    disabled={isDeleting}
+                                  >
+                                    {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Continuar'}
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
                           </div>
                         </TableCell>
                       )}

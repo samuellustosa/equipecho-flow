@@ -14,6 +14,24 @@ export type Database = {
   }
   public: {
     Tables: {
+      categories: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
       equipments: {
         Row: {
           cleaning_frequency_days: number
@@ -79,12 +97,12 @@ export type Database = {
       }
       inventory: {
         Row: {
-          category: string | null
+          category_id: string | null
           created_at: string
           current_quantity: number
           description: string | null
           id: string
-          location: string | null
+          location_id: string | null
           minimum_quantity: number
           name: string
           status: Database["public"]["Enums"]["inventory_status"]
@@ -92,12 +110,12 @@ export type Database = {
           updated_at: string
         }
         Insert: {
-          category?: string | null
+          category_id?: string | null
           created_at?: string
           current_quantity?: number
           description?: string | null
           id?: string
-          location?: string | null
+          location_id?: string | null
           minimum_quantity?: number
           name: string
           status?: Database["public"]["Enums"]["inventory_status"]
@@ -105,17 +123,50 @@ export type Database = {
           updated_at?: string
         }
         Update: {
-          category?: string | null
+          category_id?: string | null
           created_at?: string
           current_quantity?: number
           description?: string | null
           id?: string
-          location?: string | null
+          location_id?: string | null
           minimum_quantity?: number
           name?: string
           status?: Database["public"]["Enums"]["inventory_status"]
           unit?: string
           updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      locations: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
         }
         Relationships: []
       }
