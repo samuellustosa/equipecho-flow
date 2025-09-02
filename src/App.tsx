@@ -49,7 +49,7 @@ const App = () => (
               } />
               
               <Route path="/inventory" element={
-                <ProtectedRoute allowedRoles={['admin', 'manager']}>
+                <ProtectedRoute> {/* Removida a propriedade allowedRoles */}
                   <Inventory />
                 </ProtectedRoute>
               } />

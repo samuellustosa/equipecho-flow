@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from './useAuth'; // Importar o hook de autenticação
 
 export interface InventoryItem {
   id: string;
@@ -56,12 +57,14 @@ export const useCreateInventoryItem = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['inventory'] });
+      queryClient.invalidateQueries({ queryKey: ['inventoryAlerts'] }); //
     }
   });
 };
 
 export const useUpdateInventoryItem = () => {
   const queryClient = useQueryClient();
+  const { setAuthUser } = useAuth(); //
   
   return useMutation({
     mutationFn: async ({ id, ...item }: Partial<InventoryItem> & { id: string }) => {
@@ -75,8 +78,9 @@ export const useUpdateInventoryItem = () => {
       if (error) throw error;
       return data;
     },
-    onSuccess: () => {
+    onSuccess: (updatedItem) => {
       queryClient.invalidateQueries({ queryKey: ['inventory'] });
+      queryClient.invalidateQueries({ queryKey: ['inventoryAlerts'] }); //
     }
   });
 };
@@ -95,6 +99,7 @@ export const useDeleteInventoryItem = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['inventory'] });
+      queryClient.invalidateQueries({ queryKey: ['inventoryAlerts'] }); //
     }
   });
 };

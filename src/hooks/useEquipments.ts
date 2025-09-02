@@ -58,6 +58,7 @@ export const useCreateEquipment = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['equipments'] });
+      queryClient.invalidateQueries({ queryKey: ['equipmentAlerts'] }); //
     }
   });
 };
@@ -79,6 +80,7 @@ export const useUpdateEquipment = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['equipments'] });
+      queryClient.invalidateQueries({ queryKey: ['equipmentAlerts'] }); //
     }
   });
 };
@@ -97,6 +99,7 @@ export const useDeleteEquipment = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['equipments'] });
+      queryClient.invalidateQueries({ queryKey: ['equipmentAlerts'] }); //
     }
   });
 };
