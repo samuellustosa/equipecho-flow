@@ -219,6 +219,57 @@ export type Database = {
         }
         Relationships: []
       }
+      maintenances: {
+        Row: {
+          created_at: string
+          description: string | null
+          cost: number | null
+          equipment_id: string
+          id: string
+          performed_at: string
+          performed_by_id: string | null
+          service_type: Database["public"]["Enums"]["maintenance_service_type"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          cost?: number | null
+          equipment_id: string
+          id?: string
+          performed_at?: string
+          performed_by_id?: string | null
+          service_type?: Database["public"]["Enums"]["maintenance_service_type"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          cost?: number | null
+          equipment_id?: string
+          id?: string
+          performed_at?: string
+          performed_by_id?: string | null
+          service_type?: Database["public"]["Enums"]["maintenance_service_type"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "maintenances_equipment_id_fkey"
+            columns: ["equipment_id"]
+            isOneToOne: false
+            referencedRelation: "equipments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "maintenances_performed_by_id_fkey"
+            columns: ["performed_by_id"]
+            isOneToOne: false
+            referencedRelation: "responsibles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -335,6 +386,7 @@ export type Database = {
       inventory_status: "normal" | "baixo" | "critico"
       user_role: "admin" | "manager" | "user"
       announcement_type: "info" | "warning" | "danger" | "success"
+      maintenance_service_type: "limpeza" | "reparo" | "substituicao" | "calibracao" | "inspecao" | "outro"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -365,10 +417,8 @@ export type Tables<
     }
     ? R
     : never
-  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
-        DefaultSchema["Views"])
-    ? (DefaultSchema["Tables"] &
-        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? (DefaultSchema["Tables"])[DefaultSchemaTableNameOrOptions] extends {
         Row: infer R
       }
       ? R
@@ -466,6 +516,7 @@ export const Constants = {
       inventory_status: ["normal", "baixo", "critico"],
       user_role: ["admin", "manager", "user"],
       announcement_type: ["info", "warning", "danger", "success"],
+      maintenance_service_type: ["limpeza", "reparo", "substituicao", "calibracao", "inspecao", "outro"],
     },
   },
 } as const

@@ -18,7 +18,9 @@ import {
   AlertCircle,
   Clock,
   ExternalLink,
+  History, // Importação do novo ícone
 } from 'lucide-react';
+import { ScrollArea } from '@/components/ui/scroll-area'; // CORREÇÃO: Importação correta do componente
 import {
   Table,
   TableBody,
@@ -68,8 +70,20 @@ import { ptBR } from 'date-fns/locale';
 import { DayPicker } from 'react-day-picker';
 import { cn } from '@/lib/utils';
 import { toast } from '@/components/ui/use-toast';
+import { useCreateMaintenance, useMaintenanceHistory } from '@/hooks/useMaintenances';
+import { Database } from '@/integrations/supabase/types';
 
-// Definição do esquema de validação com Zod
+// Esquema de validação para o formulário de manutenção
+const maintenanceFormSchema = z.object({
+  service_type: z.enum(['limpeza', 'reparo', 'substituicao', 'calibracao', 'inspecao', 'outro'], {
+    required_error: "O tipo de serviço é obrigatório."
+  }),
+  performed_by_id: z.string().optional().nullable(),
+  description: z.string().optional().nullable(),
+});
+
+type MaintenanceFormValues = z.infer<typeof maintenanceFormSchema>;
+
 const formSchema = z.object({
   name: z.string().min(2, "O nome deve ter pelo menos 2 caracteres."),
   model: z.string().optional().nullable(),
@@ -85,17 +99,14 @@ const formSchema = z.object({
   notes: z.string().optional().nullable(),
 });
 
+type FormValues = z.infer<typeof formSchema>;
 const sectorFormSchema = z.object({
   name: z.string().min(2, "O nome do setor deve ter pelo menos 2 caracteres."),
 });
-
+type SectorFormValues = z.infer<typeof sectorFormSchema>;
 const responsibleFormSchema = z.object({
   name: z.string().min(2, "O nome do responsável deve ter pelo menos 2 caracteres."),
 });
-
-
-type FormValues = z.infer<typeof formSchema>;
-type SectorFormValues = z.infer<typeof sectorFormSchema>;
 type ResponsibleFormValues = z.infer<typeof responsibleFormSchema>;
 
 // Função utilitária para formatar a data para o banco de dados como uma string 'YYYY-MM-DD'
@@ -122,6 +133,9 @@ export const Equipments: React.FC = () => {
   const { data: responsibles = [] } = useResponsibles();
   const { data: sectors = [] } = useSectors();
 
+  // Hooks para a nova funcionalidade de manutenções
+  const { mutate: createMaintenance, isPending: isCreatingMaintenance } = useCreateMaintenance();
+
   const { mutate: createEquipment, isPending: isCreating } = useCreateEquipment();
   const { mutate: updateEquipment, isPending: isUpdating } = useUpdateEquipment();
   const { mutate: deleteEquipment, isPending: isDeleting } = useDeleteEquipment();
@@ -134,7 +148,11 @@ export const Equipments: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSectorModalOpen, setIsSectorModalOpen] = useState(false);
   const [isResponsibleModalOpen, setIsResponsibleModalOpen] = useState(false);
+  const [isMaintenanceModalOpen, setIsMaintenanceModalOpen] = useState(false); // Novo estado para a modal de manutenção
+  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false); // NOVO estado para o modal de histórico
   const [editingEquipment, setEditingEquipment] = useState<Equipment | null>(null);
+  const [selectedEquipmentForMaintenance, setSelectedEquipmentForMaintenance] = useState<Equipment | null>(null);
+  const [selectedEquipmentForHistory, setSelectedEquipmentForHistory] = useState<Equipment | null>(null); // NOVO estado para o equipamento selecionado no histórico
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -149,6 +167,15 @@ export const Equipments: React.FC = () => {
       next_cleaning: addDays(new Date(), 30),
       cleaning_frequency_days: 30,
       notes: "",
+    },
+  });
+
+  const maintenanceForm = useForm<MaintenanceFormValues>({ // Novo formulário para manutenções
+    resolver: zodResolver(maintenanceFormSchema),
+    defaultValues: {
+      service_type: 'limpeza',
+      performed_by_id: null,
+      description: null,
     },
   });
 
@@ -200,6 +227,61 @@ export const Equipments: React.FC = () => {
       form.reset(); // Reinicia o formulário quando o modal é fechado
       setIsModalOpen(false);
     }
+  };
+  
+  // NOVO: Função para abrir o modal de histórico
+  const handleOpenHistoryModal = (equipment: Equipment) => {
+      setSelectedEquipmentForHistory(equipment);
+      setIsHistoryModalOpen(true);
+  };
+
+  const handleOpenMaintenanceModal = (equipment: Equipment) => {
+    setSelectedEquipmentForMaintenance(equipment);
+    maintenanceForm.reset({
+      service_type: 'limpeza',
+      performed_by_id: equipment.responsible_id || null,
+      description: null,
+    });
+    setIsMaintenanceModalOpen(true);
+  };
+
+  const handleMaintenanceSubmit = (values: MaintenanceFormValues) => {
+    if (!selectedEquipmentForMaintenance) return;
+    
+    // Define a data de manutenção como a data atual do cliente.
+    const performedAt = new Date();
+
+    createMaintenance({
+      ...values,
+      equipment_id: selectedEquipmentForMaintenance.id,
+      performed_at: formatDateToISO(performedAt),
+      service_type: values.service_type as Database['public']['Enums']['maintenance_service_type'],
+      cost: null, // O custo agora é opcional e não é mais coletado do formulário.
+    }, {
+      onSuccess: () => {
+        toast({ title: "Registro de manutenção adicionado com sucesso!" });
+        setIsMaintenanceModalOpen(false);
+        // Atualiza a data de próxima limpeza do equipamento se for uma limpeza
+        if (values.service_type === 'limpeza') {
+          const newNextCleaning = addDays(performedAt, selectedEquipmentForMaintenance.cleaning_frequency_days);
+          updateEquipment({
+            id: selectedEquipmentForMaintenance.id,
+            last_cleaning: formatDateToISO(performedAt),
+            next_cleaning: formatDateToISO(newNextCleaning),
+          }, {
+            onSuccess: () => {
+              toast({ title: "Próxima limpeza atualizada!" });
+            },
+            onError: (err) => {
+              toast({ title: "Erro ao atualizar próxima limpeza", description: err.message, variant: "destructive" });
+            }
+          });
+        }
+      },
+      onError: (err) => {
+        toast({ title: "Erro ao registrar manutenção", description: err.message, variant: "destructive" });
+      }
+    });
   };
 
   const onSubmit = (values: FormValues) => {
@@ -323,7 +405,7 @@ export const Equipments: React.FC = () => {
       }
     });
   };
-
+  
   const getDaysUntilNextCleaning = (nextCleaningDate: string) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -622,41 +704,35 @@ export const Equipments: React.FC = () => {
                                       </DialogDescription>
                                     </DialogHeader>
                                     <div className="max-h-[300px] overflow-y-auto">
-                                      {responsibles.length > 0 ? (
-                                        <ul className="space-y-2">
-                                          {responsibles.map(responsible => (
-                                            <li key={responsible.id} className="flex items-center justify-between p-2 border rounded-md">
-                                              <span>{responsible.name}</span>
-                                              <AlertDialog>
-                                                <AlertDialogTrigger asChild>
-                                                  <Button variant="ghost" size="sm">
-                                                    <Trash2 className="h-4 w-4 text-destructive" />
-                                                  </Button>
-                                                </AlertDialogTrigger>
-                                                <AlertDialogContent>
-                                                  <AlertDialogHeader>
-                                                    <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
-                                                    <AlertDialogDescription>
-                                                      Esta ação não pode ser desfeita. Isso excluirá permanentemente o responsável <strong className="text-destructive">{responsible.name}</strong>.
-                                                    </AlertDialogDescription>
-                                                  </AlertDialogHeader>
-                                                  <AlertDialogFooter>
-                                                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                                    <AlertDialogAction
-                                                      onClick={() => handleDeleteResponsible(responsible.id)}
-                                                      disabled={isDeletingResponsible}
-                                                    >
-                                                      {isDeletingResponsible ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Continuar'}
-                                                    </AlertDialogAction>
-                                                  </AlertDialogFooter>
-                                                </AlertDialogContent>
-                                              </AlertDialog>
-                                            </li>
-                                          ))}
-                                        </ul>
-                                      ) : (
-                                        <p className="text-center text-muted-foreground">Nenhum responsável encontrado.</p>
-                                      )}
+                                      {responsibles.map((responsible) => (
+                                        <div key={responsible.id} className="flex items-center justify-between p-2 border rounded-md">
+                                          <span>{responsible.name}</span>
+                                          <AlertDialog>
+                                            <AlertDialogTrigger asChild>
+                                              <Button variant="ghost" size="sm">
+                                                <Trash2 className="h-4 w-4 text-destructive" />
+                                              </Button>
+                                            </AlertDialogTrigger>
+                                            <AlertDialogContent>
+                                              <AlertDialogHeader>
+                                                <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
+                                                <AlertDialogDescription>
+                                                  Esta ação não pode ser desfeita. Isso excluirá permanentemente o responsável <strong className="text-destructive">{responsible.name}</strong>.
+                                                </AlertDialogDescription>
+                                              </AlertDialogHeader>
+                                              <AlertDialogFooter>
+                                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                                <AlertDialogAction
+                                                  onClick={() => handleDeleteResponsible(responsible.id)}
+                                                  disabled={isDeletingResponsible}
+                                                >
+                                                  {isDeletingResponsible ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Continuar'}
+                                                </AlertDialogAction>
+                                              </AlertDialogFooter>
+                                            </AlertDialogContent>
+                                          </AlertDialog>
+                                        </div>
+                                      ))}
                                     </div>
                                   </DialogContent>
                                 </Dialog>
@@ -897,6 +973,108 @@ export const Equipments: React.FC = () => {
 
       ---
 
+      {/* Modal para registrar Manutenção Detalhada */}
+      {selectedEquipmentForMaintenance && (
+        <Dialog open={isMaintenanceModalOpen} onOpenChange={setIsMaintenanceModalOpen}>
+          <DialogContent className="sm:max-w-[600px]">
+            <DialogHeader>
+              <DialogTitle>Registrar Manutenção</DialogTitle>
+              <DialogDescription>
+                Registre uma nova manutenção para **{selectedEquipmentForMaintenance.name}**.
+              </DialogDescription>
+            </DialogHeader>
+            <Form {...maintenanceForm}>
+              <form onSubmit={maintenanceForm.handleSubmit(handleMaintenanceSubmit)} className="grid gap-4 py-4">
+                <FormField
+                  control={maintenanceForm.control}
+                  name="service_type"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Tipo de Serviço</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione o tipo de serviço" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="limpeza">Limpeza</SelectItem>
+                          <SelectItem value="reparo">Reparo</SelectItem>
+                          <SelectItem value="substituicao">Substituição</SelectItem>
+                          <SelectItem value="calibracao">Calibração</SelectItem>
+                          <SelectItem value="inspecao">Inspeção</SelectItem>
+                          <SelectItem value="outro">Outro</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={maintenanceForm.control}
+                  name="performed_by_id"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Responsável</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value ?? ""}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione o responsável" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {responsibles.map((responsible) => (
+                            <SelectItem key={responsible.id} value={responsible.id}>{responsible.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={maintenanceForm.control}
+                  name="description"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Descrição</FormLabel>
+                      <FormControl>
+                        <Textarea placeholder="Detalhes da manutenção..." {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <DialogFooter>
+                  <Button type="submit" disabled={isCreatingMaintenance} className="gradient-primary">
+                    {isCreatingMaintenance ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Salvando...
+                      </>
+                    ) : (
+                      "Salvar"
+                    )}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </Form>
+          </DialogContent>
+        </Dialog>
+      )}
+      
+      {/* NOVO MODAL PARA O HISTÓRICO DE MANUTENÇÕES */}
+      {selectedEquipmentForHistory && (
+          <HistoryMaintenanceModal
+              equipment={selectedEquipmentForHistory}
+              isOpen={isHistoryModalOpen}
+              onClose={() => setIsHistoryModalOpen(false)}
+          />
+      )}
+
       {/* Equipments Table */}
       <Card className="shadow-card">
         <CardHeader>
@@ -976,31 +1154,16 @@ export const Equipments: React.FC = () => {
                       {canEdit && (
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
-                            <AlertDialog>
-                              <AlertDialogTrigger asChild>
-                                <Button variant="outline" size="sm">
-                                  <CalendarIcon className="h-3 w-3 mr-1" />
-                                  Limpeza
-                                </Button>
-                              </AlertDialogTrigger>
-                              <AlertDialogContent>
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle>Registrar Limpeza?</AlertDialogTitle>
-                                  <AlertDialogDescription>
-                                    Confirma que a limpeza do equipamento **{equipment.name}** foi realizada hoje? Isso irá atualizar a próxima data de limpeza automaticamente.
-                                  </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                  <AlertDialogAction
-                                    onClick={() => handlePerformCleaning(equipment)}
-                                    disabled={isUpdating}
-                                  >
-                                    {isUpdating ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Confirmar'}
-                                  </AlertDialogAction>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
+                            
+                          <Button variant="outline" size="sm" onClick={() => handleOpenMaintenanceModal(equipment)}>
+                                <CalendarIcon className="h-3 w-3 mr-1" />
+                                Manutenção
+                            </Button>
+                             {/* NOVO BOTÃO PARA ABRIR O HISTÓRICO */}
+                             <Button variant="outline" size="sm" onClick={() => handleOpenHistoryModal(equipment)}>
+                               <History className="h-3 w-3 mr-1" />
+                               Histórico
+                             </Button>
                             <Button
                               variant="outline"
                               size="sm"
@@ -1045,4 +1208,57 @@ export const Equipments: React.FC = () => {
       </Card>
     </div>
   );
+};
+
+// NOVO COMPONENTE: Modal para exibir o histórico de manutenções
+const HistoryMaintenanceModal = ({ equipment, isOpen, onClose }) => {
+    const { data: maintenances = [], isLoading, error } = useMaintenanceHistory(equipment.id);
+    
+    return (
+        <Dialog open={isOpen} onOpenChange={onClose}>
+            <DialogContent className="sm:max-w-[800px]">
+                <DialogHeader>
+                    <DialogTitle>Histórico de Manutenção</DialogTitle>
+                    <DialogDescription>
+                        Registros de manutenção para **{equipment.name}**.
+                    </DialogDescription>
+                </DialogHeader>
+                <ScrollArea className="h-72">
+                    <div className="p-4">
+                        {isLoading ? (
+                            <p>Carregando histórico...</p>
+                        ) : error ? (
+                            <p className="text-destructive">Erro ao carregar histórico: {error.message}</p>
+                        ) : maintenances.length > 0 ? (
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Data</TableHead>
+                                        <TableHead>Tipo</TableHead>
+                                        <TableHead>Responsável</TableHead>
+                                        <TableHead>Descrição</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {maintenances.map((maintenance) => (
+                                        <TableRow key={maintenance.id}>
+                                            <TableCell>{format(new Date(maintenance.performed_at), 'dd/MM/yyyy')}</TableCell>
+                                            <TableCell className="capitalize">{maintenance.service_type}</TableCell>
+                                            <TableCell>{maintenance.responsibles?.name || 'N/A'}</TableCell>
+                                            <TableCell>{maintenance.description || 'N/A'}</TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        ) : (
+                            <p className="text-center text-muted-foreground">Nenhum registro de manutenção encontrado.</p>
+                        )}
+                    </div>
+                </ScrollArea>
+                <DialogFooter>
+                    <Button onClick={onClose}>Fechar</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
 };
