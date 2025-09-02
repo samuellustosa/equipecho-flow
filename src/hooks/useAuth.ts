@@ -25,6 +25,8 @@ const AuthContext = createContext<{
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
   signUp: (email: string, password: string, name: string) => Promise<void>;
+  updatePassword: (password: string) => Promise<void>;
+  refetchUserProfile: () => void;
 } | null>(null);
 
 export const useAuth = () => {
@@ -42,6 +44,26 @@ export const useAuthProvider = () => {
     isLoading: true,
     isAuthenticated: false
   });
+  
+  // Extraído em uma função separada para ser chamado quando necessário
+  const fetchUserProfile = async (userId: string) => {
+    try {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
+        
+      if (profile) {
+        setAuthState(prev => ({
+          ...prev,
+          user: profile
+        }));
+      }
+    } catch (error) {
+      console.error('Error fetching user profile:', error);
+    }
+  };
 
   useEffect(() => {
     // Set up auth state listener
@@ -90,26 +112,6 @@ export const useAuthProvider = () => {
 
     return () => subscription.unsubscribe();
   }, []);
-
-  // Helper function to fetch user profile
-  const fetchUserProfile = async (userId: string) => {
-    try {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .single();
-
-      if (profile) {
-        setAuthState(prev => ({
-          ...prev,
-          user: profile
-        }));
-      }
-    } catch (error) {
-      console.error('Error fetching user profile:', error);
-    }
-  };
 
   const login = async (email: string, password: string) => {
     setAuthState(prev => ({ ...prev, isLoading: true }));
@@ -167,11 +169,28 @@ export const useAuthProvider = () => {
     await supabase.auth.signOut();
   };
 
+  // Funcao para mudar a senha do usuário.
+  const updatePassword = async (password: string) => {
+    const { error } = await supabase.auth.updateUser({ password });
+    if (error) {
+      throw new Error(error.message);
+    }
+  };
+  
+  // Nova função para re-obter o perfil do usuário
+  const refetchUserProfile = () => {
+      if (authState.user) {
+          fetchUserProfile(authState.user.id);
+      }
+  };
+
   return {
     authState,
     login,
     signUp,
-    logout
+    logout,
+    updatePassword,
+    refetchUserProfile
   };
 };
 

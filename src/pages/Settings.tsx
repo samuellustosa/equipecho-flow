@@ -1,29 +1,200 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth } from '@/hooks/useAuth';
 import { Separator } from '@/components/ui/separator';
-import { 
-  User, 
-  Bell, 
-  Shield, 
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { useUpdateUser } from '@/hooks/useUsers';
+import { toast } from '@/components/ui/use-toast';
+import { supabase } from '@/integrations/supabase/client';
+import {
+  User,
+  Bell,
+  Shield,
   Monitor,
   Save,
   Mail,
-  Phone,
-  MapPin
+  Loader2,
 } from 'lucide-react';
 
+const profileFormSchema = z.object({
+  firstName: z.string().min(2, "O nome deve ter pelo menos 2 caracteres."),
+  lastName: z.string().min(2, "O sobrenome deve ter pelo menos 2 caracteres."),
+  email: z.string().email("Por favor, insira um email válido."),
+});
+
+const passwordFormSchema = z.object({
+  currentPassword: z.string().min(6, "A senha atual deve ter pelo menos 6 caracteres."),
+  newPassword: z.string().min(6, "A nova senha deve ter pelo menos 6 caracteres."),
+  confirmPassword: z.string().min(6, "A confirmação da senha deve ter pelo menos 6 caracteres."),
+}).refine((data) => data.newPassword === data.confirmPassword, {
+  message: "As senhas não coincidem.",
+  path: ["confirmPassword"],
+});
+
+type ProfileFormValues = z.infer<typeof profileFormSchema>;
+type PasswordFormValues = z.infer<typeof passwordFormSchema>;
+
 export const Settings: React.FC = () => {
-  const { authState } = useAuth();
+  const { authState, updatePassword, refetchUserProfile } = useAuth();
+  const { mutate: updateUserProfile, isPending: isUpdatingProfile } = useUpdateUser();
+  const [isUpdatingPassword, setIsUpdatingPassword] = React.useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const profileForm = useForm<ProfileFormValues>({
+    resolver: zodResolver(profileFormSchema),
+    defaultValues: {
+      firstName: '',
+      lastName: '',
+      email: '',
+    },
+  });
+
+  const passwordForm = useForm<PasswordFormValues>({
+    resolver: zodResolver(passwordFormSchema),
+    defaultValues: {
+      currentPassword: '',
+      newPassword: '',
+      confirmPassword: '',
+    },
+  });
+
+  useEffect(() => {
+    if (authState.user) {
+      profileForm.reset({
+        firstName: authState.user.name.split(' ')[0] || '',
+        lastName: authState.user.name.split(' ').slice(1).join(' ') || '',
+        email: authState.user.email || '',
+      });
+    }
+  }, [authState.user, profileForm]);
 
   const getUserInitials = (name: string) => {
+    if (!name) return '';
     return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
   };
+
+  const onProfileSubmit = (values: ProfileFormValues) => {
+    if (!authState.user) return;
+
+    const newName = `${values.firstName} ${values.lastName}`;
+    const updatedData = {
+      id: authState.user.id,
+      name: newName,
+      email: values.email,
+    };
+
+    updateUserProfile(updatedData as any, {
+      onSuccess: () => {
+        toast({ title: "Perfil atualizado com sucesso!" });
+        refetchUserProfile();
+      },
+      onError: (err: any) => {
+        toast({ title: "Erro ao atualizar perfil", description: err.message, variant: "destructive" });
+      }
+    });
+  };
+
+  const onPasswordSubmit = async (values: PasswordFormValues) => {
+    setIsUpdatingPassword(true);
+    try {
+      await updatePassword(values.newPassword);
+      toast({ title: "Senha alterada com sucesso!" });
+      passwordForm.reset();
+    } catch (error: any) {
+      toast({ title: "Erro ao alterar senha", description: error.message, variant: "destructive" });
+    } finally {
+      setIsUpdatingPassword(false);
+    }
+  };
+
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !authState.user) return;
+
+    // Validação de tipo de arquivo
+    const acceptedTypes = ['image/jpeg', 'image/png', 'image/gif'];
+    if (!acceptedTypes.includes(file.type)) {
+      toast({
+        title: "Erro de upload",
+        description: "Apenas arquivos JPG, GIF ou PNG são permitidos.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Validação de tamanho do arquivo (1MB = 1048576 bytes)
+    const maxSize = 1048576;
+    if (file.size > maxSize) {
+      toast({
+        title: "Erro de upload",
+        description: "O tamanho máximo do arquivo é 1MB.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${authState.user.id}-${Date.now()}.${fileExt}`;
+    const filePath = `avatars/${fileName}`;
+    
+    try {
+      const { data, error } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: true,
+        });
+
+      if (error) {
+        throw error;
+      }
+      
+      const { data: publicUrlData } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(filePath);
+
+      if (publicUrlData) {
+        updateUserProfile({ id: authState.user.id, avatar_url: publicUrlData.publicUrl }, {
+          onSuccess: () => {
+            // Chama a nova função para re-obter o perfil após a atualização
+            refetchUserProfile();
+            toast({ title: "Foto de perfil atualizada com sucesso!" });
+          },
+          onError: (err: any) => {
+            toast({ title: "Erro ao atualizar perfil", description: err.message, variant: "destructive" });
+          }
+        });
+      }
+    } catch (error: any) {
+      toast({ title: "Erro ao fazer upload da foto", description: error.message, variant: "destructive" });
+    }
+  };
+
+  if (authState.isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="flex items-center gap-2 text-muted-foreground">
+          <Loader2 className="h-5 w-5 animate-spin" />
+          Carregando configurações...
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 space-y-6">
@@ -51,80 +222,93 @@ export const Settings: React.FC = () => {
             <CardContent className="space-y-6">
               <div className="flex items-center gap-6">
                 <Avatar className="h-20 w-20">
+                  <AvatarImage src={authState.user?.avatar_url || undefined} />
                   <AvatarFallback className="text-lg">
                     {authState.user && getUserInitials(authState.user.name)}
                   </AvatarFallback>
                 </Avatar>
                 <div className="space-y-2">
-                  <Button variant="outline">Alterar Foto</Button>
+                  <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
+                    Alterar Foto
+                  </Button>
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleFileChange}
+                    accept="image/jpeg,image/gif,image/png"
+                    style={{ display: 'none' }}
+                  />
                   <p className="text-sm text-muted-foreground">
                     JPG, GIF ou PNG. Máximo 1MB.
                   </p>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="firstName">Nome</Label>
-                  <Input 
-                    id="firstName" 
-                    defaultValue={authState.user?.name.split(' ')[0] || ''} 
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="lastName">Sobrenome</Label>
-                  <Input 
-                    id="lastName" 
-                    defaultValue={authState.user?.name.split(' ').slice(1).join(' ') || ''} 
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input 
-                    id="email" 
-                    type="email"
-                    defaultValue={authState.user?.email || ''} 
-                    className="pl-10"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="phone">Telefone</Label>
-                  <div className="relative">
-                    <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input 
-                      id="phone" 
-                      type="tel"
-                      placeholder="(11) 99999-9999"
-                      className="pl-10"
+              <Form {...profileForm}>
+                <form onSubmit={profileForm.handleSubmit(onProfileSubmit)} className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <FormField
+                      control={profileForm.control}
+                      name="firstName"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Nome</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Nome" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={profileForm.control}
+                      name="lastName"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Sobrenome</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Sobrenome" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
                     />
                   </div>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="department">Departamento</Label>
-                  <Input 
-                    id="department" 
-                    defaultValue="Manutenção"
-                    readOnly
-                    className="bg-muted"
+                  <FormField
+                    control={profileForm.control}
+                    name="email"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Email</FormLabel>
+                        <FormControl>
+                          <div className="relative">
+                            <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                            <Input type="email" placeholder="seu@email.com" className="pl-10" {...field} />
+                          </div>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
-                </div>
-              </div>
-
-              <Button className="gradient-primary text-primary-foreground">
-                <Save className="h-4 w-4 mr-2" />
-                Salvar Alterações
-              </Button>
+                  <Button type="submit" disabled={isUpdatingProfile} className="gradient-primary text-primary-foreground">
+                    {isUpdatingProfile ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Salvando...
+                      </>
+                    ) : (
+                      <>
+                        <Save className="h-4 w-4 mr-2" />
+                        Salvar Alterações
+                      </>
+                    )}
+                  </Button>
+                </form>
+              </Form>
             </CardContent>
           </Card>
 
-          {/* Notification Settings */}
+          {/* Notification Settings (unchanged for now) */}
           <Card className="shadow-card">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -146,9 +330,7 @@ export const Settings: React.FC = () => {
                   </div>
                   <Switch defaultChecked />
                 </div>
-
                 <Separator />
-
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
                     <Label className="text-base">Alertas de Estoque</Label>
@@ -158,9 +340,7 @@ export const Settings: React.FC = () => {
                   </div>
                   <Switch defaultChecked />
                 </div>
-
                 <Separator />
-
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
                     <Label className="text-base">Manutenções Vencidas</Label>
@@ -170,9 +350,7 @@ export const Settings: React.FC = () => {
                   </div>
                   <Switch defaultChecked />
                 </div>
-
                 <Separator />
-
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
                     <Label className="text-base">Relatórios Semanais</Label>
@@ -198,24 +376,59 @@ export const Settings: React.FC = () => {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="currentPassword">Senha Atual</Label>
-                <Input id="currentPassword" type="password" />
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="newPassword">Nova Senha</Label>
-                <Input id="newPassword" type="password" />
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="confirmPassword">Confirmar Nova Senha</Label>
-                <Input id="confirmPassword" type="password" />
-              </div>
-
-              <Button variant="outline">
-                Alterar Senha
-              </Button>
+              <Form {...passwordForm}>
+                <form onSubmit={passwordForm.handleSubmit(onPasswordSubmit)} className="space-y-4">
+                  <FormField
+                    control={passwordForm.control}
+                    name="currentPassword"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Senha Atual</FormLabel>
+                        <FormControl>
+                          <Input type="password" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={passwordForm.control}
+                    name="newPassword"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Nova Senha</FormLabel>
+                        <FormControl>
+                          <Input type="password" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={passwordForm.control}
+                    name="confirmPassword"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Confirmar Nova Senha</FormLabel>
+                        <FormControl>
+                          <Input type="password" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <Button type="submit" variant="outline" disabled={isUpdatingPassword}>
+                    {isUpdatingPassword ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Alterando...
+                      </>
+                    ) : (
+                      'Alterar Senha'
+                    )}
+                  </Button>
+                </form>
+              </Form>
             </CardContent>
           </Card>
         </div>
@@ -235,19 +448,15 @@ export const Settings: React.FC = () => {
                   <span className="text-sm text-muted-foreground">Versão:</span>
                   <span className="text-sm font-medium">1.2.5</span>
                 </div>
-                
                 <div className="flex justify-between">
                   <span className="text-sm text-muted-foreground">Última Atualização:</span>
                   <span className="text-sm font-medium">15/01/2024</span>
                 </div>
-                
                 <div className="flex justify-between">
                   <span className="text-sm text-muted-foreground">Licença:</span>
                   <span className="text-sm font-medium">Enterprise</span>
                 </div>
-
                 <Separator />
-
                 <div className="space-y-2">
                   <Label className="text-sm font-medium">Seu Perfil:</Label>
                   <div className="text-sm text-muted-foreground space-y-1">
@@ -272,7 +481,6 @@ export const Settings: React.FC = () => {
                 <Mail className="h-4 w-4 mr-2" />
                 Contatar Suporte
               </Button>
-              
               <Button variant="outline" className="w-full">
                 <Monitor className="h-4 w-4 mr-2" />
                 Central de Ajuda
