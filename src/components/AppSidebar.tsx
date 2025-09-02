@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 const navigationItems = [
   { 
@@ -178,17 +179,20 @@ export function AppSidebar() {
                 </div>
               )}
             </div>
-            {!isCollapsed && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={logout}
-                className="w-full justify-start"
-              >
-                <LogOut className="h-4 w-4 mr-2" />
-                Sair
-              </Button>
-            )}
+            <div className="flex gap-2">
+              <ThemeToggle />
+              {!isCollapsed && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={logout}
+                  className="flex-1 justify-start"
+                >
+                  <LogOut className="h-4 w-4 mr-2" />
+                  Sair
+                </Button>
+              )}
+            </div>
           </div>
         )}
       </SidebarFooter>
