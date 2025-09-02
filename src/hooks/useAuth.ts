@@ -2,6 +2,8 @@
 import { useState, useEffect, createContext, useContext } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import type { User as SupabaseUser, Session } from '@supabase/supabase-js';
+import { toast } from '@/components/ui/use-toast';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 // User types
 export interface User {
@@ -12,6 +14,9 @@ export interface User {
   avatar_url?: string;
   created_at: string;
   updated_at: string;
+  low_stock_alerts_enabled?: boolean;
+  overdue_maintenance_alerts_enabled?: boolean;
+  read_notification_ids?: string[];
 }
 
 export interface AuthState {
@@ -49,12 +54,16 @@ export const useAuthProvider = () => {
   // Extraído em uma função separada para ser chamado quando necessário
   const fetchUserProfile = async (userId: string) => {
     try {
-      const { data: profile } = await supabase
+      const { data: profile, error } = await supabase
         .from('profiles')
-        .select('*')
+        .select(`*, read_notification_ids, low_stock_alerts_enabled, overdue_maintenance_alerts_enabled`)
         .eq('id', userId)
         .single();
         
+      if (error) {
+          throw error;
+      }
+      
       if (profile) {
         setAuthState(prev => ({
           ...prev,
@@ -62,7 +71,7 @@ export const useAuthProvider = () => {
         }));
       }
     } catch (error) {
-      //console.error('Error fetching user profile:', error);
+      console.error('Error fetching user profile:', error);
     }
   };
 
@@ -70,9 +79,7 @@ export const useAuthProvider = () => {
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
-        //console.log('Auth state changed:', event, session);
         
-        // Only update session state synchronously
         setAuthState(prev => ({
           ...prev,
           session,
@@ -182,6 +189,43 @@ export const useAuthProvider = () => {
     logout,
     setAuthUser
   };
+};
+
+export const useUpdateUserNotifications = () => {
+  const queryClient = useQueryClient();
+  const { authState, setAuthUser } = useAuth();
+
+  return useMutation({
+    mutationFn: async (readAlertIds: string[]) => {
+      if (!authState.user) throw new Error('User not authenticated');
+      
+      const { data, error } = await supabase
+        .from('profiles')
+        .update({ read_notification_ids: readAlertIds })
+        .eq('id', authState.user.id)
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (data) => {
+      setAuthUser({ read_notification_ids: data.read_notification_ids });
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+      // Adicionando um pequeno atraso para a interface atualizar
+      setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: ['equipmentAlerts'] });
+        queryClient.invalidateQueries({ queryKey: ['inventoryAlerts'] });
+      }, 500);
+    },
+    onError: (error) => {
+      toast({
+        title: "Erro ao atualizar notificações",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
 };
 
 export { AuthContext };

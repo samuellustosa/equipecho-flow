@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useEquipments } from '@/hooks/useEquipments';
 import { useInventory } from '@/hooks/useInventory';
+import { useEquipmentAlerts, useInventoryAlerts } from '@/hooks/useNotifications';
 import { 
   Wrench, 
   Package, 
@@ -11,54 +12,26 @@ import {
   CheckCircle, 
   TrendingUp,
   Calendar,
-  Users,
-  Activity
+  Activity,
+  ArrowRight,
 } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 export const Dashboard: React.FC = () => {
   const { data: equipments = [], isLoading: equipmentsLoading } = useEquipments();
   const { data: inventory = [], isLoading: inventoryLoading } = useInventory();
+  const { data: equipmentAlerts = [], isLoading: equipmentAlertsLoading } = useEquipmentAlerts();
+  const { data: inventoryAlerts = [], isLoading: inventoryAlertsLoading } = useInventoryAlerts();
 
-  const isLoading = equipmentsLoading || inventoryLoading;
+  const isLoading = equipmentsLoading || inventoryLoading || equipmentAlertsLoading || inventoryAlertsLoading;
 
-  // Calculate real stats from data
   const stats = {
     totalEquipments: equipments.length,
     activeEquipments: equipments.filter(e => e.status === 'operacional').length,
-    maintenanceNeeded: equipments.filter(e => e.status === 'manutencao').length,
+    maintenanceNeeded: equipmentAlerts.length,
     inventoryItems: inventory.length,
-    lowStockItems: inventory.filter(i => i.status === 'baixo' || i.status === 'critico').length,
-    pendingMaintenance: equipments.filter(e => {
-      const nextCleaning = new Date(e.next_cleaning);
-      const today = new Date();
-      const diffDays = Math.ceil((nextCleaning.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-      return diffDays <= 7; // Due in 7 days or less
-    }).length
+    lowStockItems: inventoryAlerts.length,
   };
-
-  // Recent cleanings (equipments that had recent next_cleaning updates)
-  const recentMaintenances = equipments
-    .filter(e => e.last_cleaning)
-    .sort((a, b) => new Date(b.last_cleaning!).getTime() - new Date(a.last_cleaning!).getTime())
-    .slice(0, 3)
-    .map(equipment => ({
-      id: equipment.id,
-      equipment: equipment.name,
-      type: 'Limpeza',
-      status: equipment.status === 'operacional' ? 'Concluída' : 'Em andamento',
-      date: equipment.last_cleaning!,
-      technician: equipment.responsibles?.name || 'N/A'
-    }));
-
-  // Low stock items
-  const lowStockItems = inventory
-    .filter(i => i.status === 'baixo' || i.status === 'critico')
-    .slice(0, 3)
-    .map(item => ({
-      name: item.name,
-      current: item.current_quantity,
-      minimum: item.minimum_quantity
-    }));
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -135,7 +108,7 @@ export const Dashboard: React.FC = () => {
             <AlertTriangle className="h-4 w-4 text-warning" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.pendingMaintenance}</div>
+            <div className="text-2xl font-bold">{stats.maintenanceNeeded}</div>
             <p className="text-xs text-muted-foreground">
               Requer atenção imediata
             </p>
@@ -164,36 +137,43 @@ export const Dashboard: React.FC = () => {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Activity className="h-5 w-5" />
-              Limpezas Recentes
+              Limpezas Vencidas
             </CardTitle>
             <CardDescription>
-              Últimas atividades de limpeza registradas
+              Atenção para equipamentos com limpeza em atraso.
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {recentMaintenances.map((maintenance) => (
-                <div key={maintenance.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-                  <div className="space-y-1">
-                    <p className="font-medium text-sm">{maintenance.equipment}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {maintenance.type} • {maintenance.technician}
-                    </p>
+              {equipmentAlerts.slice(0, 3).length > 0 ? (
+                equipmentAlerts.slice(0, 3).map((alert) => (
+                  <div key={alert.id} className="flex items-start justify-between p-3 rounded-lg bg-destructive/10 border border-destructive/20">
+                    <div className="space-y-1">
+                      <p className="font-medium text-sm">{alert.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {alert.type === 'overdue' ? 'Em atraso' : 'Aviso de limpeza'}
+                      </p>
+                    </div>
+                    <div className="text-right space-y-1">
+                      <Badge className={alert.type === 'overdue' ? 'bg-destructive text-destructive-foreground' : 'bg-warning text-warning-foreground'}>
+                        {alert.type === 'overdue' ? 'Atrasado' : 'Aviso'}
+                      </Badge>
+                      <p className="text-xs text-muted-foreground">
+                        Próxima limpeza: {new Date(alert.next_cleaning).toLocaleDateString('pt-BR')}
+                      </p>
+                    </div>
                   </div>
-                  <div className="text-right space-y-1">
-                    <Badge className={getStatusColor(maintenance.status)}>
-                      {maintenance.status}
-                    </Badge>
-                    <p className="text-xs text-muted-foreground">
-                      {new Date(maintenance.date).toLocaleDateString('pt-BR')}
-                    </p>
-                  </div>
-                </div>
-              ))}
+                ))
+              ) : (
+                <p className="text-center text-muted-foreground text-sm py-4">Nenhum alerta de manutenção vencida.</p>
+              )}
             </div>
-            <Button variant="outline" className="w-full mt-4">
-              Ver Todas as Limpezas
-            </Button>
+            <Link to="/equipments">
+              <Button variant="outline" className="w-full mt-4">
+                Ver todos os equipamentos
+                <ArrowRight className="h-4 w-4 ml-2" />
+              </Button>
+            </Link>
           </CardContent>
         </Card>
 
@@ -210,28 +190,35 @@ export const Dashboard: React.FC = () => {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {lowStockItems.map((item, index) => (
-                <div key={index} className="flex items-center justify-between p-3 rounded-lg bg-warning/10 border border-warning/20">
-                  <div>
-                    <p className="font-medium text-sm">{item.name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      Mínimo: {item.minimum} unidades
-                    </p>
+              {inventoryAlerts.slice(0, 3).length > 0 ? (
+                inventoryAlerts.slice(0, 3).map((item, index) => (
+                  <div key={index} className="flex items-center justify-between p-3 rounded-lg bg-warning/10 border border-warning/20">
+                    <div>
+                      <p className="font-medium text-sm">{item.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        Mínimo: {item.minimum_quantity} unidades
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className={`font-bold text-${item.type === 'critical' ? 'destructive' : 'warning'}`}>
+                        {item.current_quantity} restantes
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {item.minimum_quantity - item.current_quantity} abaixo do mínimo
+                      </p>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <p className="font-bold text-warning">
-                      {item.current} restantes
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {item.minimum - item.current} abaixo do mínimo
-                    </p>
-                  </div>
-                </div>
-              ))}
+                ))
+              ) : (
+                <p className="text-center text-muted-foreground text-sm py-4">Nenhum alerta de estoque pendente.</p>
+              )}
             </div>
-            <Button variant="outline" className="w-full mt-4">
-              Gerenciar Inventário
-            </Button>
+            <Link to="/inventory">
+              <Button variant="outline" className="w-full mt-4">
+                Gerenciar Inventário
+                <ArrowRight className="h-4 w-4 ml-2" />
+              </Button>
+            </Link>
           </CardContent>
         </Card>
       </div>
@@ -246,19 +233,25 @@ export const Dashboard: React.FC = () => {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Button className="h-20 flex-col gap-2" variant="outline">
-              <Wrench className="h-6 w-6" />
-              <span>Novo Equipamento</span>
-            </Button>
-            <Button className="h-20 flex-col gap-2" variant="outline">
-              <Calendar className="h-6 w-6" />
-              <span>Agendar Limpeza</span>
-            </Button>
-            <Button className="h-20 flex-col gap-2" variant="outline">
-              <Package className="h-6 w-6" />
-              <span>Adicionar Item</span>
-            </Button>
-            <Button className="h-20 flex-col gap-2" variant="outline">
+            <Link to="/equipments">
+              <Button className="h-20 flex-col gap-2 w-full" variant="outline">
+                <Wrench className="h-6 w-6" />
+                <span>Novo Equipamento</span>
+              </Button>
+            </Link>
+            <Link to="/equipments">
+              <Button className="h-20 flex-col gap-2 w-full" variant="outline">
+                <Calendar className="h-6 w-6" />
+                <span>Agendar Limpeza</span>
+              </Button>
+            </Link>
+            <Link to="/inventory">
+              <Button className="h-20 flex-col gap-2 w-full" variant="outline">
+                <Package className="h-6 w-6" />
+                <span>Adicionar Item</span>
+              </Button>
+            </Link>
+            <Button className="h-20 flex-col gap-2 w-full" variant="outline">
               <TrendingUp className="h-6 w-6" />
               <span>Relatórios</span>
             </Button>

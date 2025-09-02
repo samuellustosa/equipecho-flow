@@ -228,6 +228,9 @@ export type Database = {
           name: string
           role: Database["public"]["Enums"]["user_role"]
           updated_at: string
+          low_stock_alerts_enabled: boolean
+          overdue_maintenance_alerts_enabled: boolean
+          read_notification_ids: string[]
         }
         Insert: {
           avatar_url?: string | null
@@ -237,6 +240,9 @@ export type Database = {
           name: string
           role?: Database["public"]["Enums"]["user_role"]
           updated_at?: string
+          low_stock_alerts_enabled?: boolean
+          overdue_maintenance_alerts_enabled?: boolean
+          read_notification_ids?: string[]
         }
         Update: {
           avatar_url?: string | null
@@ -246,6 +252,9 @@ export type Database = {
           email?: string
           role?: Database["public"]["Enums"]["user_role"]
           updated_at?: string
+          low_stock_alerts_enabled?: boolean
+          overdue_maintenance_alerts_enabled?: boolean
+          read_notification_ids?: string[]
         }
         Relationships: []
       }

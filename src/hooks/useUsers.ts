@@ -10,6 +10,8 @@ export interface UserProfile {
   avatar_url?: string;
   created_at: string;
   updated_at: string;
+  low_stock_alerts_enabled: boolean;
+  overdue_maintenance_alerts_enabled: boolean;
 }
 
 export const useUsers = () => {

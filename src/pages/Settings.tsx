@@ -32,6 +32,8 @@ import {
   Loader2,
   Phone,
   MessageSquare,
+  Package,
+  AlertTriangle,
 } from 'lucide-react';
 import {
   Accordion,
@@ -240,6 +242,23 @@ export const Settings: React.FC = () => {
     }
   };
 
+  const handleToggleNotification = (field: 'low_stock_alerts_enabled' | 'overdue_maintenance_alerts_enabled', checked: boolean) => {
+    if (!authState.user) return;
+
+    const updates = { [field]: checked };
+    
+    updateUserProfile({ id: authState.user.id, ...updates }, {
+      onSuccess: () => {
+        setAuthUser(updates);
+        toast({ title: "Preferência de notificação atualizada com sucesso!" });
+      },
+      onError: (err: any) => {
+        toast({ title: "Erro ao atualizar preferência", description: err.message, variant: "destructive" });
+      }
+    });
+  };
+
+
   if (authState.isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -373,7 +392,7 @@ export const Settings: React.FC = () => {
             </CardContent>
           </Card>
 
-          {/* Notification Settings (unchanged for now) */}
+          {/* Notification Settings */}
           <Card className="shadow-card">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -388,22 +407,15 @@ export const Settings: React.FC = () => {
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
-                    <Label className="text-base">Notificações por Email</Label>
-                    <p className="text-sm text-muted-foreground">
-                      Receber notificações sobre manutenções e alertas
-                    </p>
-                  </div>
-                  <Switch defaultChecked />
-                </div>
-                <Separator />
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
                     <Label className="text-base">Alertas de Estoque</Label>
                     <p className="text-sm text-muted-foreground">
-                      Notificar quando itens estiverem com estoque baixo
+                      Notificar quando itens estiverem com estoque baixo ou crítico
                     </p>
                   </div>
-                  <Switch defaultChecked />
+                  <Switch
+                    checked={authState.user?.low_stock_alerts_enabled}
+                    onCheckedChange={(checked) => handleToggleNotification('low_stock_alerts_enabled', checked)}
+                  />
                 </div>
                 <Separator />
                 <div className="flex items-center justify-between">
@@ -413,17 +425,10 @@ export const Settings: React.FC = () => {
                       Alertas sobre manutenções em atraso
                     </p>
                   </div>
-                  <Switch defaultChecked />
-                </div>
-                <Separator />
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label className="text-base">Relatórios Semanais</Label>
-                    <p className="text-sm text-muted-foreground">
-                      Resumo semanal das atividades
-                    </p>
-                  </div>
-                  <Switch />
+                  <Switch
+                    checked={authState.user?.overdue_maintenance_alerts_enabled}
+                    onCheckedChange={(checked) => handleToggleNotification('overdue_maintenance_alerts_enabled', checked)}
+                  />
                 </div>
               </div>
             </CardContent>
