@@ -228,7 +228,7 @@ export const Inventory: React.FC = () => {
     defaultValues: {
       quantity: 1,
       type: 'entrada',
-      reason: null,
+      reason: "",
     },
   });
 
@@ -293,7 +293,7 @@ export const Inventory: React.FC = () => {
     if (item) {
       form.reset({
         name: item.name,
-        description: item.description,
+        description: item.description || "",
         category_id: item.category_id,
         location_id: item.location_id,
         minimum_quantity: item.minimum_quantity,
@@ -317,7 +317,7 @@ export const Inventory: React.FC = () => {
     movementForm.reset({
       quantity: 1,
       type: 'entrada',
-      reason: null,
+      reason: "",
     });
     setIsMovementModalOpen(true);
   };

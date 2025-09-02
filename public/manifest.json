@@ -1,6 +1,6 @@
 {
-  "name": "EquipEcho",
-  "short_name": "EquipEcho",
+  "name": "EquipCPD",
+  "short_name": "EquipCPD",
   "description": "Sistema completo para gestão de equipamentos, manutenções e inventário",
   "start_url": "/",
   "display": "standalone",
