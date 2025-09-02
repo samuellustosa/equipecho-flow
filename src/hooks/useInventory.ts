@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from './useAuth'; // Importar o hook de autenticação
+import { useAuth } from './useAuth';
 
 export interface InventoryItem {
   id: string;
@@ -57,17 +57,17 @@ export const useCreateInventoryItem = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['inventory'] });
-      queryClient.invalidateQueries({ queryKey: ['inventoryAlerts'] }); //
+      queryClient.invalidateQueries({ queryKey: ['inventoryAlerts'] });
     }
   });
 };
 
 export const useUpdateInventoryItem = () => {
   const queryClient = useQueryClient();
-  const { setAuthUser } = useAuth(); //
+  const { setAuthUser } = useAuth();
   
   return useMutation({
-    mutationFn: async ({ id, ...item }: Partial<InventoryItem> & { id: string }) => {
+    mutationFn: async ({ id, ...item }: Partial<Omit<InventoryItem, 'current_quantity'>> & { id: string }) => {
       const { data, error } = await supabase
         .from('inventory')
         .update(item)
@@ -80,7 +80,7 @@ export const useUpdateInventoryItem = () => {
     },
     onSuccess: (updatedItem) => {
       queryClient.invalidateQueries({ queryKey: ['inventory'] });
-      queryClient.invalidateQueries({ queryKey: ['inventoryAlerts'] }); //
+      queryClient.invalidateQueries({ queryKey: ['inventoryAlerts'] });
     }
   });
 };
@@ -99,7 +99,7 @@ export const useDeleteInventoryItem = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['inventory'] });
-      queryClient.invalidateQueries({ queryKey: ['inventoryAlerts'] }); //
+      queryClient.invalidateQueries({ queryKey: ['inventoryAlerts'] });
     }
   });
 };

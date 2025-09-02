@@ -201,6 +201,41 @@ export type Database = {
           },
         ]
       }
+      inventory_movements: {
+        Row: {
+          created_at: string
+          id: string
+          inventory_item_id: string
+          quantity: number
+          reason: string | null
+          type: Database["public"]["Enums"]["inventory_movement_type"]
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          inventory_item_id: string
+          quantity: number
+          reason?: string | null
+          type: Database["public"]["Enums"]["inventory_movement_type"]
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          inventory_item_id?: string
+          quantity?: number
+          reason?: string | null
+          type?: Database["public"]["Enums"]["inventory_movement_type"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_movements_inventory_item_id_fkey"
+            columns: ["inventory_item_id"]
+            isOneToOne: false
+            referencedRelation: "inventory"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       locations: {
         Row: {
           created_at: string
@@ -387,6 +422,7 @@ export type Database = {
       user_role: "admin" | "manager" | "user"
       announcement_type: "info" | "warning" | "danger" | "success"
       maintenance_service_type: "limpeza" | "reparo" | "substituicao" | "calibracao" | "inspecao" | "outro"
+      inventory_movement_type: "entrada" | "saida"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -517,6 +553,7 @@ export const Constants = {
       user_role: ["admin", "manager", "user"],
       announcement_type: ["info", "warning", "danger", "success"],
       maintenance_service_type: ["limpeza", "reparo", "substituicao", "calibracao", "inspecao", "outro"],
+      inventory_movement_type: ["entrada", "saida"],
     },
   },
 } as const

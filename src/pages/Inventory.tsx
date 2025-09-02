@@ -7,6 +7,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useInventory, useCreateInventoryItem, useUpdateInventoryItem, useDeleteInventoryItem, InventoryItem } from '@/hooks/useInventory';
 import { useCategories, useCreateCategory, useDeleteCategory } from '@/hooks/useCategories';
 import { useLocations, useCreateLocation, useDeleteLocation } from '@/hooks/useLocations';
+import { useCreateInventoryMovement, useInventoryMovementHistory, InventoryMovement } from '@/hooks/useInventoryMovements';
 import {
   Plus,
   Search,
@@ -15,10 +16,12 @@ import {
   Trash2,
   Package,
   AlertTriangle,
-  TrendingDown,
   CheckCircle,
   Loader2,
   ExternalLink,
+  History,
+  PlusCircle,
+  MinusCircle,
 } from 'lucide-react';
 import {
   Table,
@@ -49,6 +52,14 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -64,19 +75,110 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/components/ui/use-toast';
 import { Label } from '@/components/ui/label';
+import { cn } from '@/lib/utils';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
-// Definição do esquema de validação com Zod
+// Esquema de validação para o formulário de inventário
 const formSchema = z.object({
   name: z.string().min(2, "O nome deve ter pelo menos 2 caracteres."),
   description: z.string().optional().nullable(),
   category_id: z.string().optional().nullable(),
   location_id: z.string().optional().nullable(),
-  current_quantity: z.coerce.number().min(0, "A quantidade atual não pode ser negativa."),
   minimum_quantity: z.coerce.number().min(0, "A quantidade mínima não pode ser negativa."),
   unit: z.string().min(1, "A unidade é obrigatória."),
 });
-
 type FormValues = z.infer<typeof formSchema>;
+
+// Esquema de validação para o formulário de movimentação de estoque
+const movementFormSchema = z.object({
+  quantity: z.coerce.number().min(1, "A quantidade deve ser no mínimo 1."),
+  type: z.enum(['entrada', 'saida'], {
+    required_error: "O tipo de movimento é obrigatório."
+  }),
+  reason: z.string().optional().nullable(),
+});
+type MovementFormValues = z.infer<typeof movementFormSchema>;
+
+// Componente para o modal de histórico
+interface InventoryMovementHistoryModalProps {
+  item: InventoryItem;
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+const InventoryMovementHistoryModal: React.FC<InventoryMovementHistoryModalProps> = ({ item, isOpen, onClose }) => {
+  const { data: movements = [], isLoading, error } = useInventoryMovementHistory(item.id);
+
+  const getMovementIcon = (type: string) => {
+    return type === 'entrada'
+      ? <PlusCircle className="h-4 w-4 text-success" />
+      : <MinusCircle className="h-4 w-4 text-destructive" />;
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-[800px]">
+        <DialogHeader>
+          <DialogTitle>Histórico de Estoque - {item.name}</DialogTitle>
+          <DialogDescription>
+            Movimentações do item: **{item.name}**.
+          </DialogDescription>
+        </DialogHeader>
+        <ScrollArea className="h-72">
+          <div className="p-4">
+            {isLoading ? (
+              <p>Carregando histórico...</p>
+            ) : error ? (
+              <p className="text-destructive">Erro ao carregar histórico: {error.message}</p>
+            ) : movements.length > 0 ? (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Data</TableHead>
+                    <TableHead>Tipo</TableHead>
+                    <TableHead>Quantidade</TableHead>
+                    <TableHead>Razão</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {movements.map((movement) => (
+                    <TableRow key={movement.id} className="transition-all hover:bg-muted/50">
+                      <TableCell className="text-sm font-medium">
+                        <div className="flex items-center gap-2">
+                          {getMovementIcon(movement.type)}
+                          {format(new Date(movement.created_at), 'dd/MM/yyyy HH:mm', { locale: ptBR })}
+                        </div>
+                      </TableCell>
+                      <TableCell className="capitalize text-muted-foreground">
+                        {movement.type}
+                      </TableCell>
+                      <TableCell className={cn(
+                        "font-bold",
+                        movement.type === 'entrada' ? 'text-success' : 'text-destructive'
+                      )}>
+                        {movement.type === 'entrada' ? '+' : '-'} {movement.quantity}
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {movement.reason || 'N/A'}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            ) : (
+              <p className="text-center text-muted-foreground">Nenhum registro de movimentação encontrado.</p>
+            )}
+          </div>
+        </ScrollArea>
+        <DialogFooter>
+          <Button onClick={onClose}>Fechar</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+};
 
 export const Inventory: React.FC = () => {
   const { authState } = useAuth();
@@ -91,6 +193,7 @@ export const Inventory: React.FC = () => {
   const { mutate: deleteCategory, isPending: isDeletingCategory } = useDeleteCategory();
   const { mutate: createLocation, isPending: isCreatingLocation } = useCreateLocation();
   const { mutate: deleteLocation, isPending: isDeletingLocation } = useDeleteLocation();
+  const { mutate: createInventoryMovement, isPending: isCreatingMovement } = useCreateInventoryMovement();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
@@ -103,6 +206,10 @@ export const Inventory: React.FC = () => {
     category_id: 'all',
     location_id: 'all',
   });
+  const [isMovementModalOpen, setIsMovementModalOpen] = useState(false);
+  const [selectedItemForMovement, setSelectedItemForMovement] = useState<InventoryItem | null>(null);
+  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
+  const [selectedItemForHistory, setSelectedItemForHistory] = useState<InventoryItem | null>(null);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -111,9 +218,17 @@ export const Inventory: React.FC = () => {
       description: "",
       category_id: null,
       location_id: null,
-      current_quantity: 0,
       minimum_quantity: 0,
       unit: "un",
+    },
+  });
+
+  const movementForm = useForm<MovementFormValues>({
+    resolver: zodResolver(movementFormSchema),
+    defaultValues: {
+      quantity: 1,
+      type: 'entrada',
+      reason: null,
     },
   });
 
@@ -181,7 +296,6 @@ export const Inventory: React.FC = () => {
         description: item.description,
         category_id: item.category_id,
         location_id: item.location_id,
-        current_quantity: item.current_quantity,
         minimum_quantity: item.minimum_quantity,
         unit: item.unit,
       });
@@ -191,13 +305,28 @@ export const Inventory: React.FC = () => {
         description: "",
         category_id: null,
         location_id: null,
-        current_quantity: 0,
         minimum_quantity: 0,
         unit: "un",
       });
     }
     setIsModalOpen(true);
   };
+
+  const handleOpenMovementModal = (item: InventoryItem) => {
+    setSelectedItemForMovement(item);
+    movementForm.reset({
+      quantity: 1,
+      type: 'entrada',
+      reason: null,
+    });
+    setIsMovementModalOpen(true);
+  };
+  
+  const handleOpenHistoryModal = (item: InventoryItem) => {
+    setSelectedItemForHistory(item);
+    setIsHistoryModalOpen(true);
+  };
+
 
   const handleCloseModal = (open: boolean) => {
     if (!open) {
@@ -207,21 +336,47 @@ export const Inventory: React.FC = () => {
     }
   };
 
+  const onMovementSubmit = (values: MovementFormValues) => {
+    if (!selectedItemForMovement) return;
+
+    // Garante que a quantidade não se torne negativa em caso de saída
+    if (values.type === 'saida' && values.quantity > selectedItemForMovement.current_quantity) {
+      toast({
+        title: "Erro de estoque",
+        description: "A quantidade de saída não pode ser maior que o estoque atual.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    createInventoryMovement({
+      inventory_item_id: selectedItemForMovement.id,
+      quantity: values.quantity,
+      type: values.type,
+      reason: values.reason,
+    }, {
+      onSuccess: () => {
+        toast({ title: `Movimentação de ${values.type} registrada com sucesso!` });
+        setIsMovementModalOpen(false);
+      },
+      onError: (err) => {
+        toast({ title: "Erro ao registrar movimentação", description: err.message, variant: "destructive" });
+      }
+    });
+  };
+
   const onSubmit = (values: FormValues) => {
-    const calculatedStatus = calculateStatus(values.current_quantity, values.minimum_quantity);
     const itemData = {
       name: values.name,
       description: values.description,
       category_id: values.category_id,
       location_id: values.location_id,
-      current_quantity: values.current_quantity,
       minimum_quantity: values.minimum_quantity,
       unit: values.unit,
-      status: calculatedStatus,
     };
 
     if (editingItem) {
-      updateItem({ id: editingItem.id, ...itemData }, {
+      updateItem({ id: editingItem.id, ...itemData as any }, {
         onSuccess: () => {
           toast({ title: "Item do inventário atualizado com sucesso!" });
           setIsModalOpen(false);
@@ -231,7 +386,7 @@ export const Inventory: React.FC = () => {
         }
       });
     } else {
-      createItem(itemData, {
+      createItem({ ...itemData, current_quantity: 0, status: 'normal' }, {
         onSuccess: () => {
           toast({ title: "Item do inventário criado com sucesso!" });
           setIsModalOpen(false);
@@ -304,6 +459,7 @@ export const Inventory: React.FC = () => {
     });
   };
 
+
   if (isLoading) {
     return (
       <div className="p-6 space-y-6">
@@ -331,7 +487,7 @@ export const Inventory: React.FC = () => {
       </div>
     );
   }
-
+  
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
@@ -488,20 +644,7 @@ export const Inventory: React.FC = () => {
                         </FormItem>
                       )}
                     />
-                  <div className="grid grid-cols-3 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="current_quantity"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Estoque Atual</FormLabel>
-                          <FormControl>
-                            <Input type="number" {...field} onChange={e => field.onChange(e.target.value ? Number(e.target.value) : undefined)} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                  <div className="grid grid-cols-2 gap-4">
                     <FormField
                       control={form.control}
                       name="minimum_quantity"
@@ -529,24 +672,23 @@ export const Inventory: React.FC = () => {
                       )}
                     />
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="location_id"
-                      render={({ field }) => (
-                        <FormItem>
-                          <div className="flex items-center justify-between">
-                            <FormLabel>Localização</FormLabel>
-                            {isAdmin && (
-                              <Dialog>
-                                <DialogTrigger asChild>
-                                  <Button variant="link" size="sm" className="h-4 p-0 text-xs">
-                                    Gerenciar <ExternalLink className="ml-1 h-3 w-3" />
-                                  </Button>
-                                </DialogTrigger>
-                                <DialogContent className="sm:max-w-[425px]">
-                                  <DialogHeader>
-                                    <DialogTitle>Gerenciar Localizações</DialogTitle>
+                  <FormField
+                    control={form.control}
+                    name="location_id"
+                    render={({ field }) => (
+                      <FormItem>
+                        <div className="flex items-center justify-between">
+                          <FormLabel>Localização</FormLabel>
+                          {isAdmin && (
+                            <Dialog>
+                              <DialogTrigger asChild>
+                                <Button variant="link" size="sm" className="h-4 p-0 text-xs">
+                                  Gerenciar <ExternalLink className="ml-1 h-3 w-3" />
+                                </Button>
+                              </DialogTrigger>
+                              <DialogContent className="sm:max-w-[425px]">
+                                <DialogHeader>
+                                  <DialogTitle>Gerenciar Localizações</DialogTitle>
                                     <DialogDescription>
                                       Crie ou exclua localizações para o inventário.
                                     </DialogDescription>
@@ -624,19 +766,6 @@ export const Inventory: React.FC = () => {
                               ))}
                             </SelectContent>
                           </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="unit"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Unidade</FormLabel>
-                          <FormControl>
-                            <Input placeholder="Ex: un, kg, litros" {...field} />
-                          </FormControl>
                           <FormMessage />
                         </FormItem>
                       )}
@@ -772,7 +901,6 @@ export const Inventory: React.FC = () => {
                         <SelectValue placeholder="Todas as Categorias" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">Todas</SelectItem>
                         {categories.map(category => (
                           <SelectItem key={category.id} value={category.id}>
                             {category.name}
@@ -791,7 +919,6 @@ export const Inventory: React.FC = () => {
                         <SelectValue placeholder="Todas as Localizações" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">Todas</SelectItem>
                         {locations.map(location => (
                           <SelectItem key={location.id} value={location.id}>
                             {location.name}
@@ -890,37 +1017,56 @@ export const Inventory: React.FC = () => {
                       {canEdit && (
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleOpenModal(item)}
-                            >
-                              <Edit className="h-3 w-3" />
-                            </Button>
-                            <AlertDialog>
-                              <AlertDialogTrigger asChild>
+                          <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
                                 <Button variant="outline" size="sm">
-                                  <Trash2 className="h-3 w-3" />
+                                    <PlusCircle className="h-3 w-3 mr-1" />
+                                    Ações
                                 </Button>
-                              </AlertDialogTrigger>
-                              <AlertDialogContent>
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
-                                  <AlertDialogDescription>
-                                    Esta ação não pode ser desfeita. Isso excluirá permanentemente o item <strong style={{ color: 'red' }}>{item.name}</strong> do inventário.
-                                  </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                  <AlertDialogAction
-                                    onClick={() => handleDelete(item.id)}
-                                    disabled={isDeleting}
-                                  >
-                                    {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Continuar'}
-                                  </AlertDialogAction>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuLabel>Ações</DropdownMenuLabel>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem onClick={() => handleOpenModal(item)}>
+                                  <Edit className="h-3 w-3 mr-2" />
+                                  Editar
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleOpenMovementModal(item)}>
+                                  <PlusCircle className="h-3 w-3 mr-2" />
+                                  Adicionar/Remover Estoque
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleOpenHistoryModal(item)}>
+                                  <History className="h-3 w-3 mr-2" />
+                                  Ver Histórico
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive">
+                                      <Trash2 className="h-3 w-3 mr-2" />
+                                      Excluir
+                                    </DropdownMenuItem>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
+                                      <AlertDialogDescription>
+                                        Esta ação não pode ser desfeita. Isso excluirá permanentemente o item <strong style={{ color: 'red' }}>{item.name}</strong> do inventário.
+                                      </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                      <AlertDialogAction
+                                        onClick={() => handleDelete(item.id)}
+                                        disabled={isDeleting}
+                                      >
+                                        {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Continuar'}
+                                      </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
                           </div>
                         </TableCell>
                       )}
@@ -932,6 +1078,92 @@ export const Inventory: React.FC = () => {
           </div>
         </CardContent>
       </Card>
+      
+      {/* Modal para Adicionar/Remover Estoque */}
+      {selectedItemForMovement && (
+        <Dialog open={isMovementModalOpen} onOpenChange={setIsMovementModalOpen}>
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle>Mover Estoque - {selectedItemForMovement.name}</DialogTitle>
+              <DialogDescription>
+                Quantidade atual: {selectedItemForMovement.current_quantity} {selectedItemForMovement.unit}
+              </DialogDescription>
+            </DialogHeader>
+            <Form {...movementForm}>
+              <form onSubmit={movementForm.handleSubmit(onMovementSubmit)} className="space-y-4">
+                <FormField
+                  control={movementForm.control}
+                  name="type"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Tipo de Movimento</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione o tipo" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="entrada">Entrada</SelectItem>
+                          <SelectItem value="saida">Saída</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={movementForm.control}
+                  name="quantity"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Quantidade</FormLabel>
+                      <FormControl>
+                        <Input type="number" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={movementForm.control}
+                  name="reason"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Razão (Opcional)</FormLabel>
+                      <FormControl>
+                        <Textarea placeholder="Motivo da movimentação" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <DialogFooter>
+                  <Button type="submit" disabled={isCreatingMovement} className="gradient-primary">
+                    {isCreatingMovement ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Salvando...
+                      </>
+                    ) : (
+                      "Salvar"
+                    )}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </Form>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Modal para Histórico de Movimentações */}
+      {selectedItemForHistory && (
+        <InventoryMovementHistoryModal 
+          item={selectedItemForHistory}
+          isOpen={isHistoryModalOpen}
+          onClose={() => setIsHistoryModalOpen(false)}
+        />
+      )}
     </div>
   );
 };
