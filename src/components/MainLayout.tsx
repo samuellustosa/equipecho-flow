@@ -134,7 +134,7 @@ export const MainLayout: React.FC = () => {
                                       <div className="flex-1 text-sm">
                                         <p className={`font-medium ${readAlertsIdsFromProfile.includes(alert.id) ? 'text-muted-foreground' : ''}`}>{alert.name}</p>
                                         <p className="text-xs text-muted-foreground">
-                                          {alert.type === 'critical' ? 'Estoque crítico' : 'Estoque baixo'}
+                                          {alert.type}
                                         </p>
                                         <p className="text-xs text-muted-foreground">
                                           {alert.current_quantity} de {alert.minimum_quantity} disponíveis

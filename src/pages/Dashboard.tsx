@@ -14,6 +14,7 @@ import {
   Calendar,
   Activity,
   ArrowRight,
+  Loader2,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
@@ -23,6 +24,7 @@ export const Dashboard: React.FC = () => {
   const { data: equipmentAlerts = [], isLoading: equipmentAlertsLoading } = useEquipmentAlerts();
   const { data: inventoryAlerts = [], isLoading: inventoryAlertsLoading } = useInventoryAlerts();
 
+  // Combine os estados de carregamento de todos os hooks
   const isLoading = equipmentsLoading || inventoryLoading || equipmentAlertsLoading || inventoryAlertsLoading;
 
   const stats = {
@@ -42,6 +44,7 @@ export const Dashboard: React.FC = () => {
     }
   };
 
+  // Condicionalmente renderiza o esqueleto de carregamento
   if (isLoading) {
     return (
       <div className="p-6 space-y-6">

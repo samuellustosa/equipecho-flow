@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/hooks/useAuth';
-import { useEquipments, useCreateEquipment, useUpdateEquipment, useDeleteEquipment, Equipment } from '@/hooks/useEquipments';
+import { useEquipments, useCreateEquipment, useUpdateEquipment, useDeleteEquipment, Equipment, useEquipmentsCount } from '@/hooks/useEquipments';
 import {
   Plus,
   Edit,
@@ -18,9 +18,11 @@ import {
   AlertCircle,
   Clock,
   ExternalLink,
-  History, // Importação do novo ícone
+  History,
+  Filter,
+  Search,
 } from 'lucide-react';
-import { ScrollArea } from '@/components/ui/scroll-area'; // CORREÇÃO: Importação correta do componente
+import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Table,
   TableBody,
@@ -72,8 +74,9 @@ import { cn } from '@/lib/utils';
 import { toast } from '@/components/ui/use-toast';
 import { useCreateMaintenance, useMaintenanceHistory } from '@/hooks/useMaintenances';
 import { Database } from '@/integrations/supabase/types';
+import { Label } from '@/components/ui/label';
+import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination';
 
-// Esquema de validação para o formulário de manutenção
 const maintenanceFormSchema = z.object({
   service_type: z.enum(['limpeza', 'reparo', 'substituicao', 'calibracao', 'inspecao', 'outro'], {
     required_error: "O tipo de serviço é obrigatório."
@@ -109,11 +112,9 @@ const responsibleFormSchema = z.object({
 });
 type ResponsibleFormValues = z.infer<typeof responsibleFormSchema>;
 
-// Função utilitária para formatar a data para o banco de dados como uma string 'YYYY-MM-DD'
 const formatDateToISO = (date: Date | null | undefined): string | null => {
   if (!date) return null;
 
-  // Usamos a data local mas formatamos como YYYY-MM-DD sem conversão de timezone
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');
@@ -129,11 +130,16 @@ const statusConfig = {
 
 export const Equipments: React.FC = () => {
   const { authState } = useAuth();
-  const { data: equipments = [], isLoading, error } = useEquipments();
+  const [page, setPage] = useState(1);
+  const itemsPerPage = 10;
+  const offset = (page - 1) * itemsPerPage;
+
+  const { data: equipments = [], isLoading, error } = useEquipments(itemsPerPage, offset);
+  const { data: totalEquipments = 0, isLoading: countLoading } = useEquipmentsCount();
+
   const { data: responsibles = [] } = useResponsibles();
   const { data: sectors = [] } = useSectors();
 
-  // Hooks para a nova funcionalidade de manutenções
   const { mutate: createMaintenance, isPending: isCreatingMaintenance } = useCreateMaintenance();
 
   const { mutate: createEquipment, isPending: isCreating } = useCreateEquipment();
@@ -148,11 +154,18 @@ export const Equipments: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSectorModalOpen, setIsSectorModalOpen] = useState(false);
   const [isResponsibleModalOpen, setIsResponsibleModalOpen] = useState(false);
-  const [isMaintenanceModalOpen, setIsMaintenanceModalOpen] = useState(false); // Novo estado para a modal de manutenção
-  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false); // NOVO estado para o modal de histórico
+  const [isMaintenanceModalOpen, setIsMaintenanceModalOpen] = useState(false);
+  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [editingEquipment, setEditingEquipment] = useState<Equipment | null>(null);
   const [selectedEquipmentForMaintenance, setSelectedEquipmentForMaintenance] = useState<Equipment | null>(null);
-  const [selectedEquipmentForHistory, setSelectedEquipmentForHistory] = useState<Equipment | null>(null); // NOVO estado para o equipamento selecionado no histórico
+  const [selectedEquipmentForHistory, setSelectedEquipmentForHistory] = useState<Equipment | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
+  const [activeFilters, setActiveFilters] = useState({
+    status: 'all',
+    sector_id: 'all',
+    responsible_id: 'all',
+  });
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -170,7 +183,7 @@ export const Equipments: React.FC = () => {
     },
   });
 
-  const maintenanceForm = useForm<MaintenanceFormValues>({ // Novo formulário para manutenções
+  const maintenanceForm = useForm<MaintenanceFormValues>({
     resolver: zodResolver(maintenanceFormSchema),
     defaultValues: {
       service_type: 'limpeza',
@@ -216,7 +229,7 @@ export const Equipments: React.FC = () => {
         notes: equipment.notes,
       });
     } else {
-      form.reset(); // Limpa o formulário imediatamente para um novo equipamento
+      form.reset();
     }
     setIsModalOpen(true);
   };
@@ -224,12 +237,11 @@ export const Equipments: React.FC = () => {
   const handleCloseModal = (open: boolean) => {
     if (!open) {
       setEditingEquipment(null);
-      form.reset(); // Reinicia o formulário quando o modal é fechado
+      form.reset();
       setIsModalOpen(false);
     }
   };
   
-  // NOVO: Função para abrir o modal de histórico
   const handleOpenHistoryModal = (equipment: Equipment) => {
       setSelectedEquipmentForHistory(equipment);
       setIsHistoryModalOpen(true);
@@ -248,7 +260,6 @@ export const Equipments: React.FC = () => {
   const handleMaintenanceSubmit = (values: MaintenanceFormValues) => {
     if (!selectedEquipmentForMaintenance) return;
     
-    // Define a data de manutenção como a data atual do cliente.
     const performedAt = new Date();
 
     createMaintenance({
@@ -256,12 +267,11 @@ export const Equipments: React.FC = () => {
       equipment_id: selectedEquipmentForMaintenance.id,
       performed_at: formatDateToISO(performedAt),
       service_type: values.service_type as Database['public']['Enums']['maintenance_service_type'],
-      cost: null, // O custo agora é opcional e não é mais coletado do formulário.
+      cost: null,
     }, {
       onSuccess: () => {
         toast({ title: "Registro de manutenção adicionado com sucesso!" });
         setIsMaintenanceModalOpen(false);
-        // Atualiza a data de próxima limpeza do equipamento se for uma limpeza
         if (values.service_type === 'limpeza') {
           const newNextCleaning = addDays(performedAt, selectedEquipmentForMaintenance.cleaning_frequency_days);
           updateEquipment({
@@ -413,14 +423,45 @@ export const Equipments: React.FC = () => {
     return differenceInDays(nextCleaning, today);
   };
   
-  // Variáveis para controle de permissões
   const canEdit = authState.user?.role === 'admin' || authState.user?.role === 'manager';
   const isAdmin = authState.user?.role === 'admin';
 
-  const overdueCount = equipments.filter(e => getDaysUntilNextCleaning(e.next_cleaning) < 0).length;
-  const warningCount = equipments.filter(e => getDaysUntilNextCleaning(e.next_cleaning) === 0).length;
+  const filteredEquipments = equipments.filter(equipment => {
+    const term = searchTerm.toLowerCase();
+    const matchesSearch = (
+      equipment.name.toLowerCase().includes(term) ||
+      equipment.model?.toLowerCase().includes(term) ||
+      equipment.serial_number?.toLowerCase().includes(term) ||
+      (equipment.sectors?.name.toLowerCase() || '').includes(term) ||
+      (equipment.responsibles?.name.toLowerCase() || '').includes(term)
+    );
 
-  if (isLoading) {
+    const matchesFilters = (
+      (activeFilters.status === 'all' || equipment.status === activeFilters.status) &&
+      (activeFilters.sector_id === 'all' || equipment.sector_id === activeFilters.sector_id) &&
+      (activeFilters.responsible_id === 'all' || equipment.responsible_id === activeFilters.responsible_id)
+    );
+    
+    return matchesSearch && matchesFilters;
+  });
+
+  const pageCount = Math.ceil(totalEquipments / itemsPerPage);
+  const handlePageChange = (newPage: number) => {
+    if (newPage > 0 && newPage <= pageCount) {
+      setPage(newPage);
+    }
+  };
+
+  const stats = {
+    totalItems: totalEquipments,
+    operacionalItems: equipments.filter(e => e.status === 'operacional').length,
+    manutencaoItems: equipments.filter(e => e.status === 'manutencao').length,
+    paradoItems: equipments.filter(e => e.status === 'parado').length,
+    warningItems: equipments.filter(e => getDaysUntilNextCleaning(e.next_cleaning) === 0).length,
+    overdueItems: equipments.filter(e => getDaysUntilNextCleaning(e.next_cleaning) < 0).length,
+  };
+
+  if (isLoading || countLoading) {
     return (
       <div className="p-6 space-y-6">
         <div className="animate-pulse space-y-4">
@@ -446,7 +487,6 @@ export const Equipments: React.FC = () => {
 
   return (
     <div className="p-6 space-y-6">
-      {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold mb-2">Equipamentos</h1>
@@ -455,7 +495,6 @@ export const Equipments: React.FC = () => {
           </p>
         </div>
         <div className="flex flex-col sm:flex-row gap-2">
-          {/* Botão de Novo Responsável, visível apenas para Admin */}
           {isAdmin && (
             <Dialog open={isResponsibleModalOpen} onOpenChange={setIsResponsibleModalOpen}>
               <DialogTrigger asChild>
@@ -504,7 +543,6 @@ export const Equipments: React.FC = () => {
             </Dialog>
           )}
 
-          {/* Botão de Novo Setor, visível apenas para Admin */}
           {isAdmin && (
             <Dialog open={isSectorModalOpen} onOpenChange={setIsSectorModalOpen}>
               <DialogTrigger asChild>
@@ -564,336 +602,336 @@ export const Equipments: React.FC = () => {
                   Novo Equipamento
                 </Button>
               </DialogTrigger>
-              <DialogContent className="sm:max-w-[800px]">
+              <DialogContent className="max-w-full sm:max-w-[800px] flex flex-col max-h-[90vh]">
                 <DialogHeader>
                   <DialogTitle>{editingEquipment ? "Editar Equipamento" : "Adicionar Novo Equipamento"}</DialogTitle>
                   <DialogDescription>
                     {editingEquipment ? "Atualize as informações do equipamento." : "Preencha os campos para adicionar um novo equipamento."}
                   </DialogDescription>
                 </DialogHeader>
-                <Form {...form}>
-                  <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-4 py-4">
-                    <div className="grid grid-cols-2 gap-4">
+                <ScrollArea className="flex-1 p-4">
+                  <Form {...form}>
+                    <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-4 py-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <FormField
+                          control={form.control}
+                          name="name"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Nome</FormLabel>
+                              <FormControl>
+                                <Input placeholder="Nome do equipamento" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="model"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Modelo</FormLabel>
+                              <FormControl>
+                                <Input placeholder="Modelo do equipamento" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <FormField
+                          control={form.control}
+                          name="sector_id"
+                          render={({ field }) => (
+                            <FormItem>
+                              <div className="flex items-center justify-between">
+                                <FormLabel>Setor</FormLabel>
+                                {isAdmin && (
+                                  <Dialog>
+                                    <DialogTrigger asChild>
+                                      <Button variant="link" size="sm" className="h-4 p-0 text-xs">
+                                        Gerenciar <ExternalLink className="ml-1 h-3 w-3" />
+                                      </Button>
+                                    </DialogTrigger>
+                                    <DialogContent className="sm:max-w-[425px]">
+                                      <DialogHeader>
+                                        <DialogTitle>Gerenciar Setores</DialogTitle>
+                                        <DialogDescription>
+                                          Exclua setores existentes.
+                                        </DialogDescription>
+                                      </DialogHeader>
+                                      <div className="max-h-[300px] overflow-y-auto">
+                                        {sectors.length > 0 ? (
+                                          <ul className="space-y-2">
+                                            {sectors.map(sector => (
+                                              <li key={sector.id} className="flex items-center justify-between p-2 border rounded-md">
+                                                <span>{sector.name}</span>
+                                                <AlertDialog>
+                                                  <AlertDialogTrigger asChild>
+                                                    <Button variant="ghost" size="sm">
+                                                      <Trash2 className="h-4 w-4 text-destructive" />
+                                                    </Button>
+                                                  </AlertDialogTrigger>
+                                                  <AlertDialogContent>
+                                                    <AlertDialogHeader>
+                                                      <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
+                                                      <AlertDialogDescription>
+                                                        Esta ação não pode ser desfeita. Isso excluirá permanentemente o setor <strong className="text-destructive">{sector.name}</strong>.
+                                                      </AlertDialogDescription>
+                                                    </AlertDialogHeader>
+                                                    <AlertDialogFooter>
+                                                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                                      <AlertDialogAction
+                                                        onClick={() => handleDeleteSector(sector.id)}
+                                                        disabled={isDeletingSector}
+                                                      >
+                                                        {isDeletingSector ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Continuar'}
+                                                      </AlertDialogAction>
+                                                    </AlertDialogFooter>
+                                                  </AlertDialogContent>
+                                                </AlertDialog>
+                                              </li>
+                                            ))}
+                                          </ul>
+                                        ) : (
+                                          <p className="text-center text-muted-foreground">Nenhum setor encontrado.</p>
+                                        )}
+                                      </div>
+                                    </DialogContent>
+                                  </Dialog>
+                                )}
+                              </div>
+                              <Select onValueChange={field.onChange} defaultValue={field.value ?? ""}>
+                                <FormControl>
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Selecione um setor" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  {sectors.map((sector) => (
+                                    <SelectItem key={sector.id} value={sector.id}>{sector.name}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="responsible_id"
+                          render={({ field }) => (
+                            <FormItem>
+                              <div className="flex items-center justify-between">
+                                <FormLabel>Responsável</FormLabel>
+                                {isAdmin && (
+                                  <Dialog>
+                                    <DialogTrigger asChild>
+                                      <Button variant="link" size="sm" className="h-4 p-0 text-xs">
+                                        Gerenciar <ExternalLink className="ml-1 h-3 w-3" />
+                                      </Button>
+                                    </DialogTrigger>
+                                    <DialogContent className="sm:max-w-[425px]">
+                                      <DialogHeader>
+                                        <DialogTitle>Gerenciar Responsáveis</DialogTitle>
+                                        <DialogDescription>
+                                          Exclua responsáveis existentes.
+                                        </DialogDescription>
+                                      </DialogHeader>
+                                      <div className="max-h-[300px] overflow-y-auto">
+                                        {responsibles.map((responsible) => (
+                                          <div key={responsible.id} className="flex items-center justify-between p-2 border rounded-md">
+                                            <span>{responsible.name}</span>
+                                            <AlertDialog>
+                                              <AlertDialogTrigger asChild>
+                                                <Button variant="ghost" size="sm">
+                                                  <Trash2 className="h-4 w-4 text-destructive" />
+                                                </Button>
+                                              </AlertDialogTrigger>
+                                              <AlertDialogContent>
+                                                <AlertDialogHeader>
+                                                  <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
+                                                  <AlertDialogDescription>
+                                                    Esta ação não pode ser desfeita. Isso excluirá permanentemente o responsável <strong className="text-destructive">{responsible.name}</strong>.
+                                                  </AlertDialogDescription>
+                                                </AlertDialogHeader>
+                                                <AlertDialogFooter>
+                                                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                                  <AlertDialogAction
+                                                    onClick={() => handleDeleteResponsible(responsible.id)}
+                                                    disabled={isDeletingResponsible}
+                                                  >
+                                                    {isDeletingResponsible ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Continuar'}
+                                                  </AlertDialogAction>
+                                                </AlertDialogFooter>
+                                              </AlertDialogContent>
+                                            </AlertDialog>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </DialogContent>
+                                  </Dialog>
+                                )}
+                              </div>
+                              <Select onValueChange={field.onChange} defaultValue={field.value ?? ""}>
+                                <FormControl>
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Selecione um responsável" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  {responsibles.map((responsible) => (
+                                    <SelectItem key={responsible.id} value={responsible.id}>{responsible.name}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <FormField
+                          control={form.control}
+                          name="status"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Status</FormLabel>
+                              <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                <FormControl>
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Selecione um status" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  <SelectItem value="operacional">Operacional</SelectItem>
+                                  <SelectItem value="manutencao">Manutenção</SelectItem>
+                                  <SelectItem value="parado">Parado</SelectItem>
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="cleaning_frequency_days"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Frequência de Limpeza (dias)</FormLabel>
+                              <FormControl>
+                                <Input type="number" placeholder="30" {...field} onChange={e => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
                       <FormField
                         control={form.control}
-                        name="name"
+                        name="last_cleaning"
                         render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Nome</FormLabel>
-                            <FormControl>
-                              <Input placeholder="Nome do equipamento" {...field} />
-                            </FormControl>
+                          <FormItem className="flex flex-col">
+                            <FormLabel>Última Limpeza</FormLabel>
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <FormControl>
+                                  <Button
+                                    variant="outline"
+                                    className={cn(
+                                      "w-full pl-3 text-left font-normal",
+                                      !field.value && "text-muted-foreground"
+                                    )}
+                                  >
+                                    {field.value ? (
+                                      format(field.value, "dd/MM/yyyy", { locale: ptBR })
+                                    ) : (
+                                      <span>Escolha a última data de limpeza</span>
+                                    )}
+                                    <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                  </Button>
+                                </FormControl>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-auto p-0" align="start">
+                                <DayPicker
+                                  locale={ptBR}
+                                  mode="single"
+                                  selected={field.value ?? undefined}
+                                  onSelect={(date) => {
+                                    if (date) {
+                                      const localDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+                                      field.onChange(localDate);
+                                    } else {
+                                      field.onChange(null);
+                                    }
+                                  }}
+                                  initialFocus
+                                />
+                              </PopoverContent>
+                            </Popover>
                             <FormMessage />
                           </FormItem>
                         )}
                       />
                       <FormField
                         control={form.control}
-                        name="model"
+                        name="next_cleaning"
                         render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Modelo</FormLabel>
-                            <FormControl>
-                              <Input placeholder="Modelo do equipamento" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <FormField
-                        control={form.control}
-                        name="sector_id"
-                        render={({ field }) => (
-                          <FormItem>
-                            <div className="flex items-center justify-between">
-                              <FormLabel>Setor</FormLabel>
-                              {/* Modal de gerenciamento de setores, visível apenas para Admin */}
-                              {isAdmin && (
-                                <Dialog>
-                                  <DialogTrigger asChild>
-                                    <Button variant="link" size="sm" className="h-4 p-0 text-xs">
-                                      Gerenciar <ExternalLink className="ml-1 h-3 w-3" />
-                                    </Button>
-                                  </DialogTrigger>
-                                  <DialogContent className="sm:max-w-[425px]">
-                                    <DialogHeader>
-                                      <DialogTitle>Gerenciar Setores</DialogTitle>
-                                      <DialogDescription>
-                                        Exclua setores existentes.
-                                      </DialogDescription>
-                                    </DialogHeader>
-                                    <div className="max-h-[300px] overflow-y-auto">
-                                      {sectors.length > 0 ? (
-                                        <ul className="space-y-2">
-                                          {sectors.map(sector => (
-                                            <li key={sector.id} className="flex items-center justify-between p-2 border rounded-md">
-                                              <span>{sector.name}</span>
-                                              <AlertDialog>
-                                                <AlertDialogTrigger asChild>
-                                                  <Button variant="ghost" size="sm">
-                                                    <Trash2 className="h-4 w-4 text-destructive" />
-                                                  </Button>
-                                                </AlertDialogTrigger>
-                                                <AlertDialogContent>
-                                                  <AlertDialogHeader>
-                                                    <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
-                                                    <AlertDialogDescription>
-                                                      Esta ação não pode ser desfeita. Isso excluirá permanentemente o setor <strong className="text-destructive">{sector.name}</strong>.
-                                                    </AlertDialogDescription>
-                                                  </AlertDialogHeader>
-                                                  <AlertDialogFooter>
-                                                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                                    <AlertDialogAction
-                                                      onClick={() => handleDeleteSector(sector.id)}
-                                                      disabled={isDeletingSector}
-                                                    >
-                                                      {isDeletingSector ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Continuar'}
-                                                    </AlertDialogAction>
-                                                  </AlertDialogFooter>
-                                                </AlertDialogContent>
-                                              </AlertDialog>
-                                            </li>
-                                          ))}
-                                        </ul>
-                                      ) : (
-                                        <p className="text-center text-muted-foreground">Nenhum setor encontrado.</p>
-                                      )}
-                                    </div>
-                                  </DialogContent>
-                                </Dialog>
-                              )}
+                          <FormItem className="flex flex-col">
+                            <FormLabel>Próxima Limpeza</FormLabel>
+                            <div className="p-3 bg-muted rounded-md border text-sm font-medium">
+                              {field.value ? format(field.value, "dd/MM/yyyy", { locale: ptBR }) : 'Selecione a frequência e a última limpeza'}
                             </div>
-                            <Select onValueChange={field.onChange} defaultValue={field.value ?? ""}>
-                              <FormControl>
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Selecione um setor" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                {sectors.map((sector) => (
-                                  <SelectItem key={sector.id} value={sector.id}>{sector.name}</SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
                             <FormMessage />
                           </FormItem>
                         )}
                       />
                       <FormField
                         control={form.control}
-                        name="responsible_id"
+                        name="notes"
                         render={({ field }) => (
                           <FormItem>
-                            <div className="flex items-center justify-between">
-                              <FormLabel>Responsável</FormLabel>
-                              {/* Modal de gerenciamento de responsáveis, visível apenas para Admin */}
-                              {isAdmin && (
-                                <Dialog>
-                                  <DialogTrigger asChild>
-                                    <Button variant="link" size="sm" className="h-4 p-0 text-xs">
-                                      Gerenciar <ExternalLink className="ml-1 h-3 w-3" />
-                                    </Button>
-                                  </DialogTrigger>
-                                  <DialogContent className="sm:max-w-[425px]">
-                                    <DialogHeader>
-                                      <DialogTitle>Gerenciar Responsáveis</DialogTitle>
-                                      <DialogDescription>
-                                        Exclua responsáveis existentes.
-                                      </DialogDescription>
-                                    </DialogHeader>
-                                    <div className="max-h-[300px] overflow-y-auto">
-                                      {responsibles.map((responsible) => (
-                                        <div key={responsible.id} className="flex items-center justify-between p-2 border rounded-md">
-                                          <span>{responsible.name}</span>
-                                          <AlertDialog>
-                                            <AlertDialogTrigger asChild>
-                                              <Button variant="ghost" size="sm">
-                                                <Trash2 className="h-4 w-4 text-destructive" />
-                                              </Button>
-                                            </AlertDialogTrigger>
-                                            <AlertDialogContent>
-                                              <AlertDialogHeader>
-                                                <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
-                                                <AlertDialogDescription>
-                                                  Esta ação não pode ser desfeita. Isso excluirá permanentemente o responsável <strong className="text-destructive">{responsible.name}</strong>.
-                                                </AlertDialogDescription>
-                                              </AlertDialogHeader>
-                                              <AlertDialogFooter>
-                                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                                <AlertDialogAction
-                                                  onClick={() => handleDeleteResponsible(responsible.id)}
-                                                  disabled={isDeletingResponsible}
-                                                >
-                                                  {isDeletingResponsible ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Continuar'}
-                                                </AlertDialogAction>
-                                              </AlertDialogFooter>
-                                            </AlertDialogContent>
-                                          </AlertDialog>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  </DialogContent>
-                                </Dialog>
-                              )}
-                            </div>
-                            <Select onValueChange={field.onChange} defaultValue={field.value ?? ""}>
-                              <FormControl>
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Selecione um responsável" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                {responsibles.map((responsible) => (
-                                  <SelectItem key={responsible.id} value={responsible.id}>{responsible.name}</SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <FormField
-                        control={form.control}
-                        name="status"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Status</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value}>
-                              <FormControl>
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Selecione um status" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                <SelectItem value="operacional">Operacional</SelectItem>
-                                <SelectItem value="manutencao">Manutenção</SelectItem>
-                                <SelectItem value="parado">Parado</SelectItem>
-                              </SelectContent>
-                            </Select>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="cleaning_frequency_days"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Frequência de Limpeza (dias)</FormLabel>
+                            <FormLabel>Observações</FormLabel>
                             <FormControl>
-                              <Input type="number" placeholder="30" {...field} onChange={e => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)} />
+                              <Textarea placeholder="Observações importantes" {...field} />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
                         )}
                       />
-                    </div>
-                    <FormField
-                      control={form.control}
-                      name="last_cleaning"
-                      render={({ field }) => (
-                        <FormItem className="flex flex-col">
-                          <FormLabel>Última Limpeza</FormLabel>
-                          <Popover>
-                            <PopoverTrigger asChild>
-                              <FormControl>
-                                <Button
-                                  variant="outline"
-                                  className={cn(
-                                    "w-full pl-3 text-left font-normal",
-                                    !field.value && "text-muted-foreground"
-                                  )}
-                                >
-                                  {field.value ? (
-                                    format(field.value, "dd/MM/yyyy", { locale: ptBR })
-                                  ) : (
-                                    <span>Escolha a última data de limpeza</span>
-                                  )}
-                                  <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                                </Button>
-                              </FormControl>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-auto p-0" align="start">
-                              <DayPicker
-                                locale={ptBR}
-                                mode="single"
-                                selected={field.value ?? undefined}
-                                onSelect={(date) => {
-                                  if (date) {
-                                    const localDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-                                    field.onChange(localDate);
-                                  } else {
-                                    field.onChange(null);
-                                  }
-                                }}
-                                initialFocus
-                              />
-                            </PopoverContent>
-                          </Popover>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="next_cleaning"
-                      render={({ field }) => (
-                        <FormItem className="flex flex-col">
-                          <FormLabel>Próxima Limpeza</FormLabel>
-                          <div className="p-3 bg-muted rounded-md border text-sm font-medium">
-                            {field.value ? format(field.value, "dd/MM/yyyy", { locale: ptBR }) : 'Selecione a frequência e a última limpeza'}
-                          </div>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="notes"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Observações</FormLabel>
-                          <FormControl>
-                            <Textarea placeholder="Observações importantes" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <DialogFooter>
-                      <Button type="submit" disabled={isCreating || isUpdating} className="gradient-primary">
-                        {isCreating || isUpdating ? (
-                          <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            {editingEquipment ? "Salvando..." : "Criando..."}
-                          </>
-                        ) : (
-                          "Salvar"
-                        )}
-                      </Button>
-                    </DialogFooter>
-                  </form>
-                </Form>
+                    </form>
+                  </Form>
+                </ScrollArea>
+                <DialogFooter className="flex-shrink-0 mt-auto p-4">
+                  <Button type="button" variant="outline" onClick={() => handleCloseModal(false)}>
+                    Cancelar
+                  </Button>
+                  <Button type="submit" disabled={isCreating || isUpdating} className="gradient-primary" onClick={form.handleSubmit(onSubmit)}>
+                    {isCreating || isUpdating ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        {editingEquipment ? "Salvando..." : "Criando..."}
+                      </>
+                    ) : (
+                      "Salvar"
+                    )}
+                  </Button>
+                </DialogFooter>
               </DialogContent>
             </Dialog>
           )}
         </div>
       </div>
 
-      ---
-
-      {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
         <Card className="shadow-card">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Total</p>
-                <p className="text-2xl font-bold">{equipments.length}</p>
+                <p className="text-2xl font-bold">{totalEquipments}</p>
               </div>
               <Settings className="h-8 w-8 text-muted-foreground" />
             </div>
@@ -906,7 +944,7 @@ export const Equipments: React.FC = () => {
               <div>
                 <p className="text-sm text-muted-foreground">Operacionais</p>
                 <p className="text-2xl font-bold text-success">
-                  {equipments.filter(e => e.status === 'operacional').length}
+                  {stats.operacionalItems}
                 </p>
               </div>
               <Activity className="h-8 w-8 text-success" />
@@ -920,7 +958,7 @@ export const Equipments: React.FC = () => {
               <div>
                 <p className="text-sm text-muted-foreground">Em Manutenção</p>
                 <p className="text-2xl font-bold text-warning">
-                  {equipments.filter(e => e.status === 'manutencao').length}
+                  {stats.manutencaoItems}
                 </p>
               </div>
               <Wrench className="h-8 w-8 text-warning" />
@@ -934,7 +972,7 @@ export const Equipments: React.FC = () => {
               <div>
                 <p className="text-sm text-muted-foreground">Parados</p>
                 <p className="text-2xl font-bold text-destructive">
-                  {equipments.filter(e => e.status === 'parado').length}
+                  {stats.paradoItems}
                 </p>
               </div>
               <MapPin className="h-8 w-8 text-destructive" />
@@ -948,7 +986,7 @@ export const Equipments: React.FC = () => {
               <div>
                 <p className="text-sm text-muted-foreground">Em Aviso</p>
                 <p className="text-2xl font-bold text-warning">
-                  {warningCount}
+                  {stats.warningItems}
                 </p>
               </div>
               <Clock className="h-8 w-8 text-warning" />
@@ -962,7 +1000,7 @@ export const Equipments: React.FC = () => {
               <div>
                 <p className="text-sm text-muted-foreground">Atrasados</p>
                 <p className="text-2xl font-bold text-destructive">
-                  {overdueCount}
+                  {stats.overdueItems}
                 </p>
               </div>
               <AlertCircle className="h-8 w-8 text-destructive" />
@@ -970,10 +1008,107 @@ export const Equipments: React.FC = () => {
           </CardContent>
         </Card>
       </div>
+      
+      <Card className="shadow-card">
+        <CardContent className="p-6">
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar equipamentos..."
+                className="pl-10"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+            <Dialog open={isFilterModalOpen} onOpenChange={setIsFilterModalOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline">
+                  <Filter className="h-4 w-4 mr-2" />
+                  Filtros
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[425px]">
+                <DialogHeader>
+                  <DialogTitle>Filtrar Equipamentos</DialogTitle>
+                  <DialogDescription>
+                    Selecione as opções para filtrar a lista de equipamentos.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                  <div className="space-y-2">
+                    <Label>Status</Label>
+                    <Select
+                      onValueChange={(value) => setActiveFilters({ ...activeFilters, status: value })}
+                      value={activeFilters.status}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Todos os Status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todos</SelectItem>
+                        <SelectItem value="operacional">Operacional</SelectItem>
+                        <SelectItem value="manutencao">Manutenção</SelectItem>
+                        <SelectItem value="parado">Parado</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Setor</Label>
+                    <Select
+                      onValueChange={(value) => setActiveFilters({ ...activeFilters, sector_id: value })}
+                      value={activeFilters.sector_id}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Todos os Setores" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todos</SelectItem>
+                        {sectors.map(sector => (
+                          <SelectItem key={sector.id} value={sector.id}>
+                            {sector.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Responsável</Label>
+                    <Select
+                      onValueChange={(value) => setActiveFilters({ ...activeFilters, responsible_id: value })}
+                      value={activeFilters.responsible_id}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Todos os Responsáveis" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todos</SelectItem>
+                        {responsibles.map(responsible => (
+                          <SelectItem key={responsible.id} value={responsible.id}>
+                            {responsible.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button
+                    variant="outline"
+                    onClick={() => setActiveFilters({ status: 'all', sector_id: 'all', responsible_id: 'all' })}
+                  >
+                    Limpar Filtros
+                  </Button>
+                  <Button onClick={() => setIsFilterModalOpen(false)}>
+                    Aplicar
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
+        </CardContent>
+      </Card>
 
-      ---
-
-      {/* Modal para registrar Manutenção Detalhada */}
       {selectedEquipmentForMaintenance && (
         <Dialog open={isMaintenanceModalOpen} onOpenChange={setIsMaintenanceModalOpen}>
           <DialogContent className="sm:max-w-[600px]">
@@ -1066,7 +1201,6 @@ export const Equipments: React.FC = () => {
         </Dialog>
       )}
       
-      {/* NOVO MODAL PARA O HISTÓRICO DE MANUTENÇÕES */}
       {selectedEquipmentForHistory && (
           <HistoryMaintenanceModal
               equipment={selectedEquipmentForHistory}
@@ -1075,7 +1209,6 @@ export const Equipments: React.FC = () => {
           />
       )}
 
-      {/* Equipments Table */}
       <Card className="shadow-card">
         <CardHeader>
           <CardTitle>Lista de Equipamentos</CardTitle>
@@ -1084,7 +1217,7 @@ export const Equipments: React.FC = () => {
           </p>
         </CardHeader>
         <CardContent>
-          <div className="rounded-md border">
+          <div className="relative w-full overflow-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -1098,7 +1231,7 @@ export const Equipments: React.FC = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {equipments.map((equipment) => {
+                {filteredEquipments.map((equipment) => {
                   const daysUntilNextCleaning = getDaysUntilNextCleaning(equipment.next_cleaning);
                   const isOverdue = daysUntilNextCleaning < 0;
                   const isDueToday = daysUntilNextCleaning === 0;
@@ -1159,7 +1292,6 @@ export const Equipments: React.FC = () => {
                                 <CalendarIcon className="h-3 w-3 mr-1" />
                                 Manutenção
                             </Button>
-                             {/* NOVO BOTÃO PARA ABRIR O HISTÓRICO */}
                              <Button variant="outline" size="sm" onClick={() => handleOpenHistoryModal(equipment)}>
                                <History className="h-3 w-3 mr-1" />
                                Histórico
@@ -1204,13 +1336,38 @@ export const Equipments: React.FC = () => {
               </TableBody>
             </Table>
           </div>
+          <Pagination className="mt-4">
+              <PaginationContent>
+                <PaginationItem>
+                  <PaginationPrevious 
+                    onClick={() => handlePageChange(page - 1)} 
+                    className={cn(page === 1 && "pointer-events-none opacity-50")}
+                  />
+                </PaginationItem>
+                {[...Array(pageCount)].map((_, index) => (
+                  <PaginationItem key={index}>
+                    <PaginationLink 
+                      onClick={() => handlePageChange(index + 1)}
+                      isActive={page === index + 1}
+                    >
+                      {index + 1}
+                    </PaginationLink>
+                  </PaginationItem>
+                ))}
+                <PaginationItem>
+                  <PaginationNext 
+                    onClick={() => handlePageChange(page + 1)} 
+                    className={cn(page === pageCount && "pointer-events-none opacity-50")}
+                  />
+                </PaginationItem>
+              </PaginationContent>
+          </Pagination>
         </CardContent>
       </Card>
     </div>
   );
 };
 
-// NOVO COMPONENTE: Modal para exibir o histórico de manutenções
 const HistoryMaintenanceModal = ({ equipment, isOpen, onClose }) => {
     const { data: maintenances = [], isLoading, error } = useMaintenanceHistory(equipment.id);
     

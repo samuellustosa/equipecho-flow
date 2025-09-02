@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/hooks/useAuth';
-import { useInventory, useCreateInventoryItem, useUpdateInventoryItem, useDeleteInventoryItem, InventoryItem } from '@/hooks/useInventory';
+import { useInventory, useCreateInventoryItem, useUpdateInventoryItem, useDeleteInventoryItem, InventoryItem, useInventoryCount } from '@/hooks/useInventory';
 import { useCategories, useCreateCategory, useDeleteCategory } from '@/hooks/useCategories';
 import { useLocations, useCreateLocation, useDeleteLocation } from '@/hooks/useLocations';
 import { useCreateInventoryMovement, useInventoryMovementHistory, InventoryMovement } from '@/hooks/useInventoryMovements';
@@ -79,8 +79,9 @@ import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination';
 
-// Esquema de validação para o formulário de inventário
+
 const formSchema = z.object({
   name: z.string().min(2, "O nome deve ter pelo menos 2 caracteres."),
   description: z.string().optional().nullable(),
@@ -91,7 +92,6 @@ const formSchema = z.object({
 });
 type FormValues = z.infer<typeof formSchema>;
 
-// Esquema de validação para o formulário de movimentação de estoque
 const movementFormSchema = z.object({
   quantity: z.coerce.number().min(1, "A quantidade deve ser no mínimo 1."),
   type: z.enum(['entrada', 'saida'], {
@@ -101,7 +101,6 @@ const movementFormSchema = z.object({
 });
 type MovementFormValues = z.infer<typeof movementFormSchema>;
 
-// Componente para o modal de histórico
 interface InventoryMovementHistoryModalProps {
   item: InventoryItem;
   isOpen: boolean;
@@ -182,7 +181,11 @@ const InventoryMovementHistoryModal: React.FC<InventoryMovementHistoryModalProps
 
 export const Inventory: React.FC = () => {
   const { authState } = useAuth();
-  const { data: inventoryItems = [], isLoading, error } = useInventory();
+  const [page, setPage] = useState(1);
+  const itemsPerPage = 20;
+  const offset = (page - 1) * itemsPerPage;
+  const { data: inventoryItems = [], isLoading, error } = useInventory(itemsPerPage, offset);
+  const { data: totalItems = 0, isLoading: countLoading } = useInventoryCount();
   const { mutate: createItem, isPending: isCreating } = useCreateInventoryItem();
   const { mutate: updateItem, isPending: isUpdating } = useUpdateInventoryItem();
   const { mutate: deleteItem, isPending: isDeleting } = useDeleteInventoryItem();
@@ -278,11 +281,19 @@ export const Inventory: React.FC = () => {
     return matchesSearch && matchesFilters;
   });
 
+  const pageCount = Math.ceil(totalItems / itemsPerPage);
+  const handlePageChange = (newPage: number) => {
+    if (newPage > 0 && newPage <= pageCount) {
+      setPage(newPage);
+    }
+  };
+
+
   const stats = {
-    totalItems: filteredItems.length,
-    lowStockItems: filteredItems.filter(item => item.status === 'baixo' || item.status === 'critico').length,
-    criticalItems: filteredItems.filter(item => item.status === 'critico').length,
-    normalItems: filteredItems.filter(item => item.status === 'normal').length
+    totalItems: totalItems,
+    lowStockItems: inventoryItems.filter(item => item.status === 'baixo' || item.status === 'critico').length,
+    criticalItems: inventoryItems.filter(item => item.status === 'critico').length,
+    normalItems: inventoryItems.filter(item => item.status === 'normal').length
   };
 
   const canEdit = authState.user?.role === 'admin' || authState.user?.role === 'manager';
@@ -339,7 +350,6 @@ export const Inventory: React.FC = () => {
   const onMovementSubmit = (values: MovementFormValues) => {
     if (!selectedItemForMovement) return;
 
-    // Garante que a quantidade não se torne negativa em caso de saída
     if (values.type === 'saida' && values.quantity > selectedItemForMovement.current_quantity) {
       toast({
         title: "Erro de estoque",
@@ -460,7 +470,7 @@ export const Inventory: React.FC = () => {
   };
 
 
-  if (isLoading) {
+  if (isLoading || countLoading) {
     return (
       <div className="p-6 space-y-6">
         <div className="animate-pulse space-y-4">
@@ -490,7 +500,6 @@ export const Inventory: React.FC = () => {
   
   return (
     <div className="p-6 space-y-6">
-      {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold mb-2">Inventário</h1>
@@ -619,6 +628,7 @@ export const Inventory: React.FC = () => {
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
+                              <SelectItem value="all">Todas</SelectItem>
                               {categories.map((category) => (
                                 <SelectItem key={category.id} value={category.id}>
                                   {category.name}
@@ -759,6 +769,7 @@ export const Inventory: React.FC = () => {
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
+                            <SelectItem value="all">Todas</SelectItem>
                             {locations.map((location) => (
                               <SelectItem key={location.id} value={location.id}>
                                 {location.name}
@@ -794,14 +805,13 @@ export const Inventory: React.FC = () => {
         )}
       </div>
 
-      {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card className="shadow-card">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Total de Itens</p>
-                <p className="text-2xl font-bold">{stats.totalItems}</p>
+                <p className="text-2xl font-bold">{totalItems}</p>
               </div>
               <Package className="h-8 w-8 text-muted-foreground" />
             </div>
@@ -845,106 +855,6 @@ export const Inventory: React.FC = () => {
         </Card>
       </div>
 
-      {/* Filters and Search */}
-      <Card className="shadow-card">
-        <CardContent className="p-6">
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Buscar itens do inventário..."
-                className="pl-10"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </div>
-            <Dialog open={isFilterModalOpen} onOpenChange={setIsFilterModalOpen}>
-              <DialogTrigger asChild>
-                <Button variant="outline">
-                  <Filter className="h-4 w-4 mr-2" />
-                  Filtros
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-[425px]">
-                <DialogHeader>
-                  <DialogTitle>Filtrar Itens</DialogTitle>
-                  <DialogDescription>
-                    Selecione as opções para filtrar a lista de itens.
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="grid gap-4 py-4">
-                  <div className="space-y-2">
-                    <Label>Status</Label>
-                    <Select
-                      onValueChange={(value) => setActiveFilters({ ...activeFilters, status: value })}
-                      value={activeFilters.status}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Todos os Status" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">Todos</SelectItem>
-                        <SelectItem value="normal">Normal</SelectItem>
-                        <SelectItem value="baixo">Baixo</SelectItem>
-                        <SelectItem value="critico">Crítico</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Categoria</Label>
-                    <Select
-                      onValueChange={(value) => setActiveFilters({ ...activeFilters, category_id: value })}
-                      value={activeFilters.category_id}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Todas as Categorias" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {categories.map(category => (
-                          <SelectItem key={category.id} value={category.id}>
-                            {category.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Localização</Label>
-                    <Select
-                      onValueChange={(value) => setActiveFilters({ ...activeFilters, location_id: value })}
-                      value={activeFilters.location_id}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Todas as Localizações" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {locations.map(location => (
-                          <SelectItem key={location.id} value={location.id}>
-                            {location.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <DialogFooter>
-                  <Button
-                    variant="outline"
-                    onClick={() => setActiveFilters({ status: 'all', category_id: 'all', location_id: 'all' })}
-                  >
-                    Limpar Filtros
-                  </Button>
-                  <Button onClick={() => setIsFilterModalOpen(false)}>
-                    Aplicar
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Critical Items Alert */}
       {stats.criticalItems > 0 && (
         <Card className="shadow-card border-destructive/50 bg-destructive/5">
           <CardHeader>
@@ -959,7 +869,6 @@ export const Inventory: React.FC = () => {
         </Card>
       )}
 
-      {/* Inventory Table */}
       <Card className="shadow-card">
         <CardHeader>
           <CardTitle>Itens do Inventário</CardTitle>
@@ -1075,10 +984,35 @@ export const Inventory: React.FC = () => {
               </TableBody>
             </Table>
           </div>
+          <Pagination className="mt-4">
+              <PaginationContent>
+                <PaginationItem>
+                  <PaginationPrevious 
+                    onClick={() => handlePageChange(page - 1)} 
+                    className={cn(page === 1 && "pointer-events-none opacity-50")}
+                  />
+                </PaginationItem>
+                {[...Array(pageCount)].map((_, index) => (
+                  <PaginationItem key={index}>
+                    <PaginationLink 
+                      onClick={() => handlePageChange(index + 1)}
+                      isActive={page === index + 1}
+                    >
+                      {index + 1}
+                    </PaginationLink>
+                  </PaginationItem>
+                ))}
+                <PaginationItem>
+                  <PaginationNext 
+                    onClick={() => handlePageChange(page + 1)} 
+                    className={cn(page === pageCount && "pointer-events-none opacity-50")}
+                  />
+                </PaginationItem>
+              </PaginationContent>
+          </Pagination>
         </CardContent>
       </Card>
       
-      {/* Modal para Adicionar/Remover Estoque */}
       {selectedItemForMovement && (
         <Dialog open={isMovementModalOpen} onOpenChange={setIsMovementModalOpen}>
           <DialogContent className="sm:max-w-[425px]">
@@ -1155,7 +1089,6 @@ export const Inventory: React.FC = () => {
         </Dialog>
       )}
 
-      {/* Modal para Histórico de Movimentações */}
       {selectedItemForHistory && (
         <InventoryMovementHistoryModal 
           item={selectedItemForHistory}

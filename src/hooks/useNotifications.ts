@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { differenceInDays } from 'date-fns';
 import { useMemo } from 'react';
@@ -55,6 +55,7 @@ export const useEquipmentAlerts = () => {
         };
       });
     },
+    enabled: !!authState.user, // A consulta só é ativada se houver um utilizador logado
     refetchInterval: 60000, // Atualiza a cada 1 minuto
   });
 };
@@ -89,6 +90,7 @@ export const useInventoryAlerts = () => {
         };
       });
     },
+    enabled: !!authState.user, // A consulta só é ativada se houver um utilizador logado
     refetchInterval: 60000, // Atualiza a cada 1 minuto
   });
 };

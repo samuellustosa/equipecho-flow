@@ -22,9 +22,11 @@ export interface InventoryItem {
   };
 }
 
-export const useInventory = () => {
+// Modificado para suportar paginação
+export const useInventory = (limit: number = 10, offset: number = 0) => {
+  const { authState } = useAuth();
   return useQuery({
-    queryKey: ['inventory'],
+    queryKey: ['inventory', { limit, offset }],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('inventory')
@@ -33,11 +35,30 @@ export const useInventory = () => {
           categories (name),
           locations (name)
         `)
-        .order('name');
+        .order('name')
+        .range(offset, offset + limit - 1); // Aplicando a paginação
 
       if (error) throw error;
       return data as InventoryItem[];
-    }
+    },
+    enabled: !!authState.user, // A consulta só é ativada se houver um utilizador logado
+  });
+};
+
+// NOVO: Hook para obter a contagem total de itens do inventário
+export const useInventoryCount = () => {
+  const { authState } = useAuth();
+  return useQuery({
+    queryKey: ['inventoryCount'],
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from('inventory')
+        .select('*', { count: 'exact', head: true });
+
+      if (error) throw error;
+      return count as number;
+    },
+    enabled: !!authState.user, // A consulta só é ativada se houver um utilizador logado
   });
 };
 
@@ -57,6 +78,7 @@ export const useCreateInventoryItem = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['inventory'] });
+      queryClient.invalidateQueries({ queryKey: ['inventoryCount'] });
       queryClient.invalidateQueries({ queryKey: ['inventoryAlerts'] });
     }
   });
@@ -99,6 +121,7 @@ export const useDeleteInventoryItem = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['inventory'] });
+      queryClient.invalidateQueries({ queryKey: ['inventoryCount'] });
       queryClient.invalidateQueries({ queryKey: ['inventoryAlerts'] });
     }
   });

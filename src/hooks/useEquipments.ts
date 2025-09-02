@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from './useAuth';
 
 export interface Equipment {
   id: string;
@@ -23,9 +24,11 @@ export interface Equipment {
   };
 }
 
-export const useEquipments = () => {
+// Modificado para suportar paginação
+export const useEquipments = (limit: number = 10, offset: number = 0) => {
+  const { authState } = useAuth();
   return useQuery({
-    queryKey: ['equipments'],
+    queryKey: ['equipments', { limit, offset }],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('equipments')
@@ -34,11 +37,30 @@ export const useEquipments = () => {
           sectors (name),
           responsibles (name)
         `)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .range(offset, offset + limit - 1); // Aplicando a paginação
 
       if (error) throw error;
       return data as Equipment[];
-    }
+    },
+    enabled: !!authState.user, // A consulta só é ativada se houver um utilizador logado
+  });
+};
+
+// NOVO: Hook para obter a contagem total de equipamentos
+export const useEquipmentsCount = () => {
+  const { authState } = useAuth();
+  return useQuery({
+    queryKey: ['equipmentsCount'],
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from('equipments')
+        .select('*', { count: 'exact', head: true });
+        
+      if (error) throw error;
+      return count as number;
+    },
+    enabled: !!authState.user, // A consulta só é ativada se houver um utilizador logado
   });
 };
 
@@ -58,7 +80,8 @@ export const useCreateEquipment = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['equipments'] });
-      queryClient.invalidateQueries({ queryKey: ['equipmentAlerts'] }); //
+      queryClient.invalidateQueries({ queryKey: ['equipmentsCount'] });
+      queryClient.invalidateQueries({ queryKey: ['equipmentAlerts'] });
     }
   });
 };
@@ -80,7 +103,7 @@ export const useUpdateEquipment = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['equipments'] });
-      queryClient.invalidateQueries({ queryKey: ['equipmentAlerts'] }); //
+      queryClient.invalidateQueries({ queryKey: ['equipmentAlerts'] });
     }
   });
 };
@@ -99,7 +122,8 @@ export const useDeleteEquipment = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['equipments'] });
-      queryClient.invalidateQueries({ queryKey: ['equipmentAlerts'] }); //
+      queryClient.invalidateQueries({ queryKey: ['equipmentsCount'] });
+      queryClient.invalidateQueries({ queryKey: ['equipmentAlerts'] });
     }
   });
 };
