@@ -635,15 +635,15 @@ export const Inventory: React.FC = () => {
                     control={form.control}
                     name="description"
                     render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Descrição</FormLabel>
-                          <FormControl>
-                            <Textarea placeholder="Descrição detalhada do item" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                      <FormItem>
+                        <FormLabel>Descrição</FormLabel>
+                        <FormControl>
+                          <Textarea placeholder="Descrição detalhada do item" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                   <div className="grid grid-cols-2 gap-4">
                     <FormField
                       control={form.control}
@@ -689,88 +689,87 @@ export const Inventory: React.FC = () => {
                               <DialogContent className="sm:max-w-[425px]">
                                 <DialogHeader>
                                   <DialogTitle>Gerenciar Localizações</DialogTitle>
-                                    <DialogDescription>
-                                      Crie ou exclua localizações para o inventário.
-                                    </DialogDescription>
-                                  </DialogHeader>
-                                  <div className="flex gap-2 mb-4">
-                                    <Input
-                                      placeholder="Nova localização"
-                                      value={newLocationName}
-                                      onChange={(e) => setNewLocationName(e.target.value)}
-                                    />
-                                    <Button
-                                      onClick={handleCreateLocation}
-                                      disabled={!newLocationName || isCreatingLocation}
-                                    >
-                                      {isCreatingLocation ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-                                    </Button>
-                                  </div>
-                                  <div className="max-h-[300px] overflow-y-auto">
-                                    {locations.length > 0 ? (
-                                      <ul className="space-y-2">
-                                        {locations.map((location) => (
-                                          <li key={location.id} className="flex items-center justify-between p-2 border rounded-md">
-                                            <span>{location.name}</span>
-                                            <AlertDialog>
-                                              <AlertDialogTrigger asChild>
-                                                <Button variant="ghost" size="sm" className="text-destructive">
-                                                  <Trash2 className="h-4 w-4" />
-                                                </Button>
-                                              </AlertDialogTrigger>
-                                              <AlertDialogContent>
-                                                <AlertDialogHeader>
-                                                  <AlertDialogTitle>Excluir Localização?</AlertDialogTitle>
-                                                  <AlertDialogDescription>
-                                                    Esta ação é irreversível. Todos os itens de inventário associados a esta localização terão seu campo de localização removido.
-                                                  </AlertDialogDescription>
-                                                </AlertDialogHeader>
-                                                <AlertDialogFooter>
-                                                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                                  <AlertDialogAction
-                                                    onClick={() => handleDeleteLocation(location.id)}
-                                                    disabled={isDeletingLocation}
-                                                  >
-                                                    {isDeletingLocation ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Excluir'}
-                                                  </AlertDialogAction>
-                                                </AlertDialogFooter>
-                                              </AlertDialogContent>
-                                            </AlertDialog>
-                                          </li>
-                                        ))}
-                                      </ul>
-                                    ) : (
-                                      <p className="text-center text-muted-foreground">Nenhuma localização encontrada.</p>
-                                    )}
-                                  </div>
-                                  <DialogFooter>
-                                    <DialogClose asChild>
-                                      <Button type="button" variant="outline">Fechar</Button>
-                                    </DialogClose>
-                                  </DialogFooter>
-                                </DialogContent>
-                              </Dialog>
-                            )}
-                          </div>
-                          <Select onValueChange={field.onChange} value={field.value || ""}>
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Selecione uma localização" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              {locations.map((location) => (
-                                <SelectItem key={location.id} value={location.id}>
-                                  {location.name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
+                                  <DialogDescription>
+                                    Crie ou exclua localizações para o inventário.
+                                  </DialogDescription>
+                                </DialogHeader>
+                                <div className="flex gap-2 mb-4">
+                                  <Input
+                                    placeholder="Nova localização"
+                                    value={newLocationName}
+                                    onChange={(e) => setNewLocationName(e.target.value)}
+                                  />
+                                  <Button
+                                    onClick={handleCreateLocation}
+                                    disabled={!newLocationName || isCreatingLocation}
+                                  >
+                                    {isCreatingLocation ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                                  </Button>
+                                </div>
+                                <div className="max-h-[300px] overflow-y-auto">
+                                  {locations.length > 0 ? (
+                                    <ul className="space-y-2">
+                                      {locations.map((location) => (
+                                        <li key={location.id} className="flex items-center justify-between p-2 border rounded-md">
+                                          <span>{location.name}</span>
+                                          <AlertDialog>
+                                            <AlertDialogTrigger asChild>
+                                              <Button variant="ghost" size="sm" className="text-destructive">
+                                                <Trash2 className="h-4 w-4" />
+                                              </Button>
+                                            </AlertDialogTrigger>
+                                            <AlertDialogContent>
+                                              <AlertDialogHeader>
+                                                <AlertDialogTitle>Excluir Localização?</AlertDialogTitle>
+                                                <AlertDialogDescription>
+                                                  Esta ação é irreversível. Todos os itens de inventário associados a esta localização terão seu campo de localização removido.
+                                                </AlertDialogDescription>
+                                              </AlertDialogHeader>
+                                              <AlertDialogFooter>
+                                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                                <AlertDialogAction
+                                                  onClick={() => handleDeleteLocation(location.id)}
+                                                  disabled={isDeletingLocation}
+                                                >
+                                                  {isDeletingLocation ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Excluir'}
+                                                </AlertDialogAction>
+                                              </AlertDialogFooter>
+                                            </AlertDialogContent>
+                                          </AlertDialog>
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  ) : (
+                                    <p className="text-center text-muted-foreground">Nenhuma localização encontrada.</p>
+                                  )}
+                                </div>
+                                <DialogFooter>
+                                  <DialogClose asChild>
+                                    <Button type="button" variant="outline">Fechar</Button>
+                                  </DialogClose>
+                                </DialogFooter>
+                              </DialogContent>
+                            </Dialog>
+                          )}
+                        </div>
+                        <Select onValueChange={field.onChange} value={field.value || ""}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecione uma localização" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {locations.map((location) => (
+                              <SelectItem key={location.id} value={location.id}>
+                                {location.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                   <DialogFooter>
                     <DialogClose asChild>
                       <Button type="button" variant="outline">
