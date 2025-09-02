@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Lock, Mail, User } from 'lucide-react';
+import { ThemeToggle } from '@/components/ThemeToggle';
 
 export const Auth: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
@@ -57,6 +58,9 @@ export const Auth: React.FC = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 via-background to-accent/5 p-4">
+      <div className="absolute top-4 right-4">
+        <ThemeToggle />
+      </div>
       <Card className="shadow-card w-full max-w-md">
         <CardHeader className="text-center space-y-2">
           <div className="mx-auto h-12 w-12 rounded-xl gradient-primary flex items-center justify-center mb-4">
