@@ -13,6 +13,7 @@ import { z } from 'zod';
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -50,7 +51,7 @@ type ProfileFormValues = z.infer<typeof profileFormSchema>;
 type PasswordFormValues = z.infer<typeof passwordFormSchema>;
 
 export const Settings: React.FC = () => {
-  const { authState, updatePassword, refetchUserProfile } = useAuth();
+  const { authState, updatePassword, setAuthUser } = useAuth();
   const { mutate: updateUserProfile, isPending: isUpdatingProfile } = useUpdateUser();
   const [isUpdatingPassword, setIsUpdatingPassword] = React.useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -97,11 +98,16 @@ export const Settings: React.FC = () => {
       name: newName,
       email: values.email,
     };
+    
+    // Remove o email da atualização se o usuário não for admin
+    if (authState.user.role !== 'admin') {
+      delete updatedData.email;
+    }
 
     updateUserProfile(updatedData as any, {
       onSuccess: () => {
         toast({ title: "Perfil atualizado com sucesso!" });
-        refetchUserProfile();
+        setAuthUser(updatedData);
       },
       onError: (err: any) => {
         toast({ title: "Erro ao atualizar perfil", description: err.message, variant: "destructive" });
@@ -110,23 +116,22 @@ export const Settings: React.FC = () => {
   };
 
   const onPasswordSubmit = async (values: PasswordFormValues) => {
-    setIsUpdatingPassword(true);
-    try {
-      await updatePassword(values.newPassword);
-      toast({ title: "Senha alterada com sucesso!" });
-      passwordForm.reset();
-    } catch (error: any) {
-      toast({ title: "Erro ao alterar senha", description: error.message, variant: "destructive" });
-    } finally {
-      setIsUpdatingPassword(false);
-    }
+      setIsUpdatingPassword(true);
+      try {
+        await updatePassword(values.newPassword);
+        toast({ title: "Senha alterada com sucesso!" });
+        passwordForm.reset();
+      } catch (error: any) {
+        toast({ title: "Erro ao alterar senha", description: error.message, variant: "destructive" });
+      } finally {
+        setIsUpdatingPassword(false);
+      }
   };
 
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file || !authState.user) return;
 
-    // Validação de tipo de arquivo
     const acceptedTypes = ['image/jpeg', 'image/png', 'image/gif'];
     if (!acceptedTypes.includes(file.type)) {
       toast({
@@ -137,8 +142,7 @@ export const Settings: React.FC = () => {
       return;
     }
 
-    // Validação de tamanho do arquivo (1MB = 1048576 bytes)
-    const maxSize = 1048576;
+    const maxSize = 1048576; // 1MB
     if (file.size > maxSize) {
       toast({
         title: "Erro de upload",
@@ -153,15 +157,15 @@ export const Settings: React.FC = () => {
     const filePath = `avatars/${fileName}`;
     
     try {
-      const { data, error } = await supabase.storage
+      const { error: uploadError } = await supabase.storage
         .from('avatars')
         .upload(filePath, file, {
           cacheControl: '3600',
           upsert: true,
         });
 
-      if (error) {
-        throw error;
+      if (uploadError) {
+        throw uploadError;
       }
       
       const { data: publicUrlData } = supabase.storage
@@ -169,10 +173,11 @@ export const Settings: React.FC = () => {
         .getPublicUrl(filePath);
 
       if (publicUrlData) {
-        updateUserProfile({ id: authState.user.id, avatar_url: publicUrlData.publicUrl }, {
+        const newAvatarUrl = `${publicUrlData.publicUrl}?t=${Date.now()}`;
+        
+        updateUserProfile({ id: authState.user.id, avatar_url: newAvatarUrl }, {
           onSuccess: () => {
-            // Chama a nova função para re-obter o perfil após a atualização
-            refetchUserProfile();
+            setAuthUser({ avatar_url: newAvatarUrl });
             toast({ title: "Foto de perfil atualizada com sucesso!" });
           },
           onError: (err: any) => {
@@ -283,9 +288,19 @@ export const Settings: React.FC = () => {
                         <FormControl>
                           <div className="relative">
                             <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                            <Input type="email" placeholder="seu@email.com" className="pl-10" {...field} />
+                            <Input 
+                              type="email" 
+                              placeholder="seu@email.com" 
+                              className="pl-10" 
+                              disabled={authState.user?.role !== 'admin'}
+                              {...field} />
                           </div>
                         </FormControl>
+                        {authState.user?.role !== 'admin' && (
+                          <FormDescription>
+                            Seu email é controlado pelo seu administrador. Caso haja dúvidas, contate o suporte.
+                          </FormDescription>
+                        )}
                         <FormMessage />
                       </FormItem>
                     )}

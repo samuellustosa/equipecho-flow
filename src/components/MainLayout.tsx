@@ -2,7 +2,7 @@ import React from 'react';
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { useAuth } from "@/hooks/useAuth";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Bell, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,6 +15,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const { authState } = useAuth();
 
   const getUserInitials = (name: string) => {
+    if (!name) return '';
     return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
   };
 
@@ -50,9 +51,13 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                       </p>
                     </div>
                     <Avatar className="h-8 w-8">
-                      <AvatarFallback className="text-xs">
-                        {getUserInitials(authState.user.name)}
-                      </AvatarFallback>
+                      {authState.user.avatar_url ? (
+                        <AvatarImage src={authState.user.avatar_url} />
+                      ) : (
+                        <AvatarFallback className="text-xs">
+                          {getUserInitials(authState.user.name)}
+                        </AvatarFallback>
+                      )}
                     </Avatar>
                   </div>
                 )}

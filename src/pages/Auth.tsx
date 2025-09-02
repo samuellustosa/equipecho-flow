@@ -19,8 +19,8 @@ export const Auth: React.FC = () => {
 
   // Redirect if already authenticated
   if (authState.isAuthenticated) {
-    const from = location.state?.from?.pathname || '/';
-    return <Navigate to={from} replace />;
+    // Redireciona sempre para o dashboard, independentemente da rota anterior.
+    return <Navigate to="/" replace />;
   }
 
   const handleLogin = async (data: { email: string; password: string }) => {

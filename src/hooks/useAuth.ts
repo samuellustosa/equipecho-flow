@@ -26,7 +26,7 @@ const AuthContext = createContext<{
   logout: () => void;
   signUp: (email: string, password: string, name: string) => Promise<void>;
   updatePassword: (password: string) => Promise<void>;
-  refetchUserProfile: () => void;
+  setAuthUser: (updates: Partial<User>) => void;
 } | null>(null);
 
 export const useAuth = () => {
@@ -57,7 +57,7 @@ export const useAuthProvider = () => {
       if (profile) {
         setAuthState(prev => ({
           ...prev,
-          user: profile
+          user: profile as User
         }));
       }
     } catch (error) {
@@ -79,11 +79,8 @@ export const useAuthProvider = () => {
           isLoading: false
         }));
         
-        // Defer profile fetching to avoid deadlock
         if (session?.user) {
-          setTimeout(() => {
-            fetchUserProfile(session.user.id);
-          }, 0);
+          fetchUserProfile(session.user.id);
         } else {
           setAuthState(prev => ({
             ...prev,
@@ -99,7 +96,7 @@ export const useAuthProvider = () => {
     // Check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
-        // Will trigger the onAuthStateChange callback
+        fetchUserProfile(session.user.id);
       } else {
         setAuthState({
           user: null,
@@ -176,12 +173,13 @@ export const useAuthProvider = () => {
       throw new Error(error.message);
     }
   };
-  
-  // Nova função para re-obter o perfil do usuário
-  const refetchUserProfile = () => {
-      if (authState.user) {
-          fetchUserProfile(authState.user.id);
-      }
+
+  // Nova função para atualizar o estado do usuário
+  const setAuthUser = (updates: Partial<User>) => {
+    setAuthState(prev => ({
+      ...prev,
+      user: prev.user ? { ...prev.user, ...updates } : prev.user,
+    }));
   };
 
   return {
@@ -190,7 +188,7 @@ export const useAuthProvider = () => {
     signUp,
     logout,
     updatePassword,
-    refetchUserProfile
+    setAuthUser
   };
 };
 

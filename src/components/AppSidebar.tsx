@@ -24,7 +24,7 @@ import {
   SidebarFooter,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 
 const navigationItems = [
@@ -87,6 +87,7 @@ export function AppSidebar() {
   };
 
   const getUserInitials = (name: string) => {
+    if (!name) return '';
     return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
   };
 
@@ -145,9 +146,13 @@ export function AppSidebar() {
           <div className="space-y-3">
             <div className="flex items-center gap-3">
               <Avatar className="h-8 w-8">
-                <AvatarFallback className="text-xs">
-                  {getUserInitials(authState.user.name)}
-                </AvatarFallback>
+                {authState.user.avatar_url ? (
+                  <AvatarImage src={authState.user.avatar_url} />
+                ) : (
+                  <AvatarFallback className="text-xs">
+                    {getUserInitials(authState.user.name)}
+                  </AvatarFallback>
+                )}
               </Avatar>
               {!isCollapsed && (
                 <div className="flex-1 min-w-0">
