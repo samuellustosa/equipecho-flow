@@ -70,7 +70,11 @@ const formSchema = z.object({
   role: z.enum(['admin', 'manager', 'user'], {
     required_error: "A função é obrigatória."
   }),
-  password: z.string().min(8, "A senha deve ter pelo menos 8 caracteres.").optional(),
+  // 🔧 Senha opcional na edição (permite string vazia), mas vamos exigir manualmente no cadastro
+  password: z.string()
+    .min(8, "A senha deve ter pelo menos 8 caracteres.")
+    .optional()
+    .or(z.literal("")),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -181,28 +185,37 @@ export const Users: React.FC = () => {
   };
 
   const onSubmit = (values: FormValues) => {
+    console.log('A função onSubmit foi chamada com os valores:', values);
+
     if (editingUser) {
-      // Cria uma cópia dos valores e remove a senha antes de enviar para a API
-      const updatedValues = { ...values };
-      delete updatedValues.password;
+      // Atualização: só envia a senha se tiver sido preenchida
+      const updatedValues: any = { ...values };
+      if (!updatedValues.password) {
+        delete updatedValues.password;
+      }
 
       updateUser({ id: editingUser.id, ...updatedValues }, {
         onSuccess: () => {
           toast({ title: "Usuário atualizado com sucesso!" });
           setIsModalOpen(false);
         },
-        onError: (err) => {
+        onError: (err: any) => {
           toast({ title: "Erro ao atualizar usuário", description: err.message, variant: "destructive" });
         }
       });
     } else {
-      // Lógica para criar um novo usuário (a senha é obrigatória neste caso)
+      // Criação: senha obrigatória
+      if (!values.password) {
+        toast({ title: "Erro", description: "A senha é obrigatória ao criar um usuário.", variant: "destructive" });
+        return;
+      }
+
       createUser(values as { email: string; password: string; name: string; role: 'admin' | 'manager' | 'user' }, {
         onSuccess: () => {
           toast({ title: "Usuário criado com sucesso!" });
           setIsModalOpen(false);
         },
-        onError: (err) => {
+        onError: (err: any) => {
           toast({ title: "Erro ao criar usuário", description: err.message, variant: "destructive" });
         }
       });
@@ -214,11 +227,13 @@ export const Users: React.FC = () => {
       onSuccess: () => {
         toast({ title: "Usuário excluído com sucesso!" });
       },
-      onError: (err) => {
+      onError: (err: any) => {
         toast({ title: "Erro ao excluir usuário", description: err.message, variant: "destructive" });
       }
     });
   };
+
+
 
   if (isLoading) {
     return (
