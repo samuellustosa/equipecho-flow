@@ -1,3 +1,4 @@
+// src/hooks/useAuth.ts
 import { useState, useEffect, createContext, useContext } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import type { User as SupabaseUser, Session } from '@supabase/supabase-js';
@@ -10,6 +11,7 @@ export interface User {
   role: 'admin' | 'manager' | 'user';
   avatar_url?: string;
   created_at: string;
+  updated_at: string;
 }
 
 export interface AuthState {
@@ -25,7 +27,6 @@ const AuthContext = createContext<{
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
   signUp: (email: string, password: string, name: string) => Promise<void>;
-  updatePassword: (password: string) => Promise<void>;
   setAuthUser: (updates: Partial<User>) => void;
 } | null>(null);
 
@@ -61,7 +62,7 @@ export const useAuthProvider = () => {
         }));
       }
     } catch (error) {
-      console.error('Error fetching user profile:', error);
+      //console.error('Error fetching user profile:', error);
     }
   };
 
@@ -69,7 +70,7 @@ export const useAuthProvider = () => {
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
-        console.log('Auth state changed:', event, session);
+        //console.log('Auth state changed:', event, session);
         
         // Only update session state synchronously
         setAuthState(prev => ({
@@ -166,14 +167,6 @@ export const useAuthProvider = () => {
     await supabase.auth.signOut();
   };
 
-  // Funcao para mudar a senha do usuário.
-  const updatePassword = async (password: string) => {
-    const { error } = await supabase.auth.updateUser({ password });
-    if (error) {
-      throw new Error(error.message);
-    }
-  };
-
   // Nova função para atualizar o estado do usuário
   const setAuthUser = (updates: Partial<User>) => {
     setAuthState(prev => ({
@@ -187,7 +180,6 @@ export const useAuthProvider = () => {
     login,
     signUp,
     logout,
-    updatePassword,
     setAuthUser
   };
 };

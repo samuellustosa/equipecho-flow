@@ -7,8 +7,6 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "13.0.4"
   }
@@ -94,6 +92,57 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      faqs: {
+        Row: {
+          id: string
+          question: string
+          answer: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          question: string
+          answer: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          question?: string
+          answer?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      announcements: {
+        Row: {
+          id: string
+          message: string
+          type: Database["public"]["Enums"]["announcement_type"]
+          is_active: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          message: string
+          type: Database["public"]["Enums"]["announcement_type"]
+          is_active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          message?: string
+          type?: Database["public"]["Enums"]["announcement_type"]
+          is_active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       inventory: {
         Row: {
@@ -192,9 +241,9 @@ export type Database = {
         Update: {
           avatar_url?: string | null
           created_at?: string
-          email?: string
           id?: string
           name?: string
+          email?: string
           role?: Database["public"]["Enums"]["user_role"]
           updated_at?: string
         }
@@ -276,6 +325,7 @@ export type Database = {
       equipment_status: "operacional" | "manutencao" | "parado"
       inventory_status: "normal" | "baixo" | "critico"
       user_role: "admin" | "manager" | "user"
+      announcement_type: "info" | "warning" | "danger" | "success"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -406,6 +456,7 @@ export const Constants = {
       equipment_status: ["operacional", "manutencao", "parado"],
       inventory_status: ["normal", "baixo", "critico"],
       user_role: ["admin", "manager", "user"],
+      announcement_type: ["info", "warning", "danger", "success"],
     },
   },
 } as const

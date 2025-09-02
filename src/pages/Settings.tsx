@@ -30,7 +30,18 @@ import {
   Save,
   Mail,
   Loader2,
+  Phone,
+  MessageSquare,
 } from 'lucide-react';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+import { Link } from 'react-router-dom';
+import packageJson from '../../package.json';
+import { useFaqs } from '@/hooks/useFaqs';
 
 const profileFormSchema = z.object({
   firstName: z.string().min(2, "O nome deve ter pelo menos 2 caracteres."),
@@ -51,7 +62,9 @@ type ProfileFormValues = z.infer<typeof profileFormSchema>;
 type PasswordFormValues = z.infer<typeof passwordFormSchema>;
 
 export const Settings: React.FC = () => {
-  const { authState, updatePassword, setAuthUser } = useAuth();
+  const { authState, setAuthUser } = useAuth();
+  // Busca apenas as primeiras 5 FAQs para a página de configurações
+  const { data: faqs = [], isLoading: faqsLoading } = useFaqs(5);
   const { mutate: updateUserProfile, isPending: isUpdatingProfile } = useUpdateUser();
   const [isUpdatingPassword, setIsUpdatingPassword] = React.useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -118,14 +131,51 @@ export const Settings: React.FC = () => {
   const onPasswordSubmit = async (values: PasswordFormValues) => {
       setIsUpdatingPassword(true);
       try {
-        await updatePassword(values.newPassword);
+        if (!authState.user?.email) {
+          throw new Error('Email do usuário não disponível.');
+        }
+
+        // Tenta reautenticar o usuário com a senha atual para validação
+        const { error: loginError } = await supabase.auth.signInWithPassword({
+            email: authState.user.email,
+            password: values.currentPassword,
+        });
+
+        if (loginError) {
+            throw new Error('A senha atual está incorreta.');
+        }
+
+        // Se a reautenticação for bem-sucedida, atualiza a senha
+        const { error: updateError } = await supabase.auth.updateUser({ password: values.newPassword });
+
+        if (updateError) {
+            throw new Error(updateError.message);
+        }
+
         toast({ title: "Senha alterada com sucesso!" });
         passwordForm.reset();
+
       } catch (error: any) {
-        toast({ title: "Erro ao alterar senha", description: error.message, variant: "destructive" });
+        toast({
+            title: "Erro ao alterar senha",
+            description: error.message,
+            variant: "destructive"
+        });
       } finally {
         setIsUpdatingPassword(false);
       }
+  };
+  
+  const handleWhatsappSupport = () => {
+    const phoneNumber = "5586988582431";
+    const userName = authState.user?.name || "Usuário não identificado";
+    const userEmail = authState.user?.email || "Email não disponível";
+    
+    const message = `Olá, sou ${userName} (${userEmail}) e preciso de ajuda com o EquipEcho.`;
+    const encodedMessage = encodeURIComponent(message);
+    const whatsappUrl = `https://wa.me/${phoneNumber}?text=${encodedMessage}`;
+    
+    window.open(whatsappUrl, '_blank');
   };
 
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -142,7 +192,7 @@ export const Settings: React.FC = () => {
       return;
     }
 
-    const maxSize = 1048576; // 1MB
+    const maxSize = 1048576;
     if (file.size > maxSize) {
       toast({
         title: "Erro de upload",
@@ -461,15 +511,13 @@ export const Settings: React.FC = () => {
               <div className="space-y-3">
                 <div className="flex justify-between">
                   <span className="text-sm text-muted-foreground">Versão:</span>
-                  <span className="text-sm font-medium">1.2.5</span>
+                  <span className="text-sm font-medium">{packageJson.version}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-sm text-muted-foreground">Última Atualização:</span>
-                  <span className="text-sm font-medium">15/01/2024</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-sm text-muted-foreground">Licença:</span>
-                  <span className="text-sm font-medium">Enterprise</span>
+                  <span className="text-sm font-medium">
+                    {authState.user?.updated_at ? new Date(authState.user.updated_at).toLocaleDateString('pt-BR') : 'N/A'}
+                  </span>
                 </div>
                 <Separator />
                 <div className="space-y-2">
@@ -484,22 +532,52 @@ export const Settings: React.FC = () => {
             </CardContent>
           </Card>
 
+          {/* Help Center and Support */}
           <Card className="shadow-card">
             <CardHeader>
-              <CardTitle>Suporte</CardTitle>
+              <CardTitle>Central de Ajuda</CardTitle>
               <CardDescription>
-                Precisa de ajuda? Entre em contato
+                Encontre respostas para as suas dúvidas ou contate o suporte.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <Button variant="outline" className="w-full">
-                <Mail className="h-4 w-4 mr-2" />
+              {faqsLoading ? (
+                <div className="animate-pulse space-y-4">
+                  {[...Array(3)].map((_, i) => (
+                    <div key={i} className="h-12 bg-muted rounded"></div>
+                  ))}
+                </div>
+              ) : (
+                <Accordion type="single" collapsible className="w-full">
+                  {faqs.length > 0 ? faqs.map((item) => (
+                    <AccordionItem value={`item-${item.id}`} key={item.id}>
+                      <AccordionTrigger className="text-left font-medium hover:no-underline">
+                        {item.question}
+                      </AccordionTrigger>
+                      <AccordionContent className="text-sm text-muted-foreground">
+                        {item.answer}
+                      </AccordionContent>
+                    </AccordionItem>
+                  )) : (
+                    <p className="text-center text-muted-foreground">Nenhuma FAQ encontrada.</p>
+                  )}
+                </Accordion>
+              )}
+
+              {faqs && faqs.length > 0 && (
+                <Link to="/help-center">
+                  <Button variant="outline" className="w-full mt-4">
+                    Ver Mais FAQs
+                  </Button>
+                </Link>
+              )}
+
+              <Button onClick={handleWhatsappSupport} className="w-full gradient-success text-success-foreground hover:bg-success/90">
+                <MessageSquare className="h-4 w-4 mr-2" />
                 Contatar Suporte
               </Button>
-              <Button variant="outline" className="w-full">
-                <Monitor className="h-4 w-4 mr-2" />
-                Central de Ajuda
-              </Button>
+              
+
             </CardContent>
           </Card>
         </div>

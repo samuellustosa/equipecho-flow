@@ -6,7 +6,9 @@ import {
   Users, 
   Settings,
   LogOut,
-  ChevronRight
+  ChevronRight,
+  HelpCircle,
+  Megaphone,
 } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
@@ -57,6 +59,18 @@ const navigationItems = [
     url: "/settings", 
     icon: Settings,
     allowedRoles: ['admin', 'manager', 'user']
+  },
+  { 
+    title: "FAQs", 
+    url: "/faqs", 
+    icon: HelpCircle,
+    allowedRoles: ['admin']
+  },
+  { 
+    title: "Avisos", 
+    url: "/announcements", 
+    icon: Megaphone,
+    allowedRoles: ['admin']
   },
 ];
 
