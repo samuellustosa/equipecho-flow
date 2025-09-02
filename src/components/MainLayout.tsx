@@ -1,11 +1,11 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import { Outlet } from "react-router-dom";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Bell, Package, Wrench, AlertTriangle, CalendarClock, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth, useUpdateUserNotifications } from '@/hooks/useAuth';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './ui/card';
 import { useEquipmentAlerts, useInventoryAlerts } from '@/hooks/useNotifications';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
@@ -17,33 +17,37 @@ export const MainLayout: React.FC = () => {
   const { authState } = useAuth();
   const { data: equipmentAlerts = [] } = useEquipmentAlerts();
   const { data: inventoryAlerts = [] } = useInventoryAlerts();
-  const [isPopoverOpen, setIsPopoverOpen] = useState(false);
-  const [readAlertsIds, setReadAlertsIds] = useState<string[]>([]);
   
+  // Usamos o estado do usuário do authState para persistir o estado das notificações lidas
+  const readAlertsIdsFromProfile = authState.user?.read_notification_ids || [];
+  
+  const { mutate: updateUserNotifications } = useUpdateUserNotifications();
+
   const allAlerts = useMemo(() => {
     return [...equipmentAlerts, ...inventoryAlerts];
   }, [equipmentAlerts, inventoryAlerts]);
 
-  // Atualiza a lista de IDs de alertas lidos quando o popover é aberto.
+  // Ação para marcar todos os alertas como lidos quando o popover é fechado.
   const handleOpenChange = (newOpenState: boolean) => {
-    setIsPopoverOpen(newOpenState);
-    if (newOpenState) {
-      setReadAlertsIds(allAlerts.map(alert => alert.id));
+    // A mutação só é chamada quando o popover está sendo fechado
+    if (!newOpenState) {
+      const allAlertsIds = allAlerts.map(alert => alert.id);
+      updateUserNotifications(allAlertsIds);
     }
   };
   
   // Calcula o número de alertas não lidos
   const totalUnreadAlerts = useMemo(() => {
-    return allAlerts.filter(alert => !readAlertsIds.includes(alert.id)).length;
-  }, [allAlerts, readAlertsIds]);
+    return allAlerts.filter(alert => !readAlertsIdsFromProfile.includes(alert.id)).length;
+  }, [allAlerts, readAlertsIdsFromProfile]);
 
   const unreadEquipmentAlerts = useMemo(() => {
-    return equipmentAlerts.filter(alert => !readAlertsIds.includes(alert.id));
-  }, [equipmentAlerts, readAlertsIds]);
+    return equipmentAlerts.filter(alert => !readAlertsIdsFromProfile.includes(alert.id));
+  }, [equipmentAlerts, readAlertsIdsFromProfile]);
 
   const unreadInventoryAlerts = useMemo(() => {
-    return inventoryAlerts.filter(alert => !readAlertsIds.includes(alert.id));
-  }, [inventoryAlerts, readAlertsIds]);
+    return inventoryAlerts.filter(alert => !readAlertsIdsFromProfile.includes(alert.id));
+  }, [inventoryAlerts, readAlertsIdsFromProfile]);
   
 
   const getUserInitials = (name: string) => {
@@ -66,7 +70,7 @@ export const MainLayout: React.FC = () => {
 
               <div className="flex items-center gap-4">
                 {/* Notifications */}
-                <Popover open={isPopoverOpen} onOpenChange={handleOpenChange}>
+                <Popover onOpenChange={handleOpenChange}>
                   <PopoverTrigger asChild>
                     <Button variant="ghost" size="sm" className="relative">
                       <Bell className="h-4 w-4" />
@@ -91,39 +95,44 @@ export const MainLayout: React.FC = () => {
                     <ScrollArea className="h-72">
                       <CardContent className="p-4">
                         <div className="flex flex-col gap-3">
-                          {totalUnreadAlerts > 0 ? (
+                          {allAlerts.length > 0 ? (
                             <>
-                              {unreadEquipmentAlerts.length > 0 && (
+                              {/* Alertas de Equipamentos */}
+                              {equipmentAlerts.length > 0 && (
                                 <>
                                   <h4 className="text-sm font-semibold flex items-center gap-2">
                                     <Wrench className="h-4 w-4 text-destructive" />
                                     Manutenções Vencidas
                                   </h4>
-                                  {unreadEquipmentAlerts.map(alert => (
+                                  {equipmentAlerts.map(alert => (
                                     <div key={alert.id} className="flex items-start gap-2">
                                       <CalendarClock className="h-4 w-4 mt-1 text-destructive" />
                                       <div className="flex-1 text-sm">
-                                        <p className="font-medium">{alert.name}</p>
+                                        <p className={`font-medium ${readAlertsIdsFromProfile.includes(alert.id) ? 'text-muted-foreground' : ''}`}>{alert.name}</p>
                                         <p className="text-xs text-muted-foreground">
-                                          Atrasado há {Math.abs(alert.daysUntilDue)} dias
+                                          {alert.type === 'overdue' ? `Atrasado há ${Math.abs(alert.daysUntilDue)} dias` : (alert.type === 'warning' ? `Aviso de limpeza` : 'Erro de status')}
                                         </p>
                                       </div>
                                     </div>
                                   ))}
                                 </>
                               )}
-                              {unreadInventoryAlerts.length > 0 && (
+
+                              {/* Separador condicional */}
+                              {equipmentAlerts.length > 0 && inventoryAlerts.length > 0 && <Separator className="my-2" />}
+
+                              {/* Alertas de Inventário */}
+                              {inventoryAlerts.length > 0 && (
                                 <>
-                                  {unreadEquipmentAlerts.length > 0 && <Separator className="my-2" />}
                                   <h4 className="text-sm font-semibold flex items-center gap-2">
                                     <Package className="h-4 w-4 text-warning" />
                                     Inventário
                                   </h4>
-                                  {unreadInventoryAlerts.map(alert => (
+                                  {inventoryAlerts.map(alert => (
                                     <div key={alert.id} className="flex items-start gap-2">
                                       <AlertCircle className={`h-4 w-4 mt-1 ${alert.type === 'critical' ? 'text-destructive' : 'text-warning'}`} />
                                       <div className="flex-1 text-sm">
-                                        <p className="font-medium">{alert.name}</p>
+                                        <p className={`font-medium ${readAlertsIdsFromProfile.includes(alert.id) ? 'text-muted-foreground' : ''}`}>{alert.name}</p>
                                         <p className="text-xs text-muted-foreground">
                                           {alert.type === 'critical' ? 'Estoque crítico' : 'Estoque baixo'}
                                         </p>

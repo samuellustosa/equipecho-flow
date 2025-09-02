@@ -199,9 +199,13 @@ export const useUpdateUserNotifications = () => {
     mutationFn: async (readAlertIds: string[]) => {
       if (!authState.user) throw new Error('User not authenticated');
       
+      // Concatena os novos IDs com os já existentes para evitar a perda de notificações já lidas
+      const currentReadIds = authState.user.read_notification_ids || [];
+      const newReadIds = [...new Set([...currentReadIds, ...readAlertIds])];
+      
       const { data, error } = await supabase
         .from('profiles')
-        .update({ read_notification_ids: readAlertIds })
+        .update({ read_notification_ids: newReadIds })
         .eq('id', authState.user.id)
         .select()
         .single();
@@ -210,13 +214,9 @@ export const useUpdateUserNotifications = () => {
       return data;
     },
     onSuccess: (data) => {
-      setAuthUser({ read_notification_ids: data.read_notification_ids });
-      queryClient.invalidateQueries({ queryKey: ['users'] });
-      // Adicionando um pequeno atraso para a interface atualizar
-      setTimeout(() => {
-        queryClient.invalidateQueries({ queryKey: ['equipmentAlerts'] });
-        queryClient.invalidateQueries({ queryKey: ['inventoryAlerts'] });
-      }, 500);
+      setAuthUser({ read_notification_ids: data.read_notification_ids as string[] });
+      queryClient.invalidateQueries({ queryKey: ['equipmentAlerts'] });
+      queryClient.invalidateQueries({ queryKey: ['inventoryAlerts'] });
     },
     onError: (error) => {
       toast({

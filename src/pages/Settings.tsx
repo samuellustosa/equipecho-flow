@@ -44,6 +44,7 @@ import {
 import { Link } from 'react-router-dom';
 import packageJson from '../../package.json';
 import { useFaqs } from '@/hooks/useFaqs';
+import { useQueryClient } from '@tanstack/react-query';
 
 const profileFormSchema = z.object({
   firstName: z.string().min(2, "O nome deve ter pelo menos 2 caracteres."),
@@ -70,6 +71,7 @@ export const Settings: React.FC = () => {
   const { mutate: updateUserProfile, isPending: isUpdatingProfile } = useUpdateUser();
   const [isUpdatingPassword, setIsUpdatingPassword] = React.useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const queryClient = useQueryClient();
 
   const profileForm = useForm<ProfileFormValues>({
     resolver: zodResolver(profileFormSchema),
@@ -251,6 +253,9 @@ export const Settings: React.FC = () => {
       onSuccess: () => {
         setAuthUser(updates);
         toast({ title: "Preferência de notificação atualizada com sucesso!" });
+        // Adiciona a invalidação da query para forçar o recarregamento
+        queryClient.invalidateQueries({ queryKey: ['equipmentAlerts'] });
+        queryClient.invalidateQueries({ queryKey: ['inventoryAlerts'] });
       },
       onError: (err: any) => {
         toast({ title: "Erro ao atualizar preferência", description: err.message, variant: "destructive" });
