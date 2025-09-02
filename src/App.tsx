@@ -3,7 +3,6 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { SidebarProvider } from "@/components/ui/sidebar"; // <-- Importe o SidebarProvider
 
 // Components
 import { AuthProvider } from "@/components/AuthProvider";
@@ -31,79 +30,61 @@ const App = () => (
         <Toaster />
         <Sonner />
         <BrowserRouter>
-          <SidebarProvider> {/* <-- Envolva o MainLayout com o SidebarProvider */}
-            <Routes>
-              {/* Public Routes */}
-              <Route path="/auth" element={<Auth />} />
-              
-              {/* Protected Routes */}
+          <Routes>
+            {/* Rota pública para a tela de login */}
+            <Route path="/auth" element={<Auth />} />
+            
+            {/* Rota aninhada que usa o MainLayout e o Sidebar */}
+            <Route element={<MainLayout />}>
               <Route path="/" element={
                 <ProtectedRoute>
-                  <MainLayout>
-                    <Dashboard />
-                  </MainLayout>
+                  <Dashboard />
                 </ProtectedRoute>
               } />
               
               <Route path="/equipments" element={
                 <ProtectedRoute>
-                  <MainLayout>
-                    <Equipments />
-                  </MainLayout>
+                  <Equipments />
                 </ProtectedRoute>
               } />
               
               <Route path="/inventory" element={
                 <ProtectedRoute allowedRoles={['admin', 'manager']}>
-                  <MainLayout>
-                    <Inventory />
-                  </MainLayout>
+                  <Inventory />
                 </ProtectedRoute>
               } />
               
               <Route path="/users" element={
                 <ProtectedRoute allowedRoles={['admin']}>
-                  <MainLayout>
-                    <Users />
-                  </MainLayout>
+                  <Users />
                 </ProtectedRoute>
               } />
               
               <Route path="/settings" element={
                 <ProtectedRoute>
-                  <MainLayout>
-                    <Settings />
-                  </MainLayout>
+                  <Settings />
                 </ProtectedRoute>
               } />
               
               <Route path="/faqs" element={
                 <ProtectedRoute allowedRoles={['admin']}>
-                  <MainLayout>
-                    <Faqs />
-                  </MainLayout>
+                  <Faqs />
                 </ProtectedRoute>
               } />
               
               <Route path="/announcements" element={
                 <ProtectedRoute allowedRoles={['admin']}>
-                  <MainLayout>
-                    <Announcements />
-                  </MainLayout>
+                  <Announcements />
                 </ProtectedRoute>
               } />
               
-              {/* Rota pública para a Central de Ajuda */}
-              <Route path="/help-center" element={
-                <MainLayout>
-                  <HelpCenter />
-                </MainLayout>
-              } />
-              
-              {/* Catch-all route */}
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </SidebarProvider>
+              {/* Rota pública que utiliza o layout, mas não a proteção */}
+              <Route path="/help-center" element={<HelpCenter />} />
+            </Route>
+            
+            {/* Rota para páginas não encontradas */}
+            <Route path="*" element={<NotFound />} />
+          </Routes>
         </BrowserRouter>
       </TooltipProvider>
     </AuthProvider>
