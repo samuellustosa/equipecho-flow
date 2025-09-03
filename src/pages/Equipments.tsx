@@ -93,6 +93,12 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 
 const maintenanceFormSchema = z.object({
   service_type: z.enum(['limpeza', 'reparo', 'substituicao', 'calibracao', 'inspecao', 'outro'], {
@@ -1023,208 +1029,98 @@ export const Equipments: React.FC = () => {
       </div>
 
       {isMobile ? (
-        // Layout de Carrossel para Mobile
-        <div className="py-2">
-          <Carousel className="w-full">
-            <CarouselContent>
-              <CarouselItem className="pl-4">
-                <Card className="shadow-card">
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm text-muted-foreground">Total</p>
-                        <p className="text-2xl font-bold">{stats.totalItems}</p>
-                      </div>
-                      <Settings className="h-8 w-8 text-muted-foreground" />
+        // Layout de Accordion para mobile
+        <Accordion type="single" collapsible className="w-full">
+          <AccordionItem value="item-1">
+            <AccordionTrigger className="font-semibold text-lg flex items-center gap-2">
+              <Settings className="h-5 w-5" />
+              Estatísticas do Equipamento
+            </AccordionTrigger>
+            <AccordionContent className="flex flex-col gap-2">
+              <Card className="shadow-card hover:shadow-card-hover transition-smooth">
+                <CardContent className="flex items-center justify-between p-4 py-3">
+                  <div className="flex items-center gap-3">
+                    <Settings className="h-6 w-6 text-muted-foreground" />
+                    <div>
+                      <p className="text-sm font-medium">Total</p>
+                      <p className="text-xl font-bold">{stats.totalItems}</p>
                     </div>
-                  </CardContent>
-                </Card>
-              </CarouselItem>
-              <CarouselItem className="pl-4">
-                <Card className="shadow-card">
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm text-muted-foreground">Operacionais</p>
-                        <p className="text-2xl font-bold text-success">
-                          {stats.operacionalItems}
-                        </p>
-                      </div>
-                      <Activity className="h-8 w-8 text-success" />
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className="shadow-card">
+                <CardContent className="flex items-center justify-between p-4 py-3">
+                  <div className="flex items-center gap-3">
+                    <Activity className="h-6 w-6 text-success" />
+                    <div>
+                      <p className="text-sm font-medium">Operacionais</p>
+                      <p className="text-xl font-bold text-success">
+                        {stats.operacionalItems}
+                      </p>
                     </div>
-                  </CardContent>
-                </Card>
-              </CarouselItem>
-              <CarouselItem className="pl-4">
-                <Card className="shadow-card">
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm text-muted-foreground">Em Manutenção</p>
-                        <p className="text-2xl font-bold text-warning">
-                          {stats.manutencaoItems}
-                        </p>
-                      </div>
-                      <Wrench className="h-8 w-8 text-warning" />
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className="shadow-card">
+                <CardContent className="flex items-center justify-between p-4 py-3">
+                  <div className="flex items-center gap-3">
+                    <Wrench className="h-6 w-6 text-warning" />
+                    <div>
+                      <p className="text-sm font-medium">Manutenção</p>
+                      <p className="text-xl font-bold text-warning">
+                        {stats.manutencaoItems}
+                      </p>
                     </div>
-                  </CardContent>
-                </Card>
-              </CarouselItem>
-              <CarouselItem className="pl-4">
-                <Card className="shadow-card">
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm text-muted-foreground">Parados</p>
-                        <p className="text-2xl font-bold text-destructive">
-                          {stats.paradoItems}
-                        </p>
-                      </div>
-                      <MapPin className="h-8 w-8 text-destructive" />
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className="shadow-card">
+                <CardContent className="flex items-center justify-between p-4 py-3">
+                  <div className="flex items-center gap-3">
+                    <MapPin className="h-6 w-6 text-destructive" />
+                    <div>
+                      <p className="text-sm font-medium">Parados</p>
+                      <p className="text-xl font-bold text-destructive">
+                        {stats.paradoItems}
+                      </p>
                     </div>
-                  </CardContent>
-                </Card>
-              </CarouselItem>
-              <CarouselItem className="pl-4">
-                <Card className="shadow-card">
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm text-muted-foreground">Em Aviso</p>
-                        <p className="text-2xl font-bold text-warning">
-                          {stats.warningItems}
-                        </p>
-                      </div>
-                      <Clock className="h-8 w-8 text-warning" />
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className="shadow-card">
+                <CardContent className="flex items-center justify-between p-4 py-3">
+                  <div className="flex items-center gap-3">
+                    <Clock className="h-6 w-6 text-warning" />
+                    <div>
+                      <p className="text-sm font-medium">Em Aviso</p>
+                      <p className="text-xl font-bold text-warning">
+                        {stats.warningItems}
+                      </p>
                     </div>
-                  </CardContent>
-                </Card>
-              </CarouselItem>
-              <CarouselItem className="pl-4 pr-4">
-                <Card className="shadow-card">
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm text-muted-foreground">Atrasados</p>
-                        <p className="text-2xl font-bold text-destructive">
-                          {stats.overdueItems}
-                        </p>
-                      </div>
-                      <AlertCircle className="h-8 w-8 text-destructive" />
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className="shadow-card">
+                <CardContent className="flex items-center justify-between p-4 py-3">
+                  <div className="flex items-center gap-3">
+                    <AlertCircle className="h-6 w-6 text-destructive" />
+                    <div>
+                      <p className="text-sm font-medium">Atrasados</p>
+                      <p className="text-xl font-bold text-destructive">
+                        {stats.overdueItems}
+                      </p>
                     </div>
-                  </CardContent>
-                </Card>
-              </CarouselItem>
-            </CarouselContent>
-            <CarouselPrevious />
-            <CarouselNext />
-          </Carousel>
-        </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
       ) : (
-        // Layout de Grid para Desktop
+        // Layout de Grid para Desktop (inalterado)
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
           {statCards}
         </div>
-      )}
-
-      {selectedEquipmentForMaintenance && (
-        <Dialog open={isMaintenanceModalOpen} onOpenChange={setIsMaintenanceModalOpen}>
-          <DialogContent className="sm:max-w-[600px]">
-            <DialogHeader>
-              <DialogTitle>Registrar Manutenção</DialogTitle>
-              <DialogDescription>
-                Registre uma nova manutenção para **{selectedEquipmentForMaintenance.name}**.
-              </DialogDescription>
-            </DialogHeader>
-            <Form {...maintenanceForm}>
-              <form onSubmit={maintenanceForm.handleSubmit(handleMaintenanceSubmit)} className="grid gap-4 py-4">
-                <FormField
-                  control={maintenanceForm.control}
-                  name="service_type"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Tipo de Serviço</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Selecione o tipo de serviço" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="limpeza">Limpeza</SelectItem>
-                          <SelectItem value="reparo">Reparo</SelectItem>
-                          <SelectItem value="substituicao">Substituição</SelectItem>
-                          <SelectItem value="calibracao">Calibração</SelectItem>
-                          <SelectItem value="inspecao">Inspeção</SelectItem>
-                          <SelectItem value="outro">Outro</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={maintenanceForm.control}
-                  name="performed_by_id"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Responsável</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value ?? ""}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Selecione o responsável" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {responsibles.map((responsible) => (
-                            <SelectItem key={responsible.id} value={responsible.id}>{responsible.name}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={maintenanceForm.control}
-                  name="description"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Descrição</FormLabel>
-                      <FormControl>
-                        <Textarea placeholder="Detalhes da manutenção..." {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <DialogFooter>
-                  <Button type="submit" disabled={isCreatingMaintenance} className="gradient-primary">
-                    {isCreatingMaintenance ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Salvando...
-                      </>
-                    ) : (
-                      "Salvar"
-                    )}
-                  </Button>
-                </DialogFooter>
-              </form>
-            </Form>
-          </DialogContent>
-        </Dialog>
-      )}
-
-      {selectedEquipmentForHistory && (
-          <HistoryMaintenanceModal
-              equipment={selectedEquipmentForHistory}
-              isOpen={isHistoryModalOpen}
-              onClose={() => setIsHistoryModalOpen(false)}
-          />
       )}
       
       <Card className="shadow-card">
@@ -1330,7 +1226,7 @@ export const Equipments: React.FC = () => {
       {/* Condicionalmente renderiza a tabela ou os cards */}
       {isMobile ? (
         // Layout para mobile (cards)
-        <div className="grid gap-4">
+        <div className="flex flex-col gap-4">
           {filteredEquipments.map((equipment) => {
             const daysUntilNextCleaning = getDaysUntilNextCleaning(equipment.next_cleaning);
             const isOverdue = daysUntilNextCleaning < 0;
