@@ -1,4 +1,5 @@
 import React from 'react';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -17,8 +18,16 @@ import {
   Loader2,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselPrevious,
+  CarouselNext,
+} from "@/components/ui/carousel";
 
 export const Dashboard: React.FC = () => {
+  const isMobile = useIsMobile();
   const { data: equipments = [], isLoading: equipmentsLoading } = useEquipments();
   const { data: inventory = [], isLoading: inventoryLoading } = useInventory();
   const { data: equipmentAlerts = [], isLoading: equipmentAlertsLoading } = useEquipmentAlerts();
@@ -71,68 +80,143 @@ export const Dashboard: React.FC = () => {
         </p>
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card className="shadow-card hover:shadow-card-hover transition-smooth">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Total de Equipamentos
-            </CardTitle>
-            <Wrench className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.totalEquipments}</div>
-            <p className="text-xs text-muted-foreground">
-              <span className="text-success">+12%</span> em relação ao mês anterior
-            </p>
-          </CardContent>
-        </Card>
+      {/* Stats Cards - Mobile Carousel / Desktop Grid */}
+      {isMobile ? (
+        <div className="py-2">
+          <Carousel className="w-full">
+            <CarouselContent>
+              <CarouselItem className="pl-4">
+                <Card className="shadow-card hover:shadow-card-hover transition-smooth">
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">
+                      Total de Equipamentos
+                    </CardTitle>
+                    <Wrench className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">{stats.totalEquipments}</div>
+                    <p className="text-xs text-muted-foreground">
+                      <span className="text-success">+12%</span> em relação ao mês anterior
+                    </p>
+                  </CardContent>
+                </Card>
+              </CarouselItem>
+              <CarouselItem className="pl-4">
+                <Card className="shadow-card hover:shadow-card-hover transition-smooth">
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">
+                      Equipamentos Ativos
+                    </CardTitle>
+                    <CheckCircle className="h-4 w-4 text-success" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">{stats.activeEquipments}</div>
+                    <p className="text-xs text-muted-foreground">
+                      {((stats.activeEquipments / stats.totalEquipments) * 100).toFixed(1)}% operacionais
+                    </p>
+                  </CardContent>
+                </Card>
+              </CarouselItem>
+              <CarouselItem className="pl-4">
+                <Card className="shadow-card hover:shadow-card-hover transition-smooth">
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">
+                      Manutenções Pendentes
+                    </CardTitle>
+                    <AlertTriangle className="h-4 w-4 text-warning" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">{stats.maintenanceNeeded}</div>
+                    <p className="text-xs text-muted-foreground">
+                      Requer atenção imediata
+                    </p>
+                  </CardContent>
+                </Card>
+              </CarouselItem>
+              <CarouselItem className="pl-4 pr-4">
+                <Card className="shadow-card hover:shadow-card-hover transition-smooth">
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">
+                      Itens com Estoque Baixo
+                    </CardTitle>
+                    <Package className="h-4 w-4 text-destructive" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">{stats.lowStockItems}</div>
+                    <p className="text-xs text-muted-foreground">
+                      Necessita reposição
+                    </p>
+                  </CardContent>
+                </Card>
+              </CarouselItem>
+            </CarouselContent>
+            <CarouselPrevious />
+            <CarouselNext />
+          </Carousel>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <Card className="shadow-card hover:shadow-card-hover transition-smooth">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">
+                Total de Equipamentos
+              </CardTitle>
+              <Wrench className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.totalEquipments}</div>
+              <p className="text-xs text-muted-foreground">
+                <span className="text-success">+12%</span> em relação ao mês anterior
+              </p>
+            </CardContent>
+          </Card>
 
-        <Card className="shadow-card hover:shadow-card-hover transition-smooth">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Equipamentos Ativos
-            </CardTitle>
-            <CheckCircle className="h-4 w-4 text-success" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.activeEquipments}</div>
-            <p className="text-xs text-muted-foreground">
-              {((stats.activeEquipments / stats.totalEquipments) * 100).toFixed(1)}% operacionais
-            </p>
-          </CardContent>
-        </Card>
+          <Card className="shadow-card hover:shadow-card-hover transition-smooth">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">
+                Equipamentos Ativos
+              </CardTitle>
+              <CheckCircle className="h-4 w-4 text-success" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.activeEquipments}</div>
+              <p className="text-xs text-muted-foreground">
+                {((stats.activeEquipments / stats.totalEquipments) * 100).toFixed(1)}% operacionais
+              </p>
+            </CardContent>
+          </Card>
 
-        <Card className="shadow-card hover:shadow-card-hover transition-smooth">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Manutenções Pendentes
-            </CardTitle>
-            <AlertTriangle className="h-4 w-4 text-warning" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.maintenanceNeeded}</div>
-            <p className="text-xs text-muted-foreground">
-              Requer atenção imediata
-            </p>
-          </CardContent>
-        </Card>
+          <Card className="shadow-card hover:shadow-card-hover transition-smooth">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">
+                Manutenções Pendentes
+              </CardTitle>
+              <AlertTriangle className="h-4 w-4 text-warning" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.maintenanceNeeded}</div>
+              <p className="text-xs text-muted-foreground">
+                Requer atenção imediata
+              </p>
+            </CardContent>
+          </Card>
 
-        <Card className="shadow-card hover:shadow-card-hover transition-smooth">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Itens com Estoque Baixo
-            </CardTitle>
-            <Package className="h-4 w-4 text-destructive" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.lowStockItems}</div>
-            <p className="text-xs text-muted-foreground">
-              Necessita reposição
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+          <Card className="shadow-card hover:shadow-card-hover transition-smooth">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">
+                Itens com Estoque Baixo
+              </CardTitle>
+              <Package className="h-4 w-4 text-destructive" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.lowStockItems}</div>
+              <p className="text-xs text-muted-foreground">
+                Necessita reposição
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Recent Maintenances */}

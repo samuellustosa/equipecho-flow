@@ -181,8 +181,10 @@ export const MainLayout: React.FC = () => {
             <AnnouncementBanner />
           </div>
           
-          <main className="flex-1 overflow-auto">
-            <Outlet />
+          <main className="flex-1 overflow-auto max-w-full">
+            <div className="max-w-full">
+              <Outlet />
+            </div>
           </main>
         </div>
       </div>

@@ -80,6 +80,14 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination';
+import { useIsMobile } from '@/hooks/use-mobile';
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselPrevious,
+  CarouselNext,
+} from "@/components/ui/carousel";
 
 
 const formSchema = z.object({
@@ -181,6 +189,7 @@ const InventoryMovementHistoryModal: React.FC<InventoryMovementHistoryModalProps
 
 export const Inventory: React.FC = () => {
   const { authState } = useAuth();
+  const isMobile = useIsMobile();
   const [page, setPage] = useState(1);
   const itemsPerPage = 20;
   const offset = (page - 1) * itemsPerPage;
@@ -805,55 +814,119 @@ export const Inventory: React.FC = () => {
         )}
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="shadow-card">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Total de Itens</p>
-                <p className="text-2xl font-bold">{totalItems}</p>
+      {/* Stats Cards - Mobile Carousel / Desktop Grid */}
+      {isMobile ? (
+        <div className="py-2">
+          <Carousel className="w-full">
+            <CarouselContent>
+              <CarouselItem className="pl-4">
+                <Card className="shadow-card">
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-muted-foreground">Total de Itens</p>
+                        <p className="text-2xl font-bold">{totalItems}</p>
+                      </div>
+                      <Package className="h-8 w-8 text-muted-foreground" />
+                    </div>
+                  </CardContent>
+                </Card>
+              </CarouselItem>
+              <CarouselItem className="pl-4">
+                <Card className="shadow-card">
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-muted-foreground">Estoque Normal</p>
+                        <p className="text-2xl font-bold text-success">{stats.normalItems}</p>
+                      </div>
+                      <CheckCircle className="h-8 w-8 text-success" />
+                    </div>
+                  </CardContent>
+                </Card>
+              </CarouselItem>
+              <CarouselItem className="pl-4">
+                <Card className="shadow-card">
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-muted-foreground">Estoque Baixo</p>
+                        <p className="text-2xl font-bold text-warning">{stats.lowStockItems}</p>
+                      </div>
+                      <AlertTriangle className="h-8 w-8 text-warning" />
+                    </div>
+                  </CardContent>
+                </Card>
+              </CarouselItem>
+              <CarouselItem className="pl-4 pr-4">
+                <Card className="shadow-card">
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-muted-foreground">Críticos</p>
+                        <p className="text-2xl font-bold text-destructive">{stats.criticalItems}</p>
+                      </div>
+                      <AlertTriangle className="h-8 w-8 text-destructive" />
+                    </div>
+                  </CardContent>
+                </Card>
+              </CarouselItem>
+            </CarouselContent>
+            <CarouselPrevious />
+            <CarouselNext />
+          </Carousel>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <Card className="shadow-card">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">Total de Itens</p>
+                  <p className="text-2xl font-bold">{totalItems}</p>
+                </div>
+                <Package className="h-8 w-8 text-muted-foreground" />
               </div>
-              <Package className="h-8 w-8 text-muted-foreground" />
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
 
-        <Card className="shadow-card">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Estoque Normal</p>
-                <p className="text-2xl font-bold text-success">{stats.normalItems}</p>
+          <Card className="shadow-card">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">Estoque Normal</p>
+                  <p className="text-2xl font-bold text-success">{stats.normalItems}</p>
+                </div>
+                <CheckCircle className="h-8 w-8 text-success" />
               </div>
-              <CheckCircle className="h-8 w-8 text-success" />
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
 
-        <Card className="shadow-card">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Estoque Baixo</p>
-                <p className="text-2xl font-bold text-warning">{stats.lowStockItems}</p>
+          <Card className="shadow-card">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">Estoque Baixo</p>
+                  <p className="text-2xl font-bold text-warning">{stats.lowStockItems}</p>
+                </div>
+                <AlertTriangle className="h-8 w-8 text-warning" />
               </div>
-              <AlertTriangle className="h-8 w-8 text-warning" />
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
 
-        <Card className="shadow-card">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Críticos</p>
-                <p className="text-2xl font-bold text-destructive">{stats.criticalItems}</p>
+          <Card className="shadow-card">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">Críticos</p>
+                  <p className="text-2xl font-bold text-destructive">{stats.criticalItems}</p>
+                </div>
+                <AlertTriangle className="h-8 w-8 text-destructive" />
               </div>
-              <AlertTriangle className="h-8 w-8 text-destructive" />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {stats.criticalItems > 0 && (
         <Card className="shadow-card border-destructive/50 bg-destructive/5">

@@ -62,6 +62,14 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { toast } from '@/components/ui/use-toast';
+import { useIsMobile } from '@/hooks/use-mobile';
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselPrevious,
+  CarouselNext,
+} from "@/components/ui/carousel";
 
 // Definição do esquema de validação com Zod
 const formSchema = z.object({
@@ -82,6 +90,7 @@ type FormValues = z.infer<typeof formSchema>;
 export const Users: React.FC = () => {
   const { data: users = [], isLoading, error } = useUsers();
   const { authState } = useAuth();
+  const isMobile = useIsMobile();
   const { mutate: createUser, isPending: isCreating } = useCreateUser();
   const { mutate: updateUser, isPending: isUpdating } = useUpdateUser();
   const { mutate: deleteUser, isPending: isDeleting } = useDeleteUser();
@@ -380,56 +389,119 @@ export const Users: React.FC = () => {
         )}
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="shadow-card">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Total de Usuários</p>
-                <p className="text-2xl font-bold">{stats.totalUsers}</p>
+      {/* Stats Cards - Mobile Carousel / Desktop Grid */}
+      {isMobile ? (
+        <div className="py-2">
+          <Carousel className="w-full">
+            <CarouselContent>
+              <CarouselItem className="pl-4">
+                <Card className="shadow-card">
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-muted-foreground">Total de Usuários</p>
+                        <p className="text-2xl font-bold">{stats.totalUsers}</p>
+                      </div>
+                      <UsersIcon className="h-8 w-8 text-muted-foreground" />
+                    </div>
+                  </CardContent>
+                </Card>
+              </CarouselItem>
+              <CarouselItem className="pl-4">
+                <Card className="shadow-card">
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-muted-foreground">Usuários Ativos</p>
+                        <p className="text-2xl font-bold text-success">{stats.activeUsers}</p>
+                      </div>
+                      <User className="h-8 w-8 text-success" />
+                    </div>
+                  </CardContent>
+                </Card>
+              </CarouselItem>
+              <CarouselItem className="pl-4">
+                <Card className="shadow-card">
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-muted-foreground">Administradores</p>
+                        <p className="text-2xl font-bold text-destructive">{stats.admins}</p>
+                      </div>
+                      <Crown className="h-8 w-8 text-destructive" />
+                    </div>
+                  </CardContent>
+                </Card>
+              </CarouselItem>
+              <CarouselItem className="pl-4 pr-4">
+                <Card className="shadow-card">
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-muted-foreground">Gerentes</p>
+                        <p className="text-2xl font-bold text-warning">{stats.managers}</p>
+                      </div>
+                      <Shield className="h-8 w-8 text-warning" />
+                    </div>
+                  </CardContent>
+                </Card>
+              </CarouselItem>
+            </CarouselContent>
+            <CarouselPrevious />
+            <CarouselNext />
+          </Carousel>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <Card className="shadow-card">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">Total de Usuários</p>
+                  <p className="text-2xl font-bold">{stats.totalUsers}</p>
+                </div>
+                <UsersIcon className="h-8 w-8 text-muted-foreground" />
               </div>
-              <UsersIcon className="h-8 w-8 text-muted-foreground" />
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card className="shadow-card">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Usuários Ativos</p>
-                <p className="text-2xl font-bold text-success">{stats.activeUsers}</p>
+            </CardContent>
+          </Card>
+          
+          <Card className="shadow-card">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">Usuários Ativos</p>
+                  <p className="text-2xl font-bold text-success">{stats.activeUsers}</p>
+                </div>
+                <User className="h-8 w-8 text-success" />
               </div>
-              <User className="h-8 w-8 text-success" />
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card className="shadow-card">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Administradores</p>
-                <p className="text-2xl font-bold text-destructive">{stats.admins}</p>
+            </CardContent>
+          </Card>
+          
+          <Card className="shadow-card">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">Administradores</p>
+                  <p className="text-2xl font-bold text-destructive">{stats.admins}</p>
+                </div>
+                <Crown className="h-8 w-8 text-destructive" />
               </div>
-              <Crown className="h-8 w-8 text-destructive" />
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card className="shadow-card">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Gerentes</p>
-                <p className="text-2xl font-bold text-warning">{stats.managers}</p>
+            </CardContent>
+          </Card>
+          
+          <Card className="shadow-card">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">Gerentes</p>
+                  <p className="text-2xl font-bold text-warning">{stats.managers}</p>
+                </div>
+                <Shield className="h-8 w-8 text-warning" />
               </div>
-              <Shield className="h-8 w-8 text-warning" />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* Filters and Search */}
       <Card className="shadow-card">
