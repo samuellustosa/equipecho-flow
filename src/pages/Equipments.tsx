@@ -21,6 +21,9 @@ import {
   History,
   Filter,
   Search,
+  Users,
+  Building,
+  ChevronDown,
 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
@@ -76,6 +79,20 @@ import { useCreateMaintenance, useMaintenanceHistory } from '@/hooks/useMaintena
 import { Database } from '@/integrations/supabase/types';
 import { Label } from '@/components/ui/label';
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination';
+import { useIsMobile } from '@/hooks/use-mobile';
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselPrevious,
+  CarouselNext,
+} from "@/components/ui/carousel";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const maintenanceFormSchema = z.object({
   service_type: z.enum(['limpeza', 'reparo', 'substituicao', 'calibracao', 'inspecao', 'outro'], {
@@ -130,6 +147,7 @@ const statusConfig = {
 
 export const Equipments: React.FC = () => {
   const { authState } = useAuth();
+  const isMobile = useIsMobile();
   const [page, setPage] = useState(1);
   const itemsPerPage = 10;
   const offset = (page - 1) * itemsPerPage;
@@ -141,7 +159,7 @@ export const Equipments: React.FC = () => {
   const { data: sectors = [] } = useSectors();
 
   const { mutate: createMaintenance, isPending: isCreatingMaintenance } = useCreateMaintenance();
-
+  
   const { mutate: createEquipment, isPending: isCreating } = useCreateEquipment();
   const { mutate: updateEquipment, isPending: isUpdating } = useUpdateEquipment();
   const { mutate: deleteEquipment, isPending: isDeleting } = useDeleteEquipment();
@@ -222,7 +240,7 @@ export const Equipments: React.FC = () => {
         sector_id: equipment.sector_id,
         responsible_id: equipment.responsible_id,
         status: equipment.status,
-        last_cleaning: equipment.last_cleaning ? 
+        last_cleaning: equipment.last_cleaning ?
           new Date(equipment.last_cleaning + 'T00:00:00') : null,
         next_cleaning: new Date(equipment.next_cleaning + 'T00:00:00'),
         cleaning_frequency_days: equipment.cleaning_frequency_days,
@@ -233,7 +251,7 @@ export const Equipments: React.FC = () => {
     }
     setIsModalOpen(true);
   };
-  
+
   const handleCloseModal = (open: boolean) => {
     if (!open) {
       setEditingEquipment(null);
@@ -241,7 +259,7 @@ export const Equipments: React.FC = () => {
       setIsModalOpen(false);
     }
   };
-  
+
   const handleOpenHistoryModal = (equipment: Equipment) => {
       setSelectedEquipmentForHistory(equipment);
       setIsHistoryModalOpen(true);
@@ -259,7 +277,7 @@ export const Equipments: React.FC = () => {
 
   const handleMaintenanceSubmit = (values: MaintenanceFormValues) => {
     if (!selectedEquipmentForMaintenance) return;
-    
+
     const performedAt = new Date();
 
     createMaintenance({
@@ -415,14 +433,14 @@ export const Equipments: React.FC = () => {
       }
     });
   };
-  
+
   const getDaysUntilNextCleaning = (nextCleaningDate: string) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const nextCleaning = parseISO(nextCleaningDate);
     return differenceInDays(nextCleaning, today);
   };
-  
+
   const canEdit = authState.user?.role === 'admin' || authState.user?.role === 'manager';
   const isAdmin = authState.user?.role === 'admin';
 
@@ -441,7 +459,7 @@ export const Equipments: React.FC = () => {
       (activeFilters.sector_id === 'all' || equipment.sector_id === activeFilters.sector_id) &&
       (activeFilters.responsible_id === 'all' || equipment.responsible_id === activeFilters.responsible_id)
     );
-    
+
     return matchesSearch && matchesFilters;
   });
 
@@ -460,6 +478,85 @@ export const Equipments: React.FC = () => {
     warningItems: equipments.filter(e => getDaysUntilNextCleaning(e.next_cleaning) === 0).length,
     overdueItems: equipments.filter(e => getDaysUntilNextCleaning(e.next_cleaning) < 0).length,
   };
+
+  const statCards = [
+    <Card className="shadow-card hover:shadow-card-hover transition-smooth">
+      <CardContent className="p-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm text-muted-foreground">Total</p>
+            <p className="text-2xl font-bold">{stats.totalItems}</p>
+          </div>
+          <Settings className="h-8 w-8 text-muted-foreground" />
+        </div>
+      </CardContent>
+    </Card>,
+    <Card className="shadow-card">
+      <CardContent className="p-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm text-muted-foreground">Operacionais</p>
+            <p className="text-2xl font-bold text-success">
+              {stats.operacionalItems}
+            </p>
+          </div>
+          <Activity className="h-8 w-8 text-success" />
+        </div>
+      </CardContent>
+    </Card>,
+    <Card className="shadow-card">
+      <CardContent className="p-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm text-muted-foreground">Em Manutenção</p>
+            <p className="text-2xl font-bold text-warning">
+              {stats.manutencaoItems}
+            </p>
+          </div>
+          <Wrench className="h-8 w-8 text-warning" />
+        </div>
+      </CardContent>
+    </Card>,
+    <Card className="shadow-card">
+      <CardContent className="p-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm text-muted-foreground">Parados</p>
+            <p className="text-2xl font-bold text-destructive">
+              {stats.paradoItems}
+            </p>
+          </div>
+          <MapPin className="h-8 w-8 text-destructive" />
+        </div>
+      </CardContent>
+    </Card>,
+    <Card className="shadow-card">
+      <CardContent className="p-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm text-muted-foreground">Em Aviso</p>
+            <p className="text-2xl font-bold text-warning">
+              {stats.warningItems}
+            </p>
+          </div>
+          <Clock className="h-8 w-8 text-warning" />
+        </div>
+      </CardContent>
+    </Card>,
+    <Card className="shadow-card">
+      <CardContent className="p-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm text-muted-foreground">Atrasados</p>
+            <p className="text-2xl font-bold text-destructive">
+              {stats.overdueItems}
+            </p>
+          </div>
+          <AlertCircle className="h-8 w-8 text-destructive" />
+        </div>
+      </CardContent>
+    </Card>
+  ];
 
   if (isLoading || countLoading) {
     return (
@@ -494,108 +591,14 @@ export const Equipments: React.FC = () => {
             Gerencie todos os equipamentos do sistema
           </p>
         </div>
-        <div className="flex flex-col sm:flex-row gap-2">
-          {isAdmin && (
-            <Dialog open={isResponsibleModalOpen} onOpenChange={setIsResponsibleModalOpen}>
-              <DialogTrigger asChild>
-                <Button variant="outline" className="transition-smooth">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Novo Responsável
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-[425px]">
-                <DialogHeader>
-                  <DialogTitle>Novo Responsável</DialogTitle>
-                  <DialogDescription>
-                    Adicione um novo responsável ao sistema.
-                  </DialogDescription>
-                </DialogHeader>
-                <Form {...responsibleForm}>
-                  <form onSubmit={responsibleForm.handleSubmit(onResponsibleSubmit)} className="space-y-4">
-                    <FormField
-                      control={responsibleForm.control}
-                      name="name"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Nome</FormLabel>
-                          <FormControl>
-                            <Input placeholder="Nome do responsável" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <DialogFooter>
-                      <Button type="submit" disabled={isCreatingResponsible}>
-                        {isCreatingResponsible ? (
-                          <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Salvando...
-                          </>
-                        ) : (
-                          "Salvar"
-                        )}
-                      </Button>
-                    </DialogFooter>
-                  </form>
-                </Form>
-              </DialogContent>
-            </Dialog>
-          )}
-
-          {isAdmin && (
-            <Dialog open={isSectorModalOpen} onOpenChange={setIsSectorModalOpen}>
-              <DialogTrigger asChild>
-                <Button variant="outline" className="transition-smooth">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Novo Setor
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-[425px]">
-                <DialogHeader>
-                  <DialogTitle>Novo Setor</DialogTitle>
-                  <DialogDescription>
-                    Adicione um novo setor ao sistema.
-                  </DialogDescription>
-                </DialogHeader>
-                <Form {...sectorForm}>
-                  <form onSubmit={sectorForm.handleSubmit(onSectorSubmit)} className="space-y-4">
-                    <FormField
-                      control={sectorForm.control}
-                      name="name"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Nome</FormLabel>
-                          <FormControl>
-                            <Input placeholder="Nome do setor" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <DialogFooter>
-                      <Button type="submit" disabled={isCreatingSector}>
-                        {isCreatingSector ? (
-                          <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Salvando...
-                          </>
-                        ) : (
-                          "Salvar"
-                        )}
-                      </Button>
-                    </DialogFooter>
-                  </form>
-                </Form>
-              </DialogContent>
-            </Dialog>
-          )}
-          
-          {canEdit && (
+        
+        {/* Lógica de botões ajustada para mobile e desktop */}
+        {canEdit && (
+          <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
             <Dialog open={isModalOpen} onOpenChange={handleCloseModal}>
               <DialogTrigger asChild>
                 <Button
-                  className="gradient-primary text-primary-foreground transition-smooth"
+                  className="gradient-primary text-primary-foreground transition-smooth w-full sm:w-auto"
                   onClick={() => handleOpenModal()}
                 >
                   <Plus className="h-4 w-4 mr-2" />
@@ -609,301 +612,299 @@ export const Equipments: React.FC = () => {
                     {editingEquipment ? "Atualize as informações do equipamento." : "Preencha os campos para adicionar um novo equipamento."}
                   </DialogDescription>
                 </DialogHeader>
-                <ScrollArea className="flex-1 p-4">
-                  <Form {...form}>
-                    <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-4 py-4">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <FormField
-                          control={form.control}
-                          name="name"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Nome</FormLabel>
-                              <FormControl>
-                                <Input placeholder="Nome do equipamento" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={form.control}
-                          name="model"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Modelo</FormLabel>
-                              <FormControl>
-                                <Input placeholder="Modelo do equipamento" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <FormField
-                          control={form.control}
-                          name="sector_id"
-                          render={({ field }) => (
-                            <FormItem>
-                              <div className="flex items-center justify-between">
-                                <FormLabel>Setor</FormLabel>
-                                {isAdmin && (
-                                  <Dialog>
-                                    <DialogTrigger asChild>
-                                      <Button variant="link" size="sm" className="h-4 p-0 text-xs">
-                                        Gerenciar <ExternalLink className="ml-1 h-3 w-3" />
-                                      </Button>
-                                    </DialogTrigger>
-                                    <DialogContent className="sm:max-w-[425px]">
-                                      <DialogHeader>
-                                        <DialogTitle>Gerenciar Setores</DialogTitle>
-                                        <DialogDescription>
-                                          Exclua setores existentes.
-                                        </DialogDescription>
-                                      </DialogHeader>
-                                      <div className="max-h-[300px] overflow-y-auto">
-                                        {sectors.length > 0 ? (
-                                          <ul className="space-y-2">
-                                            {sectors.map(sector => (
-                                              <li key={sector.id} className="flex items-center justify-between p-2 border rounded-md">
-                                                <span>{sector.name}</span>
-                                                <AlertDialog>
-                                                  <AlertDialogTrigger asChild>
-                                                    <Button variant="ghost" size="sm">
-                                                      <Trash2 className="h-4 w-4 text-destructive" />
-                                                    </Button>
-                                                  </AlertDialogTrigger>
-                                                  <AlertDialogContent>
-                                                    <AlertDialogHeader>
-                                                      <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
-                                                      <AlertDialogDescription>
-                                                        Esta ação não pode ser desfeita. Isso excluirá permanentemente o setor <strong className="text-destructive">{sector.name}</strong>.
-                                                      </AlertDialogDescription>
-                                                    </AlertDialogHeader>
-                                                    <AlertDialogFooter>
-                                                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                                      <AlertDialogAction
-                                                        onClick={() => handleDeleteSector(sector.id)}
-                                                        disabled={isDeletingSector}
-                                                      >
-                                                        {isDeletingSector ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Continuar'}
-                                                      </AlertDialogAction>
-                                                    </AlertDialogFooter>
-                                                  </AlertDialogContent>
-                                                </AlertDialog>
-                                              </li>
-                                            ))}
-                                          </ul>
-                                        ) : (
-                                          <p className="text-center text-muted-foreground">Nenhum setor encontrado.</p>
-                                        )}
-                                      </div>
-                                    </DialogContent>
-                                  </Dialog>
-                                )}
-                              </div>
-                              <Select onValueChange={field.onChange} defaultValue={field.value ?? ""}>
-                                <FormControl>
-                                  <SelectTrigger>
-                                    <SelectValue placeholder="Selecione um setor" />
-                                  </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                  {sectors.map((sector) => (
-                                    <SelectItem key={sector.id} value={sector.id}>{sector.name}</SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={form.control}
-                          name="responsible_id"
-                          render={({ field }) => (
-                            <FormItem>
-                              <div className="flex items-center justify-between">
-                                <FormLabel>Responsável</FormLabel>
-                                {isAdmin && (
-                                  <Dialog>
-                                    <DialogTrigger asChild>
-                                      <Button variant="link" size="sm" className="h-4 p-0 text-xs">
-                                        Gerenciar <ExternalLink className="ml-1 h-3 w-3" />
-                                      </Button>
-                                    </DialogTrigger>
-                                    <DialogContent className="sm:max-w-[425px]">
-                                      <DialogHeader>
-                                        <DialogTitle>Gerenciar Responsáveis</DialogTitle>
-                                        <DialogDescription>
-                                          Exclua responsáveis existentes.
-                                        </DialogDescription>
-                                      </DialogHeader>
-                                      <div className="max-h-[300px] overflow-y-auto">
-                                        {responsibles.map((responsible) => (
-                                          <div key={responsible.id} className="flex items-center justify-between p-2 border rounded-md">
-                                            <span>{responsible.name}</span>
-                                            <AlertDialog>
-                                              <AlertDialogTrigger asChild>
-                                                <Button variant="ghost" size="sm">
-                                                  <Trash2 className="h-4 w-4 text-destructive" />
-                                                </Button>
-                                              </AlertDialogTrigger>
-                                              <AlertDialogContent>
-                                                <AlertDialogHeader>
-                                                  <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
-                                                  <AlertDialogDescription>
-                                                    Esta ação não pode ser desfeita. Isso excluirá permanentemente o responsável <strong className="text-destructive">{responsible.name}</strong>.
-                                                  </AlertDialogDescription>
-                                                </AlertDialogHeader>
-                                                <AlertDialogFooter>
-                                                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                                  <AlertDialogAction
-                                                    onClick={() => handleDeleteResponsible(responsible.id)}
-                                                    disabled={isDeletingResponsible}
-                                                  >
-                                                    {isDeletingResponsible ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Continuar'}
-                                                  </AlertDialogAction>
-                                                </AlertDialogFooter>
-                                              </AlertDialogContent>
-                                            </AlertDialog>
-                                          </div>
-                                        ))}
-                                      </div>
-                                    </DialogContent>
-                                  </Dialog>
-                                )}
-                              </div>
-                              <Select onValueChange={field.onChange} defaultValue={field.value ?? ""}>
-                                <FormControl>
-                                  <SelectTrigger>
-                                    <SelectValue placeholder="Selecione um responsável" />
-                                  </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                  {responsibles.map((responsible) => (
-                                    <SelectItem key={responsible.id} value={responsible.id}>{responsible.name}</SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <FormField
-                          control={form.control}
-                          name="status"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Status</FormLabel>
-                              <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                <FormControl>
-                                  <SelectTrigger>
-                                    <SelectValue placeholder="Selecione um status" />
-                                  </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                  <SelectItem value="operacional">Operacional</SelectItem>
-                                  <SelectItem value="manutencao">Manutenção</SelectItem>
-                                  <SelectItem value="parado">Parado</SelectItem>
-                                </SelectContent>
-                              </Select>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={form.control}
-                          name="cleaning_frequency_days"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Frequência de Limpeza (dias)</FormLabel>
-                              <FormControl>
-                                <Input type="number" placeholder="30" {...field} onChange={e => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
+                <Form {...form}>
+                  <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-4 py-4 flex-1 overflow-y-auto">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <FormField
                         control={form.control}
-                        name="last_cleaning"
-                        render={({ field }) => (
-                          <FormItem className="flex flex-col">
-                            <FormLabel>Última Limpeza</FormLabel>
-                            <Popover>
-                              <PopoverTrigger asChild>
-                                <FormControl>
-                                  <Button
-                                    variant="outline"
-                                    className={cn(
-                                      "w-full pl-3 text-left font-normal",
-                                      !field.value && "text-muted-foreground"
-                                    )}
-                                  >
-                                    {field.value ? (
-                                      format(field.value, "dd/MM/yyyy", { locale: ptBR })
-                                    ) : (
-                                      <span>Escolha a última data de limpeza</span>
-                                    )}
-                                    <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                                  </Button>
-                                </FormControl>
-                              </PopoverTrigger>
-                              <PopoverContent className="w-auto p-0" align="start">
-                                <DayPicker
-                                  locale={ptBR}
-                                  mode="single"
-                                  selected={field.value ?? undefined}
-                                  onSelect={(date) => {
-                                    if (date) {
-                                      const localDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-                                      field.onChange(localDate);
-                                    } else {
-                                      field.onChange(null);
-                                    }
-                                  }}
-                                  initialFocus
-                                />
-                              </PopoverContent>
-                            </Popover>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="next_cleaning"
-                        render={({ field }) => (
-                          <FormItem className="flex flex-col">
-                            <FormLabel>Próxima Limpeza</FormLabel>
-                            <div className="p-3 bg-muted rounded-md border text-sm font-medium">
-                              {field.value ? format(field.value, "dd/MM/yyyy", { locale: ptBR }) : 'Selecione a frequência e a última limpeza'}
-                            </div>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="notes"
+                        name="name"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Observações</FormLabel>
+                            <FormLabel>Nome</FormLabel>
                             <FormControl>
-                              <Textarea placeholder="Observações importantes" {...field} />
+                              <Input placeholder="Nome do equipamento" {...field} />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
                         )}
                       />
-                    </form>
-                  </Form>
-                </ScrollArea>
+                      <FormField
+                        control={form.control}
+                        name="model"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Modelo</FormLabel>
+                            <FormControl>
+                              <Input placeholder="Modelo do equipamento" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="sector_id"
+                        render={({ field }) => (
+                          <FormItem>
+                            <div className="flex items-center justify-between">
+                              <FormLabel>Setor</FormLabel>
+                              {isAdmin && (
+                                <Dialog>
+                                  <DialogTrigger asChild>
+                                    <Button variant="link" size="sm" className="h-4 p-0 text-xs">
+                                      Gerenciar <ExternalLink className="ml-1 h-3 w-3" />
+                                    </Button>
+                                  </DialogTrigger>
+                                  <DialogContent className="sm:max-w-[425px]">
+                                    <DialogHeader>
+                                      <DialogTitle>Gerenciar Setores</DialogTitle>
+                                      <DialogDescription>
+                                        Exclua setores existentes.
+                                      </DialogDescription>
+                                    </DialogHeader>
+                                    <div className="max-h-[300px] overflow-y-auto">
+                                      {sectors.length > 0 ? (
+                                        <ul className="space-y-2">
+                                          {sectors.map(sector => (
+                                            <li key={sector.id} className="flex items-center justify-between p-2 border rounded-md">
+                                              <span>{sector.name}</span>
+                                              <AlertDialog>
+                                                <AlertDialogTrigger asChild>
+                                                  <Button variant="ghost" size="sm">
+                                                    <Trash2 className="h-4 w-4 text-destructive" />
+                                                  </Button>
+                                                </AlertDialogTrigger>
+                                                <AlertDialogContent>
+                                                  <AlertDialogHeader>
+                                                    <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
+                                                    <AlertDialogDescription>
+                                                      Esta ação não pode ser desfeita. Isso excluirá permanentemente o setor <strong className="text-destructive">{sector.name}</strong>.
+                                                    </AlertDialogDescription>
+                                                  </AlertDialogHeader>
+                                                  <AlertDialogFooter>
+                                                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                                    <AlertDialogAction
+                                                      onClick={() => handleDeleteSector(sector.id)}
+                                                      disabled={isDeletingSector}
+                                                    >
+                                                      {isDeletingSector ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Continuar'}
+                                                    </AlertDialogAction>
+                                                  </AlertDialogFooter>
+                                                </AlertDialogContent>
+                                              </AlertDialog>
+                                            </li>
+                                          ))}
+                                        </ul>
+                                      ) : (
+                                        <p className="text-center text-muted-foreground">Nenhum setor encontrado.</p>
+                                      )}
+                                    </div>
+                                  </DialogContent>
+                                </Dialog>
+                              )}
+                            </div>
+                            <Select onValueChange={field.onChange} defaultValue={field.value ?? ""}>
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Selecione um setor" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {sectors.map((sector) => (
+                                  <SelectItem key={sector.id} value={sector.id}>{sector.name}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="responsible_id"
+                        render={({ field }) => (
+                          <FormItem>
+                            <div className="flex items-center justify-between">
+                              <FormLabel>Responsável</FormLabel>
+                              {isAdmin && (
+                                <Dialog>
+                                  <DialogTrigger asChild>
+                                    <Button variant="link" size="sm" className="h-4 p-0 text-xs">
+                                      Gerenciar <ExternalLink className="ml-1 h-3 w-3" />
+                                    </Button>
+                                  </DialogTrigger>
+                                  <DialogContent className="sm:max-w-[425px]">
+                                    <DialogHeader>
+                                      <DialogTitle>Gerenciar Responsáveis</DialogTitle>
+                                      <DialogDescription>
+                                        Exclua responsáveis existentes.
+                                      </DialogDescription>
+                                    </DialogHeader>
+                                    <div className="max-h-[300px] overflow-y-auto">
+                                      {responsibles.map((responsible) => (
+                                        <div key={responsible.id} className="flex items-center justify-between p-2 border rounded-md">
+                                          <span>{responsible.name}</span>
+                                          <AlertDialog>
+                                            <AlertDialogTrigger asChild>
+                                              <Button variant="ghost" size="sm">
+                                                <Trash2 className="h-4 w-4 text-destructive" />
+                                              </Button>
+                                            </AlertDialogTrigger>
+                                            <AlertDialogContent>
+                                              <AlertDialogHeader>
+                                                <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
+                                                <AlertDialogDescription>
+                                                  Esta ação não pode ser desfeita. Isso excluirá permanentemente o responsável <strong className="text-destructive">{responsible.name}</strong>.
+                                                </AlertDialogDescription>
+                                              </AlertDialogHeader>
+                                              <AlertDialogFooter>
+                                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                                <AlertDialogAction
+                                                  onClick={() => handleDeleteResponsible(responsible.id)}
+                                                  disabled={isDeletingResponsible}
+                                                >
+                                                  {isDeletingResponsible ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Continuar'}
+                                                </AlertDialogAction>
+                                              </AlertDialogFooter>
+                                            </AlertDialogContent>
+                                          </AlertDialog>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </DialogContent>
+                                </Dialog>
+                              )}
+                            </div>
+                            <Select onValueChange={field.onChange} defaultValue={field.value ?? ""}>
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Selecione um responsável" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {responsibles.map((responsible) => (
+                                  <SelectItem key={responsible.id} value={responsible.id}>{responsible.name}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="status"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Status</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Selecione um status" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="operacional">Operacional</SelectItem>
+                                <SelectItem value="manutencao">Manutenção</SelectItem>
+                                <SelectItem value="parado">Parado</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="cleaning_frequency_days"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Frequência de Limpeza (dias)</FormLabel>
+                            <FormControl>
+                              <Input type="number" placeholder="30" {...field} onChange={e => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                    <FormField
+                      control={form.control}
+                      name="last_cleaning"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-col">
+                          <FormLabel>Última Limpeza</FormLabel>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <FormControl>
+                                <Button
+                                  variant="outline"
+                                  className={cn(
+                                    "w-full pl-3 text-left font-normal",
+                                    !field.value && "text-muted-foreground"
+                                  )}
+                                >
+                                  {field.value ? (
+                                    format(field.value, "dd/MM/yyyy", { locale: ptBR })
+                                  ) : (
+                                    <span>Escolha a última data de limpeza</span>
+                                  )}
+                                  <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                </Button>
+                              </FormControl>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="start">
+                              <DayPicker
+                                locale={ptBR}
+                                mode="single"
+                                selected={field.value ?? undefined}
+                                onSelect={(date) => {
+                                  if (date) {
+                                    const localDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+                                    field.onChange(localDate);
+                                  } else {
+                                    field.onChange(null);
+                                  }
+                                }}
+                                initialFocus
+                              />
+                            </PopoverContent>
+                          </Popover>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="next_cleaning"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-col">
+                          <FormLabel>Próxima Limpeza</FormLabel>
+                          <div className="p-3 bg-muted rounded-md border text-sm font-medium">
+                            {field.value ? format(field.value, "dd/MM/yyyy", { locale: ptBR }) : 'Selecione a frequência e a última limpeza'}
+                          </div>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="notes"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Observações</FormLabel>
+                          <FormControl>
+                            <Textarea placeholder="Observações importantes" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </form>
+                </Form>
                 <DialogFooter className="flex-shrink-0 mt-auto p-4">
                   <Button type="button" variant="outline" onClick={() => handleCloseModal(false)}>
                     Cancelar
@@ -921,93 +922,310 @@ export const Equipments: React.FC = () => {
                 </DialogFooter>
               </DialogContent>
             </Dialog>
-          )}
+            
+            {isAdmin && (
+              <>
+                <Dialog open={isResponsibleModalOpen} onOpenChange={setIsResponsibleModalOpen}>
+                  <DialogTrigger asChild>
+                    <Button variant="outline" className="transition-smooth w-full sm:w-auto">
+                      <Plus className="h-4 w-4 mr-2" />
+                      Novo Responsável
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-[425px]">
+                    <DialogHeader>
+                      <DialogTitle>Novo Responsável</DialogTitle>
+                      <DialogDescription>
+                        Adicione um novo responsável ao sistema.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <Form {...responsibleForm}>
+                      <form onSubmit={responsibleForm.handleSubmit(onResponsibleSubmit)} className="space-y-4">
+                        <FormField
+                          control={responsibleForm.control}
+                          name="name"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Nome</FormLabel>
+                              <FormControl>
+                                <Input placeholder="Nome do responsável" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <DialogFooter>
+                          <Button type="submit" disabled={isCreatingResponsible}>
+                            {isCreatingResponsible ? (
+                              <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Salvando...
+                              </>
+                            ) : (
+                              "Salvar"
+                            )}
+                          </Button>
+                        </DialogFooter>
+                      </form>
+                    </Form>
+                  </DialogContent>
+                </Dialog>
+
+                <Dialog open={isSectorModalOpen} onOpenChange={setIsSectorModalOpen}>
+                  <DialogTrigger asChild>
+                    <Button variant="outline" className="transition-smooth w-full sm:w-auto">
+                      <Plus className="h-4 w-4 mr-2" />
+                      Novo Setor
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-[425px]">
+                    <DialogHeader>
+                      <DialogTitle>Novo Setor</DialogTitle>
+                      <DialogDescription>
+                        Adicione um novo setor ao sistema.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <Form {...sectorForm}>
+                      <form onSubmit={sectorForm.handleSubmit(onSectorSubmit)} className="space-y-4">
+                        <FormField
+                          control={sectorForm.control}
+                          name="name"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Nome</FormLabel>
+                              <FormControl>
+                                <Input placeholder="Nome do setor" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <DialogFooter>
+                          <Button type="submit" disabled={isCreatingSector}>
+                            {isCreatingSector ? (
+                              <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Salvando...
+                              </>
+                            ) : (
+                              "Salvar"
+                            )}
+                          </Button>
+                        </DialogFooter>
+                      </form>
+                    </Form>
+                  </DialogContent>
+                </Dialog>
+              </>
+            )}
+          </div>
+        )}
+      </div>
+
+      {isMobile ? (
+        // Layout de Carrossel para Mobile
+        <div className="py-2">
+          <Carousel className="w-full">
+            <CarouselContent>
+              <CarouselItem className="pl-4">
+                <Card className="shadow-card">
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-muted-foreground">Total</p>
+                        <p className="text-2xl font-bold">{stats.totalItems}</p>
+                      </div>
+                      <Settings className="h-8 w-8 text-muted-foreground" />
+                    </div>
+                  </CardContent>
+                </Card>
+              </CarouselItem>
+              <CarouselItem className="pl-4">
+                <Card className="shadow-card">
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-muted-foreground">Operacionais</p>
+                        <p className="text-2xl font-bold text-success">
+                          {stats.operacionalItems}
+                        </p>
+                      </div>
+                      <Activity className="h-8 w-8 text-success" />
+                    </div>
+                  </CardContent>
+                </Card>
+              </CarouselItem>
+              <CarouselItem className="pl-4">
+                <Card className="shadow-card">
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-muted-foreground">Em Manutenção</p>
+                        <p className="text-2xl font-bold text-warning">
+                          {stats.manutencaoItems}
+                        </p>
+                      </div>
+                      <Wrench className="h-8 w-8 text-warning" />
+                    </div>
+                  </CardContent>
+                </Card>
+              </CarouselItem>
+              <CarouselItem className="pl-4">
+                <Card className="shadow-card">
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-muted-foreground">Parados</p>
+                        <p className="text-2xl font-bold text-destructive">
+                          {stats.paradoItems}
+                        </p>
+                      </div>
+                      <MapPin className="h-8 w-8 text-destructive" />
+                    </div>
+                  </CardContent>
+                </Card>
+              </CarouselItem>
+              <CarouselItem className="pl-4">
+                <Card className="shadow-card">
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-muted-foreground">Em Aviso</p>
+                        <p className="text-2xl font-bold text-warning">
+                          {stats.warningItems}
+                        </p>
+                      </div>
+                      <Clock className="h-8 w-8 text-warning" />
+                    </div>
+                  </CardContent>
+                </Card>
+              </CarouselItem>
+              <CarouselItem className="pl-4 pr-4">
+                <Card className="shadow-card">
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-muted-foreground">Atrasados</p>
+                        <p className="text-2xl font-bold text-destructive">
+                          {stats.overdueItems}
+                        </p>
+                      </div>
+                      <AlertCircle className="h-8 w-8 text-destructive" />
+                    </div>
+                  </CardContent>
+                </Card>
+              </CarouselItem>
+            </CarouselContent>
+            <CarouselPrevious />
+            <CarouselNext />
+          </Carousel>
         </div>
-      </div>
+      ) : (
+        // Layout de Grid para Desktop
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
+          {statCards}
+        </div>
+      )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
-        <Card className="shadow-card">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Total</p>
-                <p className="text-2xl font-bold">{totalEquipments}</p>
-              </div>
-              <Settings className="h-8 w-8 text-muted-foreground" />
-            </div>
-          </CardContent>
-        </Card>
+      {selectedEquipmentForMaintenance && (
+        <Dialog open={isMaintenanceModalOpen} onOpenChange={setIsMaintenanceModalOpen}>
+          <DialogContent className="sm:max-w-[600px]">
+            <DialogHeader>
+              <DialogTitle>Registrar Manutenção</DialogTitle>
+              <DialogDescription>
+                Registre uma nova manutenção para **{selectedEquipmentForMaintenance.name}**.
+              </DialogDescription>
+            </DialogHeader>
+            <Form {...maintenanceForm}>
+              <form onSubmit={maintenanceForm.handleSubmit(handleMaintenanceSubmit)} className="grid gap-4 py-4">
+                <FormField
+                  control={maintenanceForm.control}
+                  name="service_type"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Tipo de Serviço</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione o tipo de serviço" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="limpeza">Limpeza</SelectItem>
+                          <SelectItem value="reparo">Reparo</SelectItem>
+                          <SelectItem value="substituicao">Substituição</SelectItem>
+                          <SelectItem value="calibracao">Calibração</SelectItem>
+                          <SelectItem value="inspecao">Inspeção</SelectItem>
+                          <SelectItem value="outro">Outro</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-        <Card className="shadow-card">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Operacionais</p>
-                <p className="text-2xl font-bold text-success">
-                  {stats.operacionalItems}
-                </p>
-              </div>
-              <Activity className="h-8 w-8 text-success" />
-            </div>
-          </CardContent>
-        </Card>
+                <FormField
+                  control={maintenanceForm.control}
+                  name="performed_by_id"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Responsável</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value ?? ""}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione o responsável" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {responsibles.map((responsible) => (
+                            <SelectItem key={responsible.id} value={responsible.id}>{responsible.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-        <Card className="shadow-card">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Em Manutenção</p>
-                <p className="text-2xl font-bold text-warning">
-                  {stats.manutencaoItems}
-                </p>
-              </div>
-              <Wrench className="h-8 w-8 text-warning" />
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card className="shadow-card">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Parados</p>
-                <p className="text-2xl font-bold text-destructive">
-                  {stats.paradoItems}
-                </p>
-              </div>
-              <MapPin className="h-8 w-8 text-destructive" />
-            </div>
-          </CardContent>
-        </Card>
+                <FormField
+                  control={maintenanceForm.control}
+                  name="description"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Descrição</FormLabel>
+                      <FormControl>
+                        <Textarea placeholder="Detalhes da manutenção..." {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-        <Card className="shadow-card">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Em Aviso</p>
-                <p className="text-2xl font-bold text-warning">
-                  {stats.warningItems}
-                </p>
-              </div>
-              <Clock className="h-8 w-8 text-warning" />
-            </div>
-          </CardContent>
-        </Card>
+                <DialogFooter>
+                  <Button type="submit" disabled={isCreatingMaintenance} className="gradient-primary">
+                    {isCreatingMaintenance ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Salvando...
+                      </>
+                    ) : (
+                      "Salvar"
+                    )}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </Form>
+          </DialogContent>
+        </Dialog>
+      )}
 
-        <Card className="shadow-card">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Atrasados</p>
-                <p className="text-2xl font-bold text-destructive">
-                  {stats.overdueItems}
-                </p>
-              </div>
-              <AlertCircle className="h-8 w-8 text-destructive" />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      {selectedEquipmentForHistory && (
+          <HistoryMaintenanceModal
+              equipment={selectedEquipmentForHistory}
+              isOpen={isHistoryModalOpen}
+              onClose={() => setIsHistoryModalOpen(false)}
+          />
+      )}
       
       <Card className="shadow-card">
         <CardContent className="p-6">
@@ -1108,269 +1326,251 @@ export const Equipments: React.FC = () => {
           </div>
         </CardContent>
       </Card>
-
-      {selectedEquipmentForMaintenance && (
-        <Dialog open={isMaintenanceModalOpen} onOpenChange={setIsMaintenanceModalOpen}>
-          <DialogContent className="sm:max-w-[600px]">
-            <DialogHeader>
-              <DialogTitle>Registrar Manutenção</DialogTitle>
-              <DialogDescription>
-                Registre uma nova manutenção para **{selectedEquipmentForMaintenance.name}**.
-              </DialogDescription>
-            </DialogHeader>
-            <Form {...maintenanceForm}>
-              <form onSubmit={maintenanceForm.handleSubmit(handleMaintenanceSubmit)} className="grid gap-4 py-4">
-                <FormField
-                  control={maintenanceForm.control}
-                  name="service_type"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Tipo de Serviço</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Selecione o tipo de serviço" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="limpeza">Limpeza</SelectItem>
-                          <SelectItem value="reparo">Reparo</SelectItem>
-                          <SelectItem value="substituicao">Substituição</SelectItem>
-                          <SelectItem value="calibracao">Calibração</SelectItem>
-                          <SelectItem value="inspecao">Inspeção</SelectItem>
-                          <SelectItem value="outro">Outro</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={maintenanceForm.control}
-                  name="performed_by_id"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Responsável</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value ?? ""}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Selecione o responsável" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {responsibles.map((responsible) => (
-                            <SelectItem key={responsible.id} value={responsible.id}>{responsible.name}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={maintenanceForm.control}
-                  name="description"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Descrição</FormLabel>
-                      <FormControl>
-                        <Textarea placeholder="Detalhes da manutenção..." {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <DialogFooter>
-                  <Button type="submit" disabled={isCreatingMaintenance} className="gradient-primary">
-                    {isCreatingMaintenance ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Salvando...
-                      </>
-                    ) : (
-                      "Salvar"
-                    )}
-                  </Button>
-                </DialogFooter>
-              </form>
-            </Form>
-          </DialogContent>
-        </Dialog>
-      )}
       
-      {selectedEquipmentForHistory && (
-          <HistoryMaintenanceModal
-              equipment={selectedEquipmentForHistory}
-              isOpen={isHistoryModalOpen}
-              onClose={() => setIsHistoryModalOpen(false)}
-          />
-      )}
+      {/* Condicionalmente renderiza a tabela ou os cards */}
+      {isMobile ? (
+        // Layout para mobile (cards)
+        <div className="grid gap-4">
+          {filteredEquipments.map((equipment) => {
+            const daysUntilNextCleaning = getDaysUntilNextCleaning(equipment.next_cleaning);
+            const isOverdue = daysUntilNextCleaning < 0;
+            const isDueToday = daysUntilNextCleaning === 0;
+            const statusInfo = statusConfig[equipment.status as keyof typeof statusConfig] || { label: equipment.status, color: 'bg-muted text-muted-foreground' };
 
-      <Card className="shadow-card">
-        <CardHeader>
-          <CardTitle>Lista de Equipamentos</CardTitle>
-          <p className="text-muted-foreground text-sm">
-            Visualize e gerencie todos os equipamentos cadastrados
-          </p>
-        </CardHeader>
-        <CardContent>
-          <div className="relative w-full overflow-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Nome</TableHead>
-                  <TableHead>Setor</TableHead>
-                  <TableHead>Responsável</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Última Limpeza</TableHead>
-                  <TableHead>Próxima Limpeza</TableHead>
-                  {canEdit && <TableHead className="text-right">Ações</TableHead>}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredEquipments.map((equipment) => {
-                  const daysUntilNextCleaning = getDaysUntilNextCleaning(equipment.next_cleaning);
-                  const isOverdue = daysUntilNextCleaning < 0;
-                  const isDueToday = daysUntilNextCleaning === 0;
-                  const statusInfo = statusConfig[equipment.status as keyof typeof statusConfig] || { label: equipment.status, color: 'bg-muted text-muted-foreground' };
-
-                  return (
-                    <TableRow 
-                      key={equipment.id}
-                      className={cn({
-                        'bg-destructive/10 hover:bg-destructive/20': isOverdue,
-                        'bg-warning/10 hover:bg-warning/20': isDueToday,
-                      })}
-                    >
-                      <TableCell className="font-medium">
-                        <div>
-                          <p className="font-semibold">{equipment.name}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {equipment.model || 'N/A'}
-                          </p>
-                        </div>
-                      </TableCell>
-                      <TableCell>{equipment.sectors?.name || 'N/A'}</TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1">
-                          <MapPin className="h-3 w-3 text-muted-foreground" />
-                          {equipment.responsibles?.name || 'N/A'}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge className={statusInfo.color}>
-                          {statusInfo.label}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        {equipment.last_cleaning ?
-                          format(new Date(equipment.last_cleaning + 'T00:00:00'), 'dd/MM/yyyy') :
-                          'N/A'
-                        }
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex flex-col">
-                          <span>
-                            {format(new Date(equipment.next_cleaning + 'T00:00:00'), 'dd/MM/yyyy')}
-                          </span>
-                          <span className={cn(
-                            "text-xs mt-1",
-                            isOverdue ? "text-destructive font-bold" : (isDueToday ? "text-warning font-bold" : "text-muted-foreground")
-                          )}>
-                            {isOverdue ? `(Em atraso há ${Math.abs(daysUntilNextCleaning)} dias)` : (isDueToday ? `(Aviso)` : `(Faltam ${daysUntilNextCleaning} dias)`)}
-                          </span>
-                        </div>
-                      </TableCell>
-                      {canEdit && (
-                        <TableCell className="text-right">
-                          <div className="flex justify-end gap-2">
-                            
-                          <Button variant="outline" size="sm" onClick={() => handleOpenMaintenanceModal(equipment)}>
-                                <CalendarIcon className="h-3 w-3 mr-1" />
-                                Manutenção
-                            </Button>
-                             <Button variant="outline" size="sm" onClick={() => handleOpenHistoryModal(equipment)}>
-                               <History className="h-3 w-3 mr-1" />
-                               Histórico
-                             </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleOpenModal(equipment)}
-                            >
-                              <Edit className="h-3 w-3" />
-                            </Button>
-                            <AlertDialog>
-                              <AlertDialogTrigger asChild>
-                                <Button variant="outline" size="sm">
-                                  <Trash2 className="h-3 w-3" />
-                                </Button>
-                              </AlertDialogTrigger>
-                              <AlertDialogContent>
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
-                                  <AlertDialogDescription>
-                                    Esta ação não pode ser desfeita. Isso excluirá permanentemente o equipamento <strong style={{ color: 'red' }}>{equipment.name}</strong> do sistema.
-                                  </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                  <AlertDialogAction
-                                    onClick={() => handleDelete(equipment.id)}
-                                    disabled={isDeleting}
-                                  >
-                                    {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Continuar'}
-                                  </AlertDialogAction>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
-                          </div>
-                        </TableCell>
-                      )}
-                    </TableRow>
-                  );
+            return (
+              <Card
+                key={equipment.id}
+                className={cn("flex flex-col shadow-card hover:shadow-card-hover transition-smooth", {
+                  'border-destructive/50 bg-destructive/5 hover:bg-destructive/10': isOverdue,
+                  'border-warning/50 bg-warning/5 hover:bg-warning/10': isDueToday,
                 })}
-              </TableBody>
-            </Table>
-          </div>
-          <Pagination className="mt-4">
-              <PaginationContent>
-                <PaginationItem>
-                  <PaginationPrevious 
-                    onClick={() => handlePageChange(page - 1)} 
-                    className={cn(page === 1 && "pointer-events-none opacity-50")}
-                  />
-                </PaginationItem>
-                {[...Array(pageCount)].map((_, index) => (
-                  <PaginationItem key={index}>
-                    <PaginationLink 
-                      onClick={() => handlePageChange(index + 1)}
-                      isActive={page === index + 1}
-                    >
-                      {index + 1}
-                    </PaginationLink>
-                  </PaginationItem>
-                ))}
-                <PaginationItem>
-                  <PaginationNext 
-                    onClick={() => handlePageChange(page + 1)} 
-                    className={cn(page === pageCount && "pointer-events-none opacity-50")}
-                  />
-                </PaginationItem>
-              </PaginationContent>
-          </Pagination>
-        </CardContent>
-      </Card>
+              >
+                <CardHeader className="flex flex-row items-center justify-between p-4 pb-0">
+                  <CardTitle className="text-lg">
+                    {equipment.name}
+                  </CardTitle>
+                  <Badge className={statusInfo.color}>
+                    {statusInfo.label}
+                  </Badge>
+                </CardHeader>
+                <CardContent className="flex-1 p-4 pt-2 space-y-3 text-sm">
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <Wrench className="h-4 w-4" />
+                    <span>{equipment.model || 'N/A'}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <MapPin className="h-4 w-4" />
+                    <span>Setor: {equipment.sectors?.name || 'N/A'}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <CalendarIcon className="h-4 w-4" />
+                    <span>Próxima Limpeza: {format(new Date(equipment.next_cleaning + 'T00:00:00'), 'dd/MM/yyyy')}</span>
+                    <span className={cn(
+                        "text-xs ml-auto",
+                        isOverdue ? "text-destructive font-bold" : (isDueToday ? "text-warning font-bold" : "text-muted-foreground")
+                    )}>
+                        {isOverdue ? `(Atrasado há ${Math.abs(daysUntilNextCleaning)} dias)` : (isDueToday ? `(Aviso)` : `(Faltam ${daysUntilNextCleaning} dias)`)}
+                    </span>
+                  </div>
+                </CardContent>
+                {canEdit && (
+                  <div className="p-4 pt-0 flex flex-wrap justify-center gap-2 border-t">
+                    <Button variant="outline" size="sm" onClick={() => handleOpenMaintenanceModal(equipment)}>
+                      <CalendarIcon className="h-3 w-3 sm:mr-1" />
+                      <span className="hidden sm:inline">Manutenção</span>
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => handleOpenHistoryModal(equipment)}>
+                      <History className="h-3 w-3 sm:mr-1" />
+                      <span className="hidden sm:inline">Histórico</span>
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => handleOpenModal(equipment)}>
+                      <Edit className="h-3 w-3" />
+                    </Button>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="outline" size="sm">
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Esta ação não pode ser desfeita. Isso excluirá permanentemente o equipamento <strong style={{ color: 'red' }}>{equipment.name}</strong> do sistema.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={() => handleDelete(equipment.id)}
+                            disabled={isDeleting}
+                          >
+                            {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Continuar'}
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
+                )}
+              </Card>
+            );
+          })}
+        </div>
+      ) : (
+        // Layout para desktop (tabela)
+        <div className="relative w-full overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-[150px]">Nome</TableHead>
+                <TableHead>Setor</TableHead>
+                <TableHead>Responsável</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Última Limpeza</TableHead>
+                <TableHead>Próxima Limpeza</TableHead>
+                {canEdit && <TableHead className="text-right w-[150px]">Ações</TableHead>}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredEquipments.map((equipment) => {
+                const daysUntilNextCleaning = getDaysUntilNextCleaning(equipment.next_cleaning);
+                const isOverdue = daysUntilNextCleaning < 0;
+                const isDueToday = daysUntilNextCleaning === 0;
+                const statusInfo = statusConfig[equipment.status as keyof typeof statusConfig] || { label: equipment.status, color: 'bg-muted text-muted-foreground' };
+
+                return (
+                  <TableRow
+                    key={equipment.id}
+                    className={cn({
+                      'bg-destructive/10 hover:bg-destructive/20': isOverdue,
+                      'bg-warning/10 hover:bg-warning/20': isDueToday,
+                    })}
+                  >
+                    <TableCell className="font-medium">
+                      <div>
+                        <p className="font-semibold">{equipment.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {equipment.model || 'N/A'}
+                        </p>
+                      </div>
+                    </TableCell>
+                    <TableCell>{equipment.sectors?.name || 'N/A'}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1">
+                        <MapPin className="h-3 w-3 text-muted-foreground" />
+                        {equipment.responsibles?.name || 'N/A'}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge className={statusInfo.color}>
+                        {statusInfo.label}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      {equipment.last_cleaning ?
+                        format(new Date(equipment.last_cleaning + 'T00:00:00'), 'dd/MM/yyyy') :
+                        'N/A'
+                      }
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex flex-col">
+                        <span>
+                          {format(new Date(equipment.next_cleaning + 'T00:00:00'), 'dd/MM/yyyy')}
+                        </span>
+                        <span className={cn(
+                          "text-xs mt-1",
+                          isOverdue ? "text-destructive font-bold" : (isDueToday ? "text-warning font-bold" : "text-muted-foreground")
+                        )}>
+                          {isOverdue ? `(Em atraso há ${Math.abs(daysUntilNextCleaning)} dias)` : (isDueToday ? `(Aviso)` : `(Faltam ${daysUntilNextCleaning} dias)`)}
+                        </span>
+                      </div>
+                    </TableCell>
+                    {canEdit && (
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-2 flex-wrap sm:flex-nowrap">
+                          
+                        <Button variant="outline" size="sm" onClick={() => handleOpenMaintenanceModal(equipment)}>
+                              <CalendarIcon className="h-3 w-3 sm:mr-1" />
+                              <span className="hidden sm:inline">Manutenção</span>
+                          </Button>
+                           <Button variant="outline" size="sm" onClick={() => handleOpenHistoryModal(equipment)}>
+                             <History className="h-3 w-3 sm:mr-1" />
+                             <span className="hidden sm:inline">Histórico</span>
+                           </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleOpenModal(equipment)}
+                          >
+                            <Edit className="h-3 w-3" />
+                          </Button>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button variant="outline" size="sm">
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Esta ação não pode ser desfeita. Isso excluirá permanentemente o equipamento <strong style={{ color: 'red' }}>{equipment.name}</strong> do sistema.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={() => handleDelete(equipment.id)}
+                                  disabled={isDeleting}
+                                >
+                                  {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Continuar'}
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </div>
+                      </TableCell>
+                    )}
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+      <Pagination className="mt-4">
+        <PaginationContent>
+          <PaginationItem>
+            <PaginationPrevious
+              onClick={() => handlePageChange(page - 1)}
+              className={cn(page === 1 && "pointer-events-none opacity-50")}
+            />
+          </PaginationItem>
+          {[...Array(pageCount)].map((_, index) => (
+            <PaginationItem key={index}>
+              <PaginationLink
+                onClick={() => handlePageChange(index + 1)}
+                isActive={page === index + 1}
+              >
+                {index + 1}
+              </PaginationLink>
+            </PaginationItem>
+          ))}
+          <PaginationItem>
+            <PaginationNext
+              onClick={() => handlePageChange(page + 1)}
+              className={cn(page === pageCount && "pointer-events-none opacity-50")}
+            />
+          </PaginationItem>
+        </PaginationContent>
+      </Pagination>
     </div>
   );
 };
 
 const HistoryMaintenanceModal = ({ equipment, isOpen, onClose }) => {
     const { data: maintenances = [], isLoading, error } = useMaintenanceHistory(equipment.id);
-    
+
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
             <DialogContent className="sm:max-w-[800px]">

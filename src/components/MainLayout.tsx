@@ -12,13 +12,15 @@ import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { AppSidebar } from './AppSidebar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { AnnouncementBanner } from './AnnouncementBanner';
+import { cn } from "@/lib/utils";
+
+const HEADER_HEIGHT_PX = 64; // Altura do header em pixels (h-16 = 64px)
 
 export const MainLayout: React.FC = () => {
   const { authState } = useAuth();
   const { data: equipmentAlerts = [] } = useEquipmentAlerts();
   const { data: inventoryAlerts = [] } = useInventoryAlerts();
-  
-  // Usamos o estado do usuário do authState para persistir o estado das notificações lidas
+
   const readAlertsIdsFromProfile = authState.user?.read_notification_ids || [];
   
   const { mutate: updateUserNotifications } = useUpdateUserNotifications();
@@ -27,16 +29,13 @@ export const MainLayout: React.FC = () => {
     return [...equipmentAlerts, ...inventoryAlerts];
   }, [equipmentAlerts, inventoryAlerts]);
 
-  // Ação para marcar todos os alertas como lidos quando o popover é fechado.
   const handleOpenChange = (newOpenState: boolean) => {
-    // A mutação só é chamada quando o popover está sendo fechado
     if (!newOpenState) {
       const allAlertsIds = allAlerts.map(alert => alert.id);
       updateUserNotifications(allAlertsIds);
     }
   };
   
-  // Calcula o número de alertas não lidos
   const totalUnreadAlerts = useMemo(() => {
     return allAlerts.filter(alert => !readAlertsIdsFromProfile.includes(alert.id)).length;
   }, [allAlerts, readAlertsIdsFromProfile]);
@@ -60,16 +59,15 @@ export const MainLayout: React.FC = () => {
       <div className="min-h-screen flex w-full">
         <AppSidebar />
           
-        <div className="flex-1 flex flex-col">
-          {/* Header */}
-          <header className="h-16 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 shadow-header sticky top-0 z-50">
+        <div className="flex-1 flex flex-col md:ml-64 overflow-x-hidden">
+          {/* Header fixo no topo */}
+          <header className="fixed top-0 left-0 md:left-64 z-50 w-full md:w-[calc(100%-16rem)] h-16 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 shadow-header">
             <div className="flex h-full items-center justify-between px-6">
               <div className="flex items-center gap-4">
                 <SidebarTrigger className="lg:hidden" />
               </div>
 
               <div className="flex items-center gap-4">
-                {/* Notifications */}
                 <Popover onOpenChange={handleOpenChange}>
                   <PopoverTrigger asChild>
                     <Button variant="ghost" size="sm" className="relative">
@@ -97,7 +95,6 @@ export const MainLayout: React.FC = () => {
                         <div className="flex flex-col gap-3">
                           {allAlerts.length > 0 ? (
                             <>
-                              {/* Alertas de Equipamentos */}
                               {equipmentAlerts.length > 0 && (
                                 <>
                                   <h4 className="text-sm font-semibold flex items-center gap-2">
@@ -118,10 +115,8 @@ export const MainLayout: React.FC = () => {
                                 </>
                               )}
 
-                              {/* Separador condicional */}
                               {equipmentAlerts.length > 0 && inventoryAlerts.length > 0 && <Separator className="my-2" />}
 
-                              {/* Alertas de Inventário */}
                               {inventoryAlerts.length > 0 && (
                                 <>
                                   <h4 className="text-sm font-semibold flex items-center gap-2">
@@ -156,7 +151,6 @@ export const MainLayout: React.FC = () => {
                   </PopoverContent>
                 </Popover>
 
-                {/* User Info */}
                 {authState.user && (
                   <div className="flex items-center gap-3">
                     <div className="hidden sm:block text-right">
@@ -182,7 +176,10 @@ export const MainLayout: React.FC = () => {
             </div>
           </header>
 
-          <AnnouncementBanner />
+          {/* O AnnouncementBanner não é mais fixo e rola com o conteúdo */}
+          <div className="mt-16">
+            <AnnouncementBanner />
+          </div>
           
           <main className="flex-1 overflow-auto">
             <Outlet />

@@ -75,7 +75,7 @@ const navigationItems = [
 ];
 
 export function AppSidebar() {
-  const { state } = useSidebar();
+  const { state, isMobile, setOpenMobile } = useSidebar();
   const location = useLocation();
   const { authState, logout } = useAuth();
   const currentPath = location.pathname;
@@ -108,7 +108,7 @@ export function AppSidebar() {
   return (
     <Sidebar
       className="transition-smooth border-r"
-      collapsible="icon"
+      collapsible="offcanvas"
     >
       <SidebarHeader className="border-b p-4">
         <div className="flex items-center gap-3">
@@ -136,7 +136,11 @@ export function AppSidebar() {
               {filteredItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild>
-                    <NavLink to={item.url} className={getNavClassName(item.url)}>
+                    <NavLink 
+                      to={item.url} 
+                      className={getNavClassName(item.url)}
+                      onClick={() => isMobile && setOpenMobile(false)}
+                    >
                       <item.icon className="h-4 w-4 flex-shrink-0" />
                       {!isCollapsed && (
                         <>
