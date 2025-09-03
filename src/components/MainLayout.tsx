@@ -59,9 +59,9 @@ export const MainLayout: React.FC = () => {
       <div className="min-h-screen flex w-full">
         <AppSidebar />
           
-        <div className="flex-1 flex flex-col md:ml-64 overflow-x-hidden">
+        <div className="flex-1 flex flex-col">
           {/* Header fixo no topo */}
-          <header className="fixed top-0 left-0 md:left-64 z-50 w-full md:w-[calc(100%-16rem)] h-16 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 shadow-header">
+          <header className="fixed top-0 right-0 z-50 w-full lg:w-[calc(100%-16rem)] h-16 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 shadow-header lg:left-64">
             <div className="flex h-full items-center justify-between px-6">
               <div className="flex items-center gap-4">
                 <SidebarTrigger className="lg:hidden" />
