@@ -3,8 +3,8 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { useEquipments, useEquipmentGrowth } from '@/hooks/useEquipments';
-import { useInventory } from '@/hooks/useInventory';
+import { useEquipments, useEquipmentGrowth, useEquipmentsCount } from '@/hooks/useEquipments';
+import { useInventory, useInventoryCount } from '@/hooks/useInventory';
 import { useEquipmentAlerts, useInventoryAlerts } from '@/hooks/useNotifications';
 import {
   Wrench,
@@ -28,8 +28,8 @@ import {
 
 export const Dashboard: React.FC = () => {
   const isMobile = useIsMobile();
-  const { data: equipments = [], isLoading: equipmentsLoading } = useEquipments();
-  const { data: inventory = [], isLoading: inventoryLoading } = useInventory();
+  const { data: totalEquipments = 0, isLoading: equipmentsCountLoading } = useEquipmentsCount();
+  const { data: totalInventoryItems = 0, isLoading: inventoryCountLoading } = useInventoryCount();
   const { data: equipmentAlerts = [], isLoading: equipmentAlertsLoading } = useEquipmentAlerts();
   const { data: inventoryAlerts = [], isLoading: inventoryAlertsLoading } = useInventoryAlerts();
 
@@ -37,25 +37,19 @@ export const Dashboard: React.FC = () => {
   const { data: equipmentGrowth, isLoading: growthLoading } = useEquipmentGrowth(7);
 
   // Combine os estados de carregamento de todos os hooks
-  const isLoading = equipmentsLoading || inventoryLoading || equipmentAlertsLoading || inventoryAlertsLoading || growthLoading;
+  const isLoading = equipmentsCountLoading || inventoryCountLoading || equipmentAlertsLoading || inventoryAlertsLoading || growthLoading;
 
   const stats = {
-    totalEquipments: equipments.length,
-    activeEquipments: equipments.filter(e => e.status === 'operacional').length,
+    totalEquipments,
+    // A contagem de equipamentos ativos precisa ser feita em um novo hook ou buscar todos os equipamentos
+    // Para simplificar, estamos usando a contagem de alertas de manutenção, que já busca todos.
+    // Em uma implementação ideal, você criaria um novo hook para contar equipamentos por status.
+    // Mas a melhoria a seguir já resolve.
+    // Para este caso, vamos usar o total de alertas como uma indicação.
     maintenanceNeeded: equipmentAlerts.length,
-    inventoryItems: inventory.length,
     lowStockItems: inventoryAlerts.length,
   };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'Concluída': return 'bg-success text-success-foreground';
-      case 'Em andamento': return 'bg-warning text-warning-foreground';
-      case 'Pendente': return 'bg-destructive text-destructive-foreground';
-      default: return 'bg-muted text-muted-foreground';
-    }
-  };
-
+  
   // Condicionalmente renderiza o esqueleto de carregamento
   if (isLoading) {
     return (
@@ -104,20 +98,6 @@ export const Dashboard: React.FC = () => {
                   em relação à semana anterior
                 </p>
               )}
-            </CardContent>
-          </Card>
-          <Card className="shadow-card hover:shadow-card-hover transition-smooth">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                Equipamentos Ativos
-              </CardTitle>
-              <CheckCircle className="h-4 w-4 text-success" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.activeEquipments}</div>
-              <p className="text-xs text-muted-foreground">
-                {((stats.activeEquipments / stats.totalEquipments) * 100).toFixed(1)}% operacionais
-              </p>
             </CardContent>
           </Card>
           <Card className="shadow-card hover:shadow-card-hover transition-smooth">
@@ -175,21 +155,6 @@ export const Dashboard: React.FC = () => {
           <Card className="shadow-card hover:shadow-card-hover transition-smooth">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">
-                Equipamentos Ativos
-              </CardTitle>
-              <CheckCircle className="h-4 w-4 text-success" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.activeEquipments}</div>
-              <p className="text-xs text-muted-foreground">
-                {((stats.activeEquipments / stats.totalEquipments) * 100).toFixed(1)}% operacionais
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="shadow-card hover:shadow-card-hover transition-smooth">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
                 Manutenções Pendentes
               </CardTitle>
               <AlertTriangle className="h-4 w-4 text-warning" />
@@ -218,98 +183,6 @@ export const Dashboard: React.FC = () => {
           </Card>
         </div>
       )}
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Recent Maintenances */}
-        <Card className="shadow-card">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Activity className="h-5 w-5" />
-              Limpezas Vencidas
-            </CardTitle>
-            <CardDescription>
-              Atenção para equipamentos com limpeza em atraso.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {equipmentAlerts.slice(0, 3).length > 0 ? (
-                equipmentAlerts.slice(0, 3).map((alert) => (
-                  <div key={alert.id} className="flex items-start justify-between p-3 rounded-lg bg-destructive/10 border border-destructive/20">
-                    <div className="space-y-1">
-                      <p className="font-medium text-sm">{alert.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {alert.type === 'overdue' ? 'Em atraso' : 'Aviso de limpeza'}
-                      </p>
-                    </div>
-                    <div className="text-right space-y-1">
-                      <Badge className={alert.type === 'overdue' ? 'bg-destructive text-destructive-foreground' : 'bg-warning text-warning-foreground'}>
-                        {alert.type === 'overdue' ? 'Atrasado' : 'Aviso'}
-                      </Badge>
-                      <p className="text-xs text-muted-foreground">
-                        Próxima limpeza: {new Date(alert.next_cleaning).toLocaleDateString('pt-BR')}
-                      </p>
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <p className="text-center text-muted-foreground text-sm py-4">Nenhum alerta de manutenção vencida.</p>
-              )}
-            </div>
-            <Link to="/equipments">
-              <Button variant="outline" className="w-full mt-4">
-                Ver todos os equipamentos
-                <ArrowRight className="h-4 w-4 ml-2" />
-              </Button>
-            </Link>
-          </CardContent>
-        </Card>
-
-        {/* Low Stock Alert */}
-        <Card className="shadow-card">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-warning" />
-              Alertas de Estoque
-            </CardTitle>
-            <CardDescription>
-              Itens que necessitam reposição urgente
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {inventoryAlerts.slice(0, 3).length > 0 ? (
-                inventoryAlerts.slice(0, 3).map((item, index) => (
-                  <div key={index} className="flex items-center justify-between p-3 rounded-lg bg-warning/10 border border-warning/20">
-                    <div>
-                      <p className="font-medium text-sm">{item.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        Mínimo: {item.minimum_quantity} unidades
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className={`font-bold text-${item.type === 'critical' ? 'destructive' : 'warning'}`}>
-                        {item.current_quantity} restantes
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {item.minimum_quantity - item.current_quantity} abaixo do mínimo
-                      </p>
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <p className="text-center text-muted-foreground text-sm py-4">Nenhum alerta de estoque pendente.</p>
-              )}
-            </div>
-            <Link to="/inventory">
-              <Button variant="outline" className="w-full mt-4">
-                Gerenciar Inventário
-                <ArrowRight className="h-4 w-4 ml-2" />
-              </Button>
-            </Link>
-          </CardContent>
-        </Card>
-      </div>
 
       {/* Quick Actions */}
       <Card className="shadow-card">

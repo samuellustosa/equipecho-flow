@@ -15,6 +15,7 @@ import NotFound from './pages/NotFound';
 import { WaitingForApproval } from './pages/WaitingForApproval';
 import { EmailConfirmation } from './pages/EmailConfirmation';
 import { useAuth } from './hooks/useAuth';
+import { RedirectAfterAuth } from './pages/RedirectAfterAuth'; // Adicionada a importação do novo componente
 
 function App() {
   const { authState } = useAuth();
@@ -25,6 +26,8 @@ function App() {
       <Route path="/auth" element={<Auth />} />
       <Route path="/email-confirmation" element={<EmailConfirmation />} />
       <Route path="/pending-approval" element={<WaitingForApproval />} />
+      {/* Adicionada a nova rota de callback para a confirmação do email */}
+      <Route path="/auth/callback" element={<RedirectAfterAuth />} />
 
       <Route
         path="/"

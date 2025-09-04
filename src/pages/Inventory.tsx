@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/hooks/useAuth';
-import { useInventory, useCreateInventoryItem, useUpdateInventoryItem, useDeleteInventoryItem, InventoryItem, useInventoryCount } from '@/hooks/useInventory';
+import { useInventory, useCreateInventoryItem, useUpdateInventoryItem, useDeleteInventoryItem, InventoryItem, useInventoryCount, useAllInventory } from '@/hooks/useInventory';
 import { useCategories, useCreateCategory, useDeleteCategory } from '@/hooks/useCategories';
 import { useLocations, useCreateLocation, useDeleteLocation } from '@/hooks/useLocations';
 import { useCreateInventoryMovement, useInventoryMovementHistory, InventoryMovement } from '@/hooks/useInventoryMovements';
@@ -195,6 +195,7 @@ export const Inventory: React.FC = () => {
   const [page, setPage] = useState(1);
   const itemsPerPage = 20;
   const offset = (page - 1) * itemsPerPage;
+  const { data: allInventoryItems = [], isLoading: allItemsLoading } = useAllInventory();
   const { data: inventoryItems = [], isLoading, error } = useInventory(itemsPerPage, offset);
   const { data: totalItems = 0, isLoading: countLoading } = useInventoryCount();
   const { mutate: createItem, isPending: isCreating } = useCreateInventoryItem();
@@ -309,9 +310,9 @@ export const Inventory: React.FC = () => {
 
   const stats = {
     totalItems: totalItems,
-    lowStockItems: inventoryItems.filter(item => item.status === 'baixo' || item.status === 'critico').length,
-    criticalItems: inventoryItems.filter(item => item.status === 'critico').length,
-    normalItems: inventoryItems.filter(item => item.status === 'normal').length
+    lowStockItems: allInventoryItems.filter(item => item.status === 'baixo' || item.status === 'critico').length,
+    criticalItems: allInventoryItems.filter(item => item.status === 'critico').length,
+    normalItems: allInventoryItems.filter(item => item.status === 'normal').length
   };
 
   const canEdit = authState.user?.role === 'admin' || authState.user?.role === 'manager';
@@ -487,10 +488,10 @@ export const Inventory: React.FC = () => {
 
   // NOVO: Funções de exclusão de categoria e localização com alerta de dependência
   const handleDeleteCategory = (id: string, name: string) => {
-    const hasItems = inventoryItems.some(item => item.category_id === id);
+    const hasItems = allInventoryItems.some(item => item.category_id === id);
     let message = '';
     if (hasItems) {
-      const count = inventoryItems.filter(item => item.category_id === id).length;
+      const count = allInventoryItems.filter(item => item.category_id === id).length;
       message = `A categoria "${name}" está associada a ${count} item(s) de inventário. A exclusão irá desassociá-los. Você tem certeza que deseja continuar?`;
     } else {
       message = `Você tem certeza que deseja excluir a categoria "${name}"? Esta ação não pode ser desfeita.`;
@@ -501,10 +502,10 @@ export const Inventory: React.FC = () => {
   };
   
   const handleDeleteLocation = (id: string, name: string) => {
-    const hasItems = inventoryItems.some(item => item.location_id === id);
+    const hasItems = allInventoryItems.some(item => item.location_id === id);
     let message = '';
     if (hasItems) {
-      const count = inventoryItems.filter(item => item.location_id === id).length;
+      const count = allInventoryItems.filter(item => item.location_id === id).length;
       message = `A localização "${name}" está associada a ${count} item(s) de inventário. A exclusão irá desassociá-los. Você tem certeza que deseja continuar?`;
     } else {
       message = `Você tem certeza que deseja excluir a localização "${name}"? Esta ação não pode ser desfeita.`;
@@ -543,7 +544,7 @@ export const Inventory: React.FC = () => {
   };
 
 
-  if (isLoading || countLoading) {
+  if (isLoading || countLoading || allItemsLoading) {
     return (
       <div className="p-6 space-y-6">
         <div className="animate-pulse space-y-4">

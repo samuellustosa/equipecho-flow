@@ -22,7 +22,29 @@ export interface InventoryItem {
   };
 }
 
-// Modificado para suportar paginação
+// Hook para buscar TODOS os itens do inventário
+export const useAllInventory = () => {
+  const { authState } = useAuth();
+  return useQuery({
+    queryKey: ['allInventory'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('inventory')
+        .select(`
+          *,
+          categories (name),
+          locations (name)
+        `)
+        .order('name');
+
+      if (error) throw error;
+      return data as InventoryItem[];
+    },
+    enabled: !!authState.user,
+  });
+};
+
+// Hook para buscar itens do inventário com paginação
 export const useInventory = (limit: number = 10, offset: number = 0) => {
   const { authState } = useAuth();
   return useQuery({
@@ -36,16 +58,16 @@ export const useInventory = (limit: number = 10, offset: number = 0) => {
           locations (name)
         `)
         .order('name')
-        .range(offset, offset + limit - 1); // Aplicando a paginação
+        .range(offset, offset + limit - 1);
 
       if (error) throw error;
       return data as InventoryItem[];
     },
-    enabled: !!authState.user, // A consulta só é ativada se houver um utilizador logado
+    enabled: !!authState.user,
   });
 };
 
-// NOVO: Hook para obter a contagem total de itens do inventário
+// Hook para obter a contagem total de itens do inventário
 export const useInventoryCount = () => {
   const { authState } = useAuth();
   return useQuery({
@@ -58,13 +80,13 @@ export const useInventoryCount = () => {
       if (error) throw error;
       return count as number;
     },
-    enabled: !!authState.user, // A consulta só é ativada se houver um utilizador logado
+    enabled: !!authState.user,
   });
 };
 
 export const useCreateInventoryItem = () => {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
     mutationFn: async (item: Omit<InventoryItem, 'id' | 'created_at' | 'updated_at' | 'categories' | 'locations'>) => {
       const { data, error } = await supabase
@@ -79,6 +101,7 @@ export const useCreateInventoryItem = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['inventory'] });
       queryClient.invalidateQueries({ queryKey: ['inventoryCount'] });
+      queryClient.invalidateQueries({ queryKey: ['allInventory'] });
       queryClient.invalidateQueries({ queryKey: ['inventoryAlerts'] });
     }
   });
@@ -87,7 +110,7 @@ export const useCreateInventoryItem = () => {
 export const useUpdateInventoryItem = () => {
   const queryClient = useQueryClient();
   const { setAuthUser } = useAuth();
-  
+
   return useMutation({
     mutationFn: async ({ id, ...item }: Partial<Omit<InventoryItem, 'current_quantity'>> & { id: string }) => {
       const { data, error } = await supabase
@@ -100,8 +123,9 @@ export const useUpdateInventoryItem = () => {
       if (error) throw error;
       return data;
     },
-    onSuccess: (updatedItem) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['inventory'] });
+      queryClient.invalidateQueries({ queryKey: ['allInventory'] });
       queryClient.invalidateQueries({ queryKey: ['inventoryAlerts'] });
     }
   });
@@ -109,7 +133,7 @@ export const useUpdateInventoryItem = () => {
 
 export const useDeleteInventoryItem = () => {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase
@@ -122,6 +146,7 @@ export const useDeleteInventoryItem = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['inventory'] });
       queryClient.invalidateQueries({ queryKey: ['inventoryCount'] });
+      queryClient.invalidateQueries({ queryKey: ['allInventory'] });
       queryClient.invalidateQueries({ queryKey: ['inventoryAlerts'] });
     }
   });

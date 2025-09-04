@@ -50,6 +50,8 @@ export const Auth: React.FC = () => {
         title: "Conta criada com sucesso!",
         description: "Verifique seu email para confirmar a conta.",
       });
+      // Adiciona o email ao localStorage antes de navegar
+      localStorage.setItem('pendingConfirmationEmail', data.email);
       navigate('/email-confirmation', { state: { email: data.email } });
     } catch (error: any) {
       setError(error.message);

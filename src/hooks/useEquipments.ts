@@ -25,7 +25,29 @@ export interface Equipment {
   };
 }
 
-// Modificado para suportar paginação
+// Hook para buscar TODOS os equipamentos
+export const useAllEquipments = () => {
+  const { authState } = useAuth();
+  return useQuery({
+    queryKey: ['allEquipments'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('equipments')
+        .select(`
+          *,
+          sectors (name),
+          responsibles (name)
+        `)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return data as Equipment[];
+    },
+    enabled: !!authState.user,
+  });
+};
+
+// Hook para buscar equipamentos com paginação
 export const useEquipments = (limit: number = 10, offset: number = 0) => {
   const { authState } = useAuth();
   return useQuery({
@@ -39,16 +61,16 @@ export const useEquipments = (limit: number = 10, offset: number = 0) => {
           responsibles (name)
         `)
         .order('created_at', { ascending: false })
-        .range(offset, offset + limit - 1); // Aplicando a paginação
+        .range(offset, offset + limit - 1);
 
       if (error) throw error;
       return data as Equipment[];
     },
-    enabled: !!authState.user, // A consulta só é ativada se houver um utilizador logado
+    enabled: !!authState.user,
   });
 };
 
-// NOVO: Hook para obter a contagem total de equipamentos
+// Hook para obter a contagem total de equipamentos
 export const useEquipmentsCount = () => {
   const { authState } = useAuth();
   return useQuery({
@@ -57,15 +79,15 @@ export const useEquipmentsCount = () => {
       const { count, error } = await supabase
         .from('equipments')
         .select('*', { count: 'exact', head: true });
-        
+
       if (error) throw error;
       return count as number;
     },
-    enabled: !!authState.user, // A consulta só é ativada se houver um utilizador logado
+    enabled: !!authState.user,
   });
 };
 
-// NOVO: Hook para obter o crescimento de equipamentos no último mês
+// Hook para obter o crescimento de equipamentos no último mês
 export const useEquipmentGrowth = (days: number = 30) => {
   const { authState } = useAuth();
   return useQuery({
@@ -86,7 +108,7 @@ export const useEquipmentGrowth = (days: number = 30) => {
         .select('*', { count: 'exact', head: true })
         .lt('created_at', xDaysAgo)
         .gte('created_at', twoXDdaysAgo);
-        
+
       if (previousError) throw previousError;
 
       if (previousCount === 0) {
@@ -102,7 +124,7 @@ export const useEquipmentGrowth = (days: number = 30) => {
 
 export const useCreateEquipment = () => {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
     mutationFn: async (equipment: Omit<Equipment, 'id' | 'created_at' | 'updated_at' | 'sectors' | 'responsibles'>) => {
       const { data, error } = await supabase
@@ -117,6 +139,7 @@ export const useCreateEquipment = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['equipments'] });
       queryClient.invalidateQueries({ queryKey: ['equipmentsCount'] });
+      queryClient.invalidateQueries({ queryKey: ['allEquipments'] });
       queryClient.invalidateQueries({ queryKey: ['equipmentAlerts'] });
     }
   });
@@ -124,7 +147,7 @@ export const useCreateEquipment = () => {
 
 export const useUpdateEquipment = () => {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
     mutationFn: async ({ id, ...equipment }: Partial<Equipment> & { id: string }) => {
       const { data, error } = await supabase
@@ -139,6 +162,7 @@ export const useUpdateEquipment = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['equipments'] });
+      queryClient.invalidateQueries({ queryKey: ['allEquipments'] });
       queryClient.invalidateQueries({ queryKey: ['equipmentAlerts'] });
     }
   });
@@ -146,7 +170,7 @@ export const useUpdateEquipment = () => {
 
 export const useDeleteEquipment = () => {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase
@@ -159,6 +183,7 @@ export const useDeleteEquipment = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['equipments'] });
       queryClient.invalidateQueries({ queryKey: ['equipmentsCount'] });
+      queryClient.invalidateQueries({ queryKey: ['allEquipments'] });
       queryClient.invalidateQueries({ queryKey: ['equipmentAlerts'] });
     }
   });

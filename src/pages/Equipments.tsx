@@ -14,7 +14,7 @@ import { Table,
          TableHead,
          TableRow
 } from "@/components/ui/table";
-import { useEquipments, useCreateEquipment, useUpdateEquipment, useDeleteEquipment, Equipment, useEquipmentsCount } from '@/hooks/useEquipments';
+import { useAllEquipments, useEquipments, useCreateEquipment, useUpdateEquipment, useDeleteEquipment, Equipment, useEquipmentsCount } from '@/hooks/useEquipments';
 import {
     Plus,
     Edit,
@@ -381,7 +381,8 @@ export const Equipments: React.FC = () => {
     const itemsPerPage = 10;
     const offset = (page - 1) * itemsPerPage;
 
-    const { data: equipments = [], isLoading, error } = useEquipments(itemsPerPage, offset);
+    const { data: allEquipments = [], isLoading: allEquipmentsLoading, error: allEquipmentsError } = useAllEquipments();
+    const { data: equipments = [], isLoading: equipmentsLoading, error: equipmentsError } = useEquipments(itemsPerPage, offset);
     const { data: totalEquipments = 0, isLoading: countLoading } = useEquipmentsCount();
 
     const { data: responsibles = [] } = useResponsibles();
@@ -570,7 +571,7 @@ export const Equipments: React.FC = () => {
             }
         });
     };
-    
+
     // NOVO: Função para lidar com a exclusão de setor com verificação
     const handleConfirmDeleteSector = () => {
         if (!pendingDeletion) return;
@@ -588,14 +589,14 @@ export const Equipments: React.FC = () => {
     };
 
     const handleDeleteSector = (sectorId: string, sectorName: string) => {
-        const hasEquipments = equipments.some(eq => eq.sector_id === sectorId);
+        const hasEquipments = allEquipments.some(eq => eq.sector_id === sectorId);
         const hasResponsibles = responsibles.some(resp => resp.sector_id === sectorId);
         
         let message = '';
         if (hasEquipments || hasResponsibles) {
             message = `O setor "${sectorName}" está associado a `
             if (hasEquipments) {
-                const count = equipments.filter(eq => eq.sector_id === sectorId).length;
+                const count = allEquipments.filter(eq => eq.sector_id === sectorId).length;
                 message += `${count} equipamento(s). `;
             }
             if (hasResponsibles) {
@@ -629,11 +630,11 @@ export const Equipments: React.FC = () => {
     };
 
     const handleDeleteResponsible = (responsibleId: string, responsibleName: string) => {
-        const hasEquipments = equipments.some(eq => eq.responsible_id === responsibleId);
+        const hasEquipments = allEquipments.some(eq => eq.responsible_id === responsibleId);
 
         let message = '';
         if (hasEquipments) {
-            const count = equipments.filter(eq => eq.responsible_id === responsibleId).length;
+            const count = allEquipments.filter(eq => eq.responsible_id === responsibleId).length;
             message = `O responsável "${responsibleName}" está associado a ${count} equipamento(s). A exclusão irá desassociá-los. Você tem certeza que deseja continuar?`;
         } else {
             message = `Você tem certeza que deseja excluir o responsável "${responsibleName}"?`;
@@ -694,11 +695,11 @@ export const Equipments: React.FC = () => {
 
     const stats = {
         totalItems: totalEquipments,
-        operacionalItems: equipments.filter(e => e.status === 'operacional').length,
-        manutencaoItems: equipments.filter(e => e.status === 'manutencao').length,
-        paradoItems: equipments.filter(e => e.status === 'parado').length,
-        warningItems: equipments.filter(e => getDaysUntilNextCleaning(e.next_cleaning) === 0).length,
-        overdueItems: equipments.filter(e => getDaysUntilNextCleaning(e.next_cleaning) < 0).length,
+        operacionalItems: allEquipments.filter(e => e.status === 'operacional').length,
+        manutencaoItems: allEquipments.filter(e => e.status === 'manutencao').length,
+        paradoItems: allEquipments.filter(e => e.status === 'parado').length,
+        warningItems: allEquipments.filter(e => getDaysUntilNextCleaning(e.next_cleaning) === 0).length,
+        overdueItems: allEquipments.filter(e => getDaysUntilNextCleaning(e.next_cleaning) < 0).length,
     };
 
     const statCards = [
@@ -780,7 +781,7 @@ export const Equipments: React.FC = () => {
         </Card>
     ];
 
-    if (isLoading || countLoading) {
+    if (equipmentsLoading || allEquipmentsLoading || countLoading) {
         return (
             <div className="p-6 space-y-6">
                 <div className="animate-pulse space-y-4">
@@ -792,12 +793,12 @@ export const Equipments: React.FC = () => {
         );
     }
 
-    if (error) {
+    if (equipmentsError || allEquipmentsError) {
         return (
             <div className="p-6">
                 <Card>
                     <CardContent className="p-6">
-                        <p className="text-destructive">Erro ao carregar equipamentos: {error.message}</p>
+                        <p className="text-destructive">Erro ao carregar equipamentos: {equipmentsError?.message || allEquipmentsError?.message}</p>
                     </CardContent>
                 </Card>
             </div>
@@ -1423,241 +1424,110 @@ export const Equipments: React.FC = () => {
                                         >
                                             <SelectTrigger>
                                                 <SelectValue placeholder="Todos os Responsáveis" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="all">Todos</SelectItem>
-                                                {responsibles.map(responsible => (
-                                                    <SelectItem key={responsible.id} value={responsible.id}>
-                                                        {responsible.name}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                </div>
-                                <DialogFooter>
-                                    <Button
-                                        variant="outline"
-                                        onClick={() => setActiveFilters({ status: 'all', sector_id: 'all', responsible_id: 'all' })}
-                                    >
-                                        Limpar Filtros
-                                    </Button>
-                                    <Button onClick={() => setIsFilterModalOpen(false)}>
-                                        Aplicar
-                                    </Button>
-                                </DialogFooter>
-                            </DialogContent>
-                        </Dialog>
-                    </div>
-                </CardContent>
-            </Card>
-            
-            {isMobile ? (
-                // Layout para mobile (cards)
-                <div className="flex flex-col gap-4">
-                    {filteredEquipments.map((equipment) => {
-                        const daysUntilNextCleaning = getDaysUntilNextCleaning(equipment.next_cleaning);
-                        const isOverdue = daysUntilNextCleaning < 0;
-                        const isDueToday = daysUntilNextCleaning === 0;
-                        const statusInfo = statusConfig[equipment.status as keyof typeof statusConfig] || { label: equipment.status, color: 'bg-muted text-muted-foreground' };
-
-                        return (
-                            <Card
-                                key={equipment.id}
-                                className={cn("flex flex-col shadow-card hover:shadow-card-hover transition-smooth", {
-                                    'border-destructive/50 bg-destructive/25 hover:bg-destructive/10': isOverdue,
-                                    'border-warning/50 bg-warning/25 hover:bg-warning/10': isDueToday,
-                                })}
-                            >
-                                <CardHeader className="flex flex-row items-center justify-between p-4 pb-0">
-                                    <CardTitle className="text-lg">
-                                        {equipment.name}
-                                    </CardTitle>
-                                    <Badge className={statusInfo.color}>
-                                        {statusInfo.label}
-                                    </Badge>
-                                </CardHeader>
-                                <CardContent className="flex-1 p-4 pt-2 space-y-3 text-sm">
-                                    <div className="flex items-center gap-2 text-muted-foreground">
-                                        <Wrench className="h-4 w-4" />
-                                        <span>{equipment.model || 'N/A'}</span>
-                                    </div>
-                                    <div className="flex items-center gap-2 text-muted-foreground">
-                                        <Building className="h-4 w-4" />
-                                        <span>Setor: {equipment.sectors?.name || 'N/A'}</span>
-                                    </div>
-                                    <div className="flex items-center gap-2 text-muted-foreground">
-                                        <Users className="h-4 w-4" />
-                                        <span>Responsável: {equipment.responsibles?.name || 'N/A'}</span>
-                                    </div>
-                                    <div className="flex items-center gap-2 text-muted-foreground">
-                                        <CalendarIcon className="h-4 w-4" />
-                                        <span>Última Limpeza: {equipment.last_cleaning ? format(new Date(equipment.last_cleaning + 'T00:00:00'), 'dd/MM/yyyy') : 'N/A'}</span>
-                                    </div>
-                                    <div className="flex items-center gap-2 text-muted-foreground">
-                                        <Clock className="h-4 w-4" />
-                                        <span className={cn(
-                                            isOverdue ? "text-destructive font-bold" : (isDueToday ? "text-warning font-bold" : "text-foreground")
-                                        )}>
-                                            Próxima Limpeza: {format(new Date(equipment.next_cleaning + 'T00:00:00'), 'dd/MM/yyyy')}
-                                        </span>
-                                        <span className={cn(
-                                            "text-xs ml-auto",
-                                            isOverdue ? "text-destructive font-bold" : (isDueToday ? "text-warning font-bold" : "text-muted-foreground")
-                                        )}>
-                                            {isOverdue ? `(Atrasado há ${Math.abs(daysUntilNextCleaning)} dias)` : (isDueToday ? `(Aviso)` : `(Faltam ${daysUntilNextCleaning} dias)`)}
-                                        </span>
+                                                            </SelectTrigger>
+                                                            <SelectContent>
+                                                                <SelectItem value="all">Todos</SelectItem>
+                                                                {responsibles.map(responsible => (
+                                                                    <SelectItem key={responsible.id} value={responsible.id}>
+                                                                        {responsible.name}
+                                                                    </SelectItem>
+                                                                ))}
+                                                            </SelectContent>
+                                                        </Select>
+                                                    </div>
+                                                </div>
+                                                <DialogFooter>
+                                                    <Button
+                                                        variant="outline"
+                                                        onClick={() => setActiveFilters({ status: 'all', sector_id: 'all', responsible_id: 'all' })}
+                                                    >
+                                                        Limpar Filtros
+                                                    </Button>
+                                                    <Button onClick={() => setIsFilterModalOpen(false)}>
+                                                        Aplicar
+                                                    </Button>
+                                                </DialogFooter>
+                                            </DialogContent>
+                                        </Dialog>
                                     </div>
                                 </CardContent>
-                                {canEdit && (
-                                    <div className="p-4 pt-0 flex flex-wrap justify-center gap-2 border-t">
-                                        <Button variant="outline" size="sm" onClick={() => handleOpenMaintenanceModal(equipment)}>
-                                            <CalendarIcon className="h-3 w-3 sm:mr-1" />
-                                            <span className="hidden sm:inline">Manutenção</span>
-                                        </Button>
-                                        <Button variant="outline" size="sm" onClick={() => handleOpenHistoryModal(equipment)}>
-                                            <History className="h-3 w-3 sm:mr-1" />
-                                            <span className="hidden sm:inline">Histórico</span>
-                                        </Button>
-                                        <Button variant="outline" size="sm" onClick={() => handleOpenModal(equipment)}>
-                                            <Edit className="h-3 w-3" />
-                                        </Button>
-                                        <AlertDialog>
-                                            <AlertDialogTrigger asChild>
-                                                <Button variant="outline" size="sm">
-                                                    <Trash2 className="h-3 w-3" />
-                                                </Button>
-                                            </AlertDialogTrigger>
-                                            <AlertDialogContent>
-                                                <AlertDialogHeader>
-                                                    <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
-                                                    <AlertDialogDescription>
-                                                        Esta ação não pode ser desfeita. Isso excluirá permanentemente o equipamento <strong style={{ color: 'red' }}>{equipment.name}</strong> do sistema.
-                                                    </AlertDialogDescription>
-                                                </AlertDialogHeader>
-                                                <AlertDialogFooter>
-                                                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                                    <AlertDialogAction
-                                                        onClick={() => handleDelete(equipment.id)}
-                                                        disabled={isDeleting}
-                                                    >
-                                                        {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Continuar'}
-                                                    </AlertDialogAction>
-                                                </AlertDialogFooter>
-                                            </AlertDialogContent>
-                                        </AlertDialog>
-                                    </div>
-                                )}
                             </Card>
-                        );
-                    })}
-                </div>
-            ) : (
-                // Layout para desktop (tabela)
-                <div className="relative w-full overflow-x-auto">
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead className="w-[150px]">Nome</TableHead>
-                                <TableHead>Setor</TableHead>
-                                <TableHead>Responsável</TableHead>
-                                <TableHead>Status</TableHead>
-                                <TableHead>Última Limpeza</TableHead>
-                                <TableHead>Próxima Limpeza</TableHead>
-                                {canEdit && <TableHead className="text-right">Ações</TableHead>}
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {filteredEquipments.map((equipment) => {
-                                const daysUntilNextCleaning = getDaysUntilNextCleaning(equipment.next_cleaning);
-                                const isOverdue = daysUntilNextCleaning < 0;
-                                const isDueToday = daysUntilNextCleaning === 0;
-                                const statusInfo = statusConfig[equipment.status as keyof typeof statusConfig] || { label: equipment.status, color: 'bg-muted text-muted-foreground' };
-
-                                return (
-                                    <TableRow
-                                        key={equipment.id}
-                                        className={cn({
-                                            'bg-destructive/25 hover:bg-destructive/20': isOverdue,
-                                            'bg-warning/25 hover:bg-warning/10': isDueToday,
-                                        })}
-                                    >
-                                        <TableCell className="font-medium">
-                                            <div>
-                                                <p className="font-semibold">{equipment.name}</p>
-                                                <p className="text-xs text-muted-foreground">
-                                                    {equipment.model || 'N/A'}
-                                                </p>
-                                            </div>
-                                        </TableCell>
-                                        <TableCell>{equipment.sectors?.name || 'N/A'}</TableCell>
-                                        <TableCell>
-                                            <div className="flex items-center gap-1">
-                                                <Users className="h-3 w-3 text-muted-foreground" />
-                                                {equipment.responsibles?.name || 'N/A'}
-                                            </div>
-                                        </TableCell>
-                                        <TableCell>
-                                            <Badge className={statusInfo.color}>
-                                                {statusInfo.label}
-                                            </Badge>
-                                        </TableCell>
-                                        <TableCell>
-                                            {equipment.last_cleaning ?
-                                                format(new Date(equipment.last_cleaning + 'T00:00:00'), 'dd/MM/yyyy') :
-                                                'N/A'
-                                            }
-                                        </TableCell>
-                                        <TableCell>
-                                            <div className="flex flex-col">
-                                                <span className={cn(
-                                                    isOverdue ? "text-destructive font-bold" : (isDueToday ? "text-warning font-bold" : "text-foreground")
-                                                )}>
-                                                    {format(new Date(equipment.next_cleaning + 'T00:00:00'), 'dd/MM/yyyy')}
-                                                </span>
-                                                <span className={cn(
-                                                    "text-xs mt-1",
-                                                    isOverdue ? "text-destructive font-bold" : (isDueToday ? "text-warning font-bold" : "text-muted-foreground")
-                                                )}>
-                                                    {isOverdue ? `(Em atraso há ${Math.abs(daysUntilNextCleaning)} dias)` : (isDueToday ? `(Aviso)` : `(Faltam ${daysUntilNextCleaning} dias)`)}
-                                                </span>
-                                            </div>
-                                        </TableCell>
-                                        {canEdit && (
-                                            <TableCell className="text-right">
-                                                <DropdownMenu>
-                                                    <DropdownMenuTrigger asChild>
-                                                        <Button
-                                                            variant="outline"
-                                                            size="sm"
-                                                            className="text-primary hover:bg-primary/10"
-                                                        >
-                                                            <Plus className="h-4 w-4" />
-                                                            Ações
+                            
+                            {isMobile ? (
+                                // Layout para mobile (cards)
+                                <div className="flex flex-col gap-4">
+                                    {filteredEquipments.map((equipment) => {
+                                        const daysUntilNextCleaning = getDaysUntilNextCleaning(equipment.next_cleaning);
+                                        const isOverdue = daysUntilNextCleaning < 0;
+                                        const isDueToday = daysUntilNextCleaning === 0;
+                                        const statusInfo = statusConfig[equipment.status as keyof typeof statusConfig] || { label: equipment.status, color: 'bg-muted text-muted-foreground' };
+                
+                                        return (
+                                            <Card
+                                                key={equipment.id}
+                                                className={cn("flex flex-col shadow-card hover:shadow-card-hover transition-smooth", {
+                                                    'border-destructive/50 bg-destructive/25 hover:bg-destructive/10': isOverdue,
+                                                    'border-warning/50 bg-warning/25 hover:bg-warning/10': isDueToday,
+                                                })}
+                                            >
+                                                <CardHeader className="flex flex-row items-center justify-between p-4 pb-0">
+                                                    <CardTitle className="text-lg">
+                                                        {equipment.name}
+                                                    </CardTitle>
+                                                    <Badge className={statusInfo.color}>
+                                                        {statusInfo.label}
+                                                    </Badge>
+                                                </CardHeader>
+                                                <CardContent className="flex-1 p-4 pt-2 space-y-3 text-sm">
+                                                    <div className="flex items-center gap-2 text-muted-foreground">
+                                                        <Wrench className="h-4 w-4" />
+                                                        <span>{equipment.model || 'N/A'}</span>
+                                                    </div>
+                                                    <div className="flex items-center gap-2 text-muted-foreground">
+                                                        <Building className="h-4 w-4" />
+                                                        <span>Setor: {equipment.sectors?.name || 'N/A'}</span>
+                                                    </div>
+                                                    <div className="flex items-center gap-2 text-muted-foreground">
+                                                        <Users className="h-4 w-4" />
+                                                        <span>Responsável: {equipment.responsibles?.name || 'N/A'}</span>
+                                                    </div>
+                                                    <div className="flex items-center gap-2 text-muted-foreground">
+                                                        <CalendarIcon className="h-4 w-4" />
+                                                        <span>Última Limpeza: {equipment.last_cleaning ? format(new Date(equipment.last_cleaning + 'T00:00:00'), 'dd/MM/yyyy') : 'N/A'}</span>
+                                                    </div>
+                                                    <div className="flex items-center gap-2 text-muted-foreground">
+                                                        <Clock className="h-4 w-4" />
+                                                        <span className={cn(
+                                                            isOverdue ? "text-destructive font-bold" : (isDueToday ? "text-warning font-bold" : "text-foreground")
+                                                        )}>
+                                                            Próxima Limpeza: {format(new Date(equipment.next_cleaning + 'T00:00:00'), 'dd/MM/yyyy')}
+                                                        </span>
+                                                        <span className={cn(
+                                                            "text-xs ml-auto",
+                                                            isOverdue ? "text-destructive font-bold" : (isDueToday ? "text-warning font-bold" : "text-muted-foreground")
+                                                        )}>
+                                                            {isOverdue ? `(Atrasado há ${Math.abs(daysUntilNextCleaning)} dias)` : (isDueToday ? `(Aviso)` : `(Faltam ${daysUntilNextCleaning} dias)`)}
+                                                        </span>
+                                                    </div>
+                                                </CardContent>
+                                                {canEdit && (
+                                                    <div className="p-4 pt-0 flex flex-wrap justify-center gap-2 border-t">
+                                                        <Button variant="outline" size="sm" onClick={() => handleOpenMaintenanceModal(equipment)}>
+                                                            <CalendarIcon className="h-3 w-3 sm:mr-1" />
+                                                            <span className="hidden sm:inline">Manutenção</span>
                                                         </Button>
-                                                    </DropdownMenuTrigger>
-                                                    <DropdownMenuContent align="end">
-                                                        <DropdownMenuLabel>Ações</DropdownMenuLabel>
-                                                        <DropdownMenuSeparator />
-                                                        <DropdownMenuItem onClick={() => handleOpenMaintenanceModal(equipment)}>
-                                                            <CalendarIcon className="h-3 w-3 mr-2" />
-                                                            Manutenção
-                                                        </DropdownMenuItem>
-                                                        <DropdownMenuItem onClick={() => handleOpenHistoryModal(equipment)}>
-                                                            <History className="h-3 w-3 mr-2" />
-                                                            Histórico
-                                                        </DropdownMenuItem>
-                                                        <DropdownMenuSeparator />
-                                                        <DropdownMenuItem onClick={() => handleOpenModal(equipment)}>
-                                                            <Edit className="h-3 w-3 mr-2" />
-                                                            Editar
-                                                        </DropdownMenuItem>
+                                                        <Button variant="outline" size="sm" onClick={() => handleOpenHistoryModal(equipment)}>
+                                                            <History className="h-3 w-3 sm:mr-1" />
+                                                            <span className="hidden sm:inline">Histórico</span>
+                                                        </Button>
+                                                        <Button variant="outline" size="sm" onClick={() => handleOpenModal(equipment)}>
+                                                            <Edit className="h-3 w-3" />
+                                                        </Button>
                                                         <AlertDialog>
                                                             <AlertDialogTrigger asChild>
-                                                                <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive">
-                                                                    <Trash2 className="h-3 w-3 mr-2" />
-                                                                    Excluir
-                                                                </DropdownMenuItem>
+                                                                <Button variant="outline" size="sm">
+                                                                    <Trash2 className="h-3 w-3" />
+                                                                </Button>
                                                             </AlertDialogTrigger>
                                                             <AlertDialogContent>
                                                                 <AlertDialogHeader>
@@ -1677,82 +1547,213 @@ export const Equipments: React.FC = () => {
                                                                 </AlertDialogFooter>
                                                             </AlertDialogContent>
                                                         </AlertDialog>
-                                                    </DropdownMenuContent>
-                                                </DropdownMenu>
-                                            </TableCell>
-                                        )}
-                                    </TableRow>
-                                );
-                            })}
-                        </TableBody>
-                    </Table>
-                </div>
-            )}
-            <Pagination className="mt-4">
-                <PaginationContent>
-                    <PaginationItem>
-                        <PaginationPrevious
-                            onClick={() => handlePageChange(page - 1)}
-                            className={cn(page === 1 && "pointer-events-none opacity-50")}
-                        />
-                    </PaginationItem>
-                    {[...Array(pageCount)].map((_, index) => (
-                        <PaginationItem key={index}>
-                            <PaginationLink
-                                onClick={() => handlePageChange(index + 1)}
-                                isActive={page === index + 1}
-                            >
-                                {index + 1}
-                            </PaginationLink>
-                        </PaginationItem>
-                    ))}
-                    <PaginationItem>
-                        <PaginationNext
-                            onClick={() => handlePageChange(page + 1)}
-                            className={cn(page === pageCount && "pointer-events-none opacity-50")}
-                        />
-                    </PaginationItem>
-                </PaginationContent>
-            </Pagination>
-            {selectedEquipmentForMaintenance && (
-                <MaintenanceModal
-                    equipment={selectedEquipmentForMaintenance}
-                    isOpen={isMaintenanceModalOpen}
-                    onClose={() => setIsMaintenanceModalOpen(false)}
-                />
-            )}
-            {selectedEquipmentForHistory && (
-                <HistoryMaintenanceModal
-                    equipment={selectedEquipmentForHistory}
-                    isOpen={isHistoryModalOpen}
-                    onClose={() => setIsHistoryModalOpen(false)}
-                />
-            )}
-            <AlertDialog open={isAlertDialogOpen} onOpenChange={setIsAlertDialogOpen}>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>Confirmação de Exclusão</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            {alertMessage}
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                        <AlertDialogAction
-                            onClick={() => {
-                                if (pendingDeletion?.type === 'sector') {
-                                    handleConfirmDeleteSector();
-                                } else if (pendingDeletion?.type === 'responsible') {
-                                    handleConfirmDeleteResponsible();
-                                }
-                            }}
-                            disabled={isDeletingSector || isDeletingResponsible}
-                        >
-                            {isDeletingSector || isDeletingResponsible ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Continuar'}
-                        </AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
-        </div>
-    );
-};
+                                                    </div>
+                                                )}
+                                            </Card>
+                                        );
+                                    })}
+                                </div>
+                            ) : (
+                                // Layout para desktop (tabela)
+                                <div className="relative w-full overflow-x-auto">
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow>
+                                                <TableHead className="w-[150px]">Nome</TableHead>
+                                                <TableHead>Setor</TableHead>
+                                                <TableHead>Responsável</TableHead>
+                                                <TableHead>Status</TableHead>
+                                                <TableHead>Última Limpeza</TableHead>
+                                                <TableHead>Próxima Limpeza</TableHead>
+                                                {canEdit && <TableHead className="text-right">Ações</TableHead>}
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {filteredEquipments.map((equipment) => {
+                                                const daysUntilNextCleaning = getDaysUntilNextCleaning(equipment.next_cleaning);
+                                                const isOverdue = daysUntilNextCleaning < 0;
+                                                const isDueToday = daysUntilNextCleaning === 0;
+                                                const statusInfo = statusConfig[equipment.status as keyof typeof statusConfig] || { label: equipment.status, color: 'bg-muted text-muted-foreground' };
+                
+                                                return (
+                                                    <TableRow
+                                                        key={equipment.id}
+                                                        className={cn({
+                                                            'bg-destructive/25 hover:bg-destructive/20': isOverdue,
+                                                            'bg-warning/25 hover:bg-warning/10': isDueToday,
+                                                        })}
+                                                    >
+                                                        <TableCell className="font-medium">
+                                                            <div>
+                                                                <p className="font-semibold">{equipment.name}</p>
+                                                                <p className="text-xs text-muted-foreground">
+                                                                    {equipment.model || 'N/A'}
+                                                                </p>
+                                                            </div>
+                                                        </TableCell>
+                                                        <TableCell>{equipment.sectors?.name || 'N/A'}</TableCell>
+                                                        <TableCell>
+                                                            <div className="flex items-center gap-1">
+                                                                <Users className="h-3 w-3 text-muted-foreground" />
+                                                                {equipment.responsibles?.name || 'N/A'}
+                                                            </div>
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            <Badge className={statusInfo.color}>
+                                                                {statusInfo.label}
+                                                            </Badge>
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            {equipment.last_cleaning ?
+                                                                format(new Date(equipment.last_cleaning + 'T00:00:00'), 'dd/MM/yyyy') :
+                                                                'N/A'
+                                                            }
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            <div className="flex flex-col">
+                                                                <span className={cn(
+                                                                    isOverdue ? "text-destructive font-bold" : (isDueToday ? "text-warning font-bold" : "text-foreground")
+                                                                )}>
+                                                                    {format(new Date(equipment.next_cleaning + 'T00:00:00'), 'dd/MM/yyyy')}
+                                                                </span>
+                                                                <span className={cn(
+                                                                    "text-xs mt-1",
+                                                                    isOverdue ? "text-destructive font-bold" : (isDueToday ? "text-warning font-bold" : "text-muted-foreground")
+                                                                )}>
+                                                                    {isOverdue ? `(Em atraso há ${Math.abs(daysUntilNextCleaning)} dias)` : (isDueToday ? `(Aviso)` : `(Faltam ${daysUntilNextCleaning} dias)`)}
+                                                                </span>
+                                                            </div>
+                                                        </TableCell>
+                                                        {canEdit && (
+                                                            <TableCell className="text-right">
+                                                                <DropdownMenu>
+                                                                    <DropdownMenuTrigger asChild>
+                                                                        <Button
+                                                                            variant="outline"
+                                                                            size="sm"
+                                                                            className="text-primary hover:bg-primary/10"
+                                                                        >
+                                                                            <Plus className="h-4 w-4" />
+                                                                            Ações
+                                                                        </Button>
+                                                                    </DropdownMenuTrigger>
+                                                                    <DropdownMenuContent align="end">
+                                                                        <DropdownMenuLabel>Ações</DropdownMenuLabel>
+                                                                        <DropdownMenuSeparator />
+                                                                        <DropdownMenuItem onClick={() => handleOpenMaintenanceModal(equipment)}>
+                                                                            <CalendarIcon className="h-3 w-3 mr-2" />
+                                                                            Manutenção
+                                                                        </DropdownMenuItem>
+                                                                        <DropdownMenuItem onClick={() => handleOpenHistoryModal(equipment)}>
+                                                                            <History className="h-3 w-3 mr-2" />
+                                                                            Histórico
+                                                                        </DropdownMenuItem>
+                                                                        <DropdownMenuSeparator />
+                                                                        <DropdownMenuItem onClick={() => handleOpenModal(equipment)}>
+                                                                            <Edit className="h-3 w-3 mr-2" />
+                                                                            Editar
+                                                                        </DropdownMenuItem>
+                                                                        <AlertDialog>
+                                                                            <AlertDialogTrigger asChild>
+                                                                                <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive">
+                                                                                    <Trash2 className="h-3 w-3 mr-2" />
+                                                                                    Excluir
+                                                                                </DropdownMenuItem>
+                                                                            </AlertDialogTrigger>
+                                                                            <AlertDialogContent>
+                                                                                <AlertDialogHeader>
+                                                                                    <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
+                                                                                    <AlertDialogDescription>
+                                                                                        Esta ação não pode ser desfeita. Isso excluirá permanentemente o equipamento <strong style={{ color: 'red' }}>{equipment.name}</strong> do sistema.
+                                                                                    </AlertDialogDescription>
+                                                                                </AlertDialogHeader>
+                                                                                <AlertDialogFooter>
+                                                                                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                                                                    <AlertDialogAction
+                                                                                        onClick={() => handleDelete(equipment.id)}
+                                                                                        disabled={isDeleting}
+                                                                                    >
+                                                                                        {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Continuar'}
+                                                                                    </AlertDialogAction>
+                                                                                </AlertDialogFooter>
+                                                                            </AlertDialogContent>
+                                                                        </AlertDialog>
+                                                                    </DropdownMenuContent>
+                                                                </DropdownMenu>
+                                                            </TableCell>
+                                                        )}
+                                                    </TableRow>
+                                                );
+                                            })}
+                                        </TableBody>
+                                    </Table>
+                                </div>
+                            )}
+                            <Pagination className="mt-4">
+                                <PaginationContent>
+                                    <PaginationItem>
+                                        <PaginationPrevious
+                                            onClick={() => handlePageChange(page - 1)}
+                                            className={cn(page === 1 && "pointer-events-none opacity-50")}
+                                        />
+                                    </PaginationItem>
+                                    {[...Array(pageCount)].map((_, index) => (
+                                        <PaginationItem key={index}>
+                                            <PaginationLink
+                                                onClick={() => handlePageChange(index + 1)}
+                                                isActive={page === index + 1}
+                                            >
+                                                {index + 1}
+                                            </PaginationLink>
+                                        </PaginationItem>
+                                    ))}
+                                    <PaginationItem>
+                                        <PaginationNext
+                                            onClick={() => handlePageChange(page + 1)}
+                                            className={cn(page === pageCount && "pointer-events-none opacity-50")}
+                                        />
+                                    </PaginationItem>
+                                </PaginationContent>
+                            </Pagination>
+                            {selectedEquipmentForMaintenance && (
+                                <MaintenanceModal
+                                    equipment={selectedEquipmentForMaintenance}
+                                    isOpen={isMaintenanceModalOpen}
+                                    onClose={() => setIsMaintenanceModalOpen(false)}
+                                />
+                            )}
+                            {selectedEquipmentForHistory && (
+                                <HistoryMaintenanceModal
+                                    equipment={selectedEquipmentForHistory}
+                                    isOpen={isHistoryModalOpen}
+                                    onClose={() => setIsHistoryModalOpen(false)}
+                                />
+                            )}
+                            <AlertDialog open={isAlertDialogOpen} onOpenChange={setIsAlertDialogOpen}>
+                                <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                        <AlertDialogTitle>Confirmação de Exclusão</AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                            {alertMessage}
+                                        </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                        <AlertDialogAction
+                                            onClick={() => {
+                                                if (pendingDeletion?.type === 'sector') {
+                                                    handleConfirmDeleteSector();
+                                                } else if (pendingDeletion?.type === 'responsible') {
+                                                    handleConfirmDeleteResponsible();
+                                                }
+                                            }}
+                                            disabled={isDeletingSector || isDeletingResponsible}
+                                        >
+                                            {isDeletingSector || isDeletingResponsible ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Continuar'}
+                                        </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                </AlertDialogContent>
+                            </AlertDialog>
+                        </div>
+                    );
+                };
