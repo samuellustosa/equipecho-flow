@@ -1,16 +1,16 @@
-// src/hooks/useAuth.ts
 import { useState, useEffect, createContext, useContext } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import type { User as SupabaseUser, Session } from '@supabase/supabase-js';
+import type { Session } from '@supabase/supabase-js';
 import { toast } from '@/components/ui/use-toast';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import React from 'react';
 
 // User types
 export interface User {
   id: string;
   email: string;
   name: string;
-  role: 'admin' | 'manager' | 'user';
+  role: 'admin' | 'manager' | 'user' | 'pending';
   avatar_url?: string;
   created_at: string;
   updated_at: string;
@@ -24,10 +24,11 @@ export interface AuthState {
   session: Session | null;
   isLoading: boolean;
   isAuthenticated: boolean;
+  isPending: boolean;
 }
 
 // Auth Context
-const AuthContext = createContext<{
+export const AuthContext = createContext<{
   authState: AuthState;
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
@@ -48,10 +49,10 @@ export const useAuthProvider = () => {
     user: null,
     session: null,
     isLoading: true,
-    isAuthenticated: false
+    isAuthenticated: false,
+    isPending: false,
   });
   
-  // Extraído em uma função separada para ser chamado quando necessário
   const fetchUserProfile = async (userId: string) => {
     try {
       const { data: profile, error } = await supabase
@@ -67,7 +68,8 @@ export const useAuthProvider = () => {
       if (profile) {
         setAuthState(prev => ({
           ...prev,
-          user: profile as User
+          user: profile as User,
+          isPending: profile.role === 'pending'
         }));
       }
     } catch (error) {
@@ -76,7 +78,6 @@ export const useAuthProvider = () => {
   };
 
   useEffect(() => {
-    // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         
@@ -95,13 +96,13 @@ export const useAuthProvider = () => {
             user: null,
             session: null,
             isLoading: false,
-            isAuthenticated: false
+            isAuthenticated: false,
+            isPending: false,
           }));
         }
       }
     );
 
-    // Check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
         fetchUserProfile(session.user.id);
@@ -110,7 +111,8 @@ export const useAuthProvider = () => {
           user: null,
           session: null,
           isLoading: false,
-          isAuthenticated: false
+          isAuthenticated: false,
+          isPending: false,
         });
       }
     });
@@ -135,7 +137,8 @@ export const useAuthProvider = () => {
         user: null,
         session: null,
         isLoading: false,
-        isAuthenticated: false
+        isAuthenticated: false,
+        isPending: false,
       });
       throw new Error(error.message || 'Credenciais inválidas');
     }
@@ -164,7 +167,8 @@ export const useAuthProvider = () => {
         user: null,
         session: null,
         isLoading: false,
-        isAuthenticated: false
+        isAuthenticated: false,
+        isPending: false,
       });
       throw new Error(error.message || 'Erro ao criar conta');
     }
@@ -174,7 +178,6 @@ export const useAuthProvider = () => {
     await supabase.auth.signOut();
   };
 
-  // Nova função para atualizar o estado do usuário
   const setAuthUser = (updates: Partial<User>) => {
     setAuthState(prev => ({
       ...prev,
@@ -199,7 +202,6 @@ export const useUpdateUserNotifications = () => {
     mutationFn: async (readAlertIds: string[]) => {
       if (!authState.user) throw new Error('User not authenticated');
       
-      // Concatena os novos IDs com os já existentes para evitar a perda de notificações já lidas
       const currentReadIds = authState.user.read_notification_ids || [];
       const newReadIds = [...new Set([...currentReadIds, ...readAlertIds])];
       
@@ -227,5 +229,3 @@ export const useUpdateUserNotifications = () => {
     },
   });
 };
-
-export { AuthContext };

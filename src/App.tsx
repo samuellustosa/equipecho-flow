@@ -1,3 +1,4 @@
+// src/App.tsx
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { Dashboard } from './pages/Dashboard';
 import { Inventory } from './pages/Inventory';
@@ -16,7 +17,7 @@ import { useAuth } from './hooks/useAuth';
 
 function App() {
   const { authState } = useAuth();
-  const { isLoggedIn, isPending } = authState;
+  const { isAuthenticated, isPending } = authState;
 
   return (
     <Routes>
@@ -26,8 +27,12 @@ function App() {
       <Route
         path="/"
         element={
-          isLoggedIn && !isPending ? (
-            <MainLayout />
+          isAuthenticated ? (
+            isPending ? (
+              <Navigate to="/pending-approval" replace />
+            ) : (
+              <MainLayout />
+            )
           ) : (
             <Navigate to="/auth" replace />
           )

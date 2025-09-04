@@ -419,7 +419,7 @@ export type Database = {
     Enums: {
       equipment_status: "operacional" | "manutencao" | "parado"
       inventory_status: "normal" | "baixo" | "critico"
-      user_role: "admin" | "manager" | "user"
+      user_role: "admin" | "manager" | "user" | "pending"
       announcement_type: "info" | "warning" | "danger" | "success"
       maintenance_service_type: "limpeza" | "reparo" | "substituicao" | "calibracao" | "inspecao" | "outro"
       inventory_movement_type: "entrada" | "saida"
@@ -550,7 +550,7 @@ export const Constants = {
     Enums: {
       equipment_status: ["operacional", "manutencao", "parado"],
       inventory_status: ["normal", "baixo", "critico"],
-      user_role: ["admin", "manager", "user"],
+      user_role: ["admin", "manager", "user", "pending"], // Adicione "pending" aqui
       announcement_type: ["info", "warning", "danger", "success"],
       maintenance_service_type: ["limpeza", "reparo", "substituicao", "calibracao", "inspecao", "outro"],
       inventory_movement_type: ["entrada", "saida"],

@@ -1,3 +1,4 @@
+// src/components/ProtectedRoute.tsx
 import { useAuth } from '@/hooks/useAuth';
 import { Navigate, useLocation } from 'react-router-dom';
 import React from 'react';
@@ -5,7 +6,7 @@ import { Loader2 } from 'lucide-react';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
-  allowedRoles?: ('admin' | 'manager' | 'user')[];
+  allowedRoles?: ('admin' | 'manager' | 'user' | 'pending')[];
 }
 
 export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ 
@@ -14,7 +15,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
 }) => {
   const { authState } = useAuth();
   const location = useLocation();
-  const { isLoggedIn, isLoading, user, isPending } = authState;
+  const { isAuthenticated, isLoading, user, isPending } = authState;
 
   if (isLoading) {
     return (
@@ -26,8 +27,8 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
       </div>
     );
   }
-
-  if (!isLoggedIn) {
+  
+  if (!isAuthenticated) {
     return <Navigate to="/auth" state={{ from: location }} replace />;
   }
   
@@ -35,6 +36,8 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     return <Navigate to="/pending-approval" replace />;
   }
 
+  // O erro de tipo foi corrigido permitindo "pending" na definição do tipo de allowedRoles.
+  // A lógica abaixo agora é segura, pois a condição de isPending já foi tratada.
   if (user && !allowedRoles.includes(user.role)) {
     return (
       <div className="min-h-screen flex items-center justify-center">
