@@ -18,6 +18,7 @@ import {
   User,
   Loader2,
   MoreHorizontal,
+  Clock,
 } from 'lucide-react';
 import {
   Table,
@@ -76,7 +77,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 const formSchema = z.object({
   name: z.string().min(2, "O nome deve ter pelo menos 2 caracteres."),
   email: z.string().email("Por favor, insira um email válido."),
-  role: z.enum(['admin', 'manager', 'user'], {
+  role: z.enum(['admin', 'manager', 'user', 'pending'], {
     required_error: "A função é obrigatória."
   }),
   // 🔧 Senha opcional na edição (permite string vazia), mas vamos exigir manualmente no cadastro
@@ -134,6 +135,12 @@ export const Users: React.FC = () => {
           icon: User,
           description: 'Usuário'
         };
+      case 'pending':
+        return {
+          color: 'bg-orange-500 text-white',
+          icon: Clock,
+          description: 'Pendente Aprovação'
+        };
       default:
         return {
           color: 'bg-muted text-muted-foreground',
@@ -162,9 +169,10 @@ export const Users: React.FC = () => {
 
   const stats = {
     totalUsers: filteredUsers.length,
-    activeUsers: filteredUsers.length,
+    activeUsers: filteredUsers.filter(u => u.role !== 'pending').length,
     admins: filteredUsers.filter(u => u.role === 'admin').length,
-    managers: filteredUsers.filter(u => u.role === 'manager').length
+    managers: filteredUsers.filter(u => u.role === 'manager').length,
+    pending: filteredUsers.filter(u => u.role === 'pending').length
   };
 
   const handleOpenModal = (user: UserProfile | null = null) => {
@@ -340,10 +348,11 @@ export const Users: React.FC = () => {
                               <SelectValue placeholder="Selecione uma função" />
                             </SelectTrigger>
                           </FormControl>
-                          <SelectContent>
+                           <SelectContent>
                             <SelectItem value="user">Usuário</SelectItem>
                             <SelectItem value="manager">Gerente</SelectItem>
                             <SelectItem value="admin">Administrador</SelectItem>
+                            <SelectItem value="pending">Pendente Aprovação</SelectItem>
                           </SelectContent>
                         </Select>
                         <FormMessage />
@@ -448,11 +457,24 @@ export const Users: React.FC = () => {
                   </div>
                 </CardContent>
               </Card>
+              <Card className="shadow-card">
+                <CardContent className="flex items-center justify-between p-4 py-3">
+                  <div className="flex items-center gap-3">
+                    <Clock className="h-6 w-6 text-orange-500" />
+                    <div>
+                      <p className="text-sm font-medium">Pendentes</p>
+                      <p className="text-xl font-bold text-orange-500">
+                        {stats.pending}
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
             </AccordionContent>
           </AccordionItem>
         </Accordion>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
           <Card className="shadow-card">
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
@@ -500,6 +522,18 @@ export const Users: React.FC = () => {
               </div>
             </CardContent>
           </Card>
+          
+          <Card className="shadow-card">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">Pendentes</p>
+                  <p className="text-2xl font-bold text-orange-500">{stats.pending}</p>
+                </div>
+                <Clock className="h-8 w-8 text-orange-500" />
+              </div>
+            </CardContent>
+          </Card>
         </div>
       )}
 
@@ -542,9 +576,10 @@ export const Users: React.FC = () => {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">Todas</SelectItem>
-                        <SelectItem value="admin">Administrador</SelectItem>
+                         <SelectItem value="admin">Administrador</SelectItem>
                         <SelectItem value="manager">Gerente</SelectItem>
                         <SelectItem value="user">Usuário</SelectItem>
+                        <SelectItem value="pending">Pendente Aprovação</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>

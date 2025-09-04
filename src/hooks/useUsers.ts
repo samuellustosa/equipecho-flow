@@ -6,7 +6,7 @@ export interface UserProfile {
   id: string;
   name: string;
   email: string;
-  role: 'admin' | 'manager' | 'user';
+  role: 'admin' | 'manager' | 'user' | 'pending';
   avatar_url?: string;
   created_at: string;
   updated_at: string;
