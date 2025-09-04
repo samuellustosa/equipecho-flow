@@ -7,11 +7,40 @@ export type Json =
   | Json[]
 
 export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "13.0.4"
   }
   public: {
     Tables: {
+      announcements: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_active: boolean
+          message: string
+          type: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean
+          message: string
+          type: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean
+          message?: string
+          type?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       categories: {
         Row: {
           created_at: string
@@ -95,51 +124,24 @@ export type Database = {
       }
       faqs: {
         Row: {
-          id: string
-          question: string
           answer: string
           created_at: string
+          id: string
+          question: string
           updated_at: string
         }
         Insert: {
-          id?: string
-          question: string
           answer: string
           created_at?: string
+          id?: string
+          question: string
           updated_at?: string
         }
         Update: {
-          id?: string
-          question?: string
           answer?: string
           created_at?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      announcements: {
-        Row: {
-          id: string
-          message: string
-          type: Database["public"]["Enums"]["announcement_type"]
-          is_active: boolean
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
           id?: string
-          message: string
-          type: Database["public"]["Enums"]["announcement_type"]
-          is_active?: boolean
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          message?: string
-          type?: Database["public"]["Enums"]["announcement_type"]
-          is_active?: boolean
-          created_at?: string
+          question?: string
           updated_at?: string
         }
         Relationships: []
@@ -256,10 +258,10 @@ export type Database = {
       }
       maintenances: {
         Row: {
+          cost: number | null
           created_at: string
           description: string | null
-          cost: number | null
-          equipment_id: string
+          equipment_id: string | null
           id: string
           performed_at: string
           performed_by_id: string | null
@@ -267,10 +269,10 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          cost?: number | null
           created_at?: string
           description?: string | null
-          cost?: number | null
-          equipment_id: string
+          equipment_id?: string | null
           id?: string
           performed_at?: string
           performed_by_id?: string | null
@@ -278,10 +280,10 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          cost?: number | null
           created_at?: string
           description?: string | null
-          cost?: number | null
-          equipment_id?: string
+          equipment_id?: string | null
           id?: string
           performed_at?: string
           performed_by_id?: string | null
@@ -311,36 +313,36 @@ export type Database = {
           created_at: string
           email: string
           id: string
+          low_stock_alerts_enabled: boolean
           name: string
+          overdue_maintenance_alerts_enabled: boolean
+          read_notification_ids: string[] | null
           role: Database["public"]["Enums"]["user_role"]
           updated_at: string
-          low_stock_alerts_enabled: boolean
-          overdue_maintenance_alerts_enabled: boolean
-          read_notification_ids: string[]
         }
         Insert: {
           avatar_url?: string | null
           created_at?: string
           email: string
           id: string
+          low_stock_alerts_enabled?: boolean
           name: string
+          overdue_maintenance_alerts_enabled?: boolean
+          read_notification_ids?: string[] | null
           role?: Database["public"]["Enums"]["user_role"]
           updated_at?: string
-          low_stock_alerts_enabled?: boolean
-          overdue_maintenance_alerts_enabled?: boolean
-          read_notification_ids?: string[]
         }
         Update: {
           avatar_url?: string | null
           created_at?: string
-          id?: string
-          name?: string
           email?: string
+          id?: string
+          low_stock_alerts_enabled?: boolean
+          name?: string
+          overdue_maintenance_alerts_enabled?: boolean
+          read_notification_ids?: string[] | null
           role?: Database["public"]["Enums"]["user_role"]
           updated_at?: string
-          low_stock_alerts_enabled?: boolean
-          overdue_maintenance_alerts_enabled?: boolean
-          read_notification_ids?: string[]
         }
         Relationships: []
       }
@@ -415,14 +417,23 @@ export type Database = {
         Args: { user_id: string }
         Returns: Database["public"]["Enums"]["user_role"]
       }
+      migrate_inventory_categories_and_locations: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
     }
     Enums: {
       equipment_status: "operacional" | "manutencao" | "parado"
-      inventory_status: "normal" | "baixo" | "critico"
-      user_role: "admin" | "manager" | "user" | "pending"
-      announcement_type: "info" | "warning" | "danger" | "success"
-      maintenance_service_type: "limpeza" | "reparo" | "substituicao" | "calibracao" | "inspecao" | "outro"
       inventory_movement_type: "entrada" | "saida"
+      inventory_status: "normal" | "baixo" | "critico"
+      maintenance_service_type:
+        | "limpeza"
+        | "reparo"
+        | "substituicao"
+        | "calibracao"
+        | "inspecao"
+        | "outro"
+      user_role: "admin" | "manager" | "user" | "pending"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -453,8 +464,10 @@ export type Tables<
     }
     ? R
     : never
-  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
-    ? (DefaultSchema["Tables"])[DefaultSchemaTableNameOrOptions] extends {
+  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])
+    ? (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
         Row: infer R
       }
       ? R
@@ -549,11 +562,17 @@ export const Constants = {
   public: {
     Enums: {
       equipment_status: ["operacional", "manutencao", "parado"],
-      inventory_status: ["normal", "baixo", "critico"],
-      user_role: ["admin", "manager", "user", "pending"], // Adicione "pending" aqui
-      announcement_type: ["info", "warning", "danger", "success"],
-      maintenance_service_type: ["limpeza", "reparo", "substituicao", "calibracao", "inspecao", "outro"],
       inventory_movement_type: ["entrada", "saida"],
+      inventory_status: ["normal", "baixo", "critico"],
+      maintenance_service_type: [
+        "limpeza",
+        "reparo",
+        "substituicao",
+        "calibracao",
+        "inspecao",
+        "outro",
+      ],
+      user_role: ["admin", "manager", "user", "pending"],
     },
   },
 } as const
