@@ -34,6 +34,7 @@ import {
     Users,
     Building,
     ChevronDown,
+    MoreHorizontal
 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
@@ -93,6 +94,8 @@ import {
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuTrigger,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 
 const maintenanceFormSchema = z.object({
@@ -304,13 +307,13 @@ const HistoryMaintenanceModal = ({ equipment, isOpen, onClose }) => {
         if (maintenances.length > 0) {
             // Extrai os IDs dos responsáveis para buscar os nomes
             const responsibleIds = [...new Set(maintenances.map(m => m.performed_by_id))];
+            // Corrigido: Passa a variável 'responsibleIds' em vez de 'ids'
             fetchResponsibleNames(responsibleIds);
         }
     }, [maintenances]);
 
     const fetchResponsibleNames = async (ids) => {
         // Implemente a lógica para buscar os nomes dos responsáveis pelos IDs
-        // Por exemplo, usando um hook ou um serviço de API.
         // Por enquanto, vamos simular os dados
         setResponsibles([{ id: '1', name: 'João Silva' }]);
     };
@@ -466,7 +469,19 @@ export const Equipments: React.FC = () => {
                 notes: equipment.notes,
             });
         } else {
-            form.reset();
+            // Corrigido para redefinir explicitamente para os valores padrão ao adicionar um novo equipamento.
+            form.reset({
+                name: "",
+                model: "",
+                serial_number: "",
+                sector_id: "",
+                responsible_id: "",
+                status: "operacional",
+                last_cleaning: null,
+                next_cleaning: addDays(new Date(), 30),
+                cleaning_frequency_days: 30,
+                notes: "",
+            });
         }
         setIsModalOpen(true);
     };
@@ -1437,7 +1452,6 @@ export const Equipments: React.FC = () => {
                 </CardContent>
             </Card>
             
-            {/* Condicionalmente renderiza a tabela ou os cards */}
             {isMobile ? (
                 // Layout para mobile (cards)
                 <div className="flex flex-col gap-4">
@@ -1451,7 +1465,7 @@ export const Equipments: React.FC = () => {
                             <Card
                                 key={equipment.id}
                                 className={cn("flex flex-col shadow-card hover:shadow-card-hover transition-smooth", {
-                                    'border-destructive/50 bg-destructive/5 hover:bg-destructive/10': isOverdue,
+                                    'border-destructive/50 bg-destructive/25 hover:bg-destructive/10': isOverdue,
                                     'border-warning/50 bg-warning/25 hover:bg-warning/10': isDueToday,
                                 })}
                             >
@@ -1550,7 +1564,7 @@ export const Equipments: React.FC = () => {
                                 <TableHead>Status</TableHead>
                                 <TableHead>Última Limpeza</TableHead>
                                 <TableHead>Próxima Limpeza</TableHead>
-                                {canEdit && <TableHead className="text-right w-[150px]">Ações</TableHead>}
+                                {canEdit && <TableHead className="text-right">Ações</TableHead>}
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -1564,7 +1578,7 @@ export const Equipments: React.FC = () => {
                                     <TableRow
                                         key={equipment.id}
                                         className={cn({
-                                            'bg-destructive/10 hover:bg-destructive/20': isOverdue,
+                                            'bg-destructive/25 hover:bg-destructive/20': isOverdue,
                                             'bg-warning/25 hover:bg-warning/10': isDueToday,
                                         })}
                                     >
@@ -1611,48 +1625,60 @@ export const Equipments: React.FC = () => {
                                         </TableCell>
                                         {canEdit && (
                                             <TableCell className="text-right">
-                                                <div className="flex justify-end gap-2 flex-wrap sm:flex-nowrap">
-                                                    
-                                                    <Button variant="outline" size="sm" onClick={() => handleOpenMaintenanceModal(equipment)}>
-                                                        <CalendarIcon className="h-3 w-3 sm:mr-1" />
-                                                        <span className="hidden sm:inline">Manutenção</span>
-                                                    </Button>
-                                                    <Button variant="outline" size="sm" onClick={() => handleOpenHistoryModal(equipment)}>
-                                                        <History className="h-3 w-3 sm:mr-1" />
-                                                        <span className="hidden sm:inline">Histórico</span>
-                                                    </Button>
-                                                    <Button
-                                                        variant="outline"
-                                                        size="sm"
-                                                        onClick={() => handleOpenModal(equipment)}
-                                                    >
-                                                        <Edit className="h-3 w-3" />
-                                                    </Button>
-                                                    <AlertDialog>
-                                                        <AlertDialogTrigger asChild>
-                                                            <Button variant="outline" size="sm">
-                                                                <Trash2 className="h-3 w-3" />
-                                                            </Button>
-                                                        </AlertDialogTrigger>
-                                                        <AlertDialogContent>
-                                                            <AlertDialogHeader>
-                                                                <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
-                                                                <AlertDialogDescription>
-                                                                    Esta ação não pode ser desfeita. Isso excluirá permanentemente o equipamento <strong style={{ color: 'red' }}>{equipment.name}</strong> do sistema.
-                                                                </AlertDialogDescription>
-                                                            </AlertDialogHeader>
-                                                            <AlertDialogFooter>
-                                                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                                                <AlertDialogAction
-                                                                    onClick={() => handleDelete(equipment.id)}
-                                                                    disabled={isDeleting}
-                                                                >
-                                                                    {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Continuar'}
-                                                                </AlertDialogAction>
-                                                            </AlertDialogFooter>
-                                                        </AlertDialogContent>
-                                                    </AlertDialog>
-                                                </div>
+                                                <DropdownMenu>
+                                                    <DropdownMenuTrigger asChild>
+                                                        <Button
+                                                            variant="outline"
+                                                            size="sm"
+                                                            className="text-primary hover:bg-primary/10"
+                                                        >
+                                                            <Plus className="h-4 w-4" />
+                                                            Ações
+                                                        </Button>
+                                                    </DropdownMenuTrigger>
+                                                    <DropdownMenuContent align="end">
+                                                        <DropdownMenuLabel>Ações</DropdownMenuLabel>
+                                                        <DropdownMenuSeparator />
+                                                        <DropdownMenuItem onClick={() => handleOpenMaintenanceModal(equipment)}>
+                                                            <CalendarIcon className="h-3 w-3 mr-2" />
+                                                            Manutenção
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuItem onClick={() => handleOpenHistoryModal(equipment)}>
+                                                            <History className="h-3 w-3 mr-2" />
+                                                            Histórico
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuSeparator />
+                                                        <DropdownMenuItem onClick={() => handleOpenModal(equipment)}>
+                                                            <Edit className="h-3 w-3 mr-2" />
+                                                            Editar
+                                                        </DropdownMenuItem>
+                                                        <AlertDialog>
+                                                            <AlertDialogTrigger asChild>
+                                                                <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive">
+                                                                    <Trash2 className="h-3 w-3 mr-2" />
+                                                                    Excluir
+                                                                </DropdownMenuItem>
+                                                            </AlertDialogTrigger>
+                                                            <AlertDialogContent>
+                                                                <AlertDialogHeader>
+                                                                    <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
+                                                                    <AlertDialogDescription>
+                                                                        Esta ação não pode ser desfeita. Isso excluirá permanentemente o equipamento <strong style={{ color: 'red' }}>{equipment.name}</strong> do sistema.
+                                                                    </AlertDialogDescription>
+                                                                </AlertDialogHeader>
+                                                                <AlertDialogFooter>
+                                                                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                                                    <AlertDialogAction
+                                                                        onClick={() => handleDelete(equipment.id)}
+                                                                        disabled={isDeleting}
+                                                                    >
+                                                                        {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Continuar'}
+                                                                    </AlertDialogAction>
+                                                                </AlertDialogFooter>
+                                                            </AlertDialogContent>
+                                                        </AlertDialog>
+                                                    </DropdownMenuContent>
+                                                </DropdownMenu>
                                             </TableCell>
                                         )}
                                     </TableRow>
