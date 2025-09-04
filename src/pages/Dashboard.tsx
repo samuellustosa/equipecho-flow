@@ -315,7 +315,7 @@ export const Dashboard: React.FC = () => {
             <Link to="/equipments">
               <Button className="h-20 flex-col gap-2 w-full" variant="outline">
                 <Calendar className="h-6 w-6" />
-                <span>Agendar Limpeza</span>
+                <span>Fazer Limpeza</span>
               </Button>
             </Link>
             <Link to="/inventory">
@@ -326,7 +326,7 @@ export const Dashboard: React.FC = () => {
             </Link>
             <Button className="h-20 flex-col gap-2 w-full" variant="outline">
               <TrendingUp className="h-6 w-6" />
-              <span>Relatórios</span>
+              <span>Relatórios - (EM BREVE...)</span>
             </Button>
           </div>
         </CardContent>

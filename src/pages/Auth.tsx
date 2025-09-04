@@ -67,7 +67,7 @@ export const Auth: React.FC = () => {
             <span className="text-primary-foreground font-bold text-xl">EE</span>
           </div>
           <CardTitle className="text-2xl font-bold">
-            Bem-vindo ao EquiPcpd
+            Bem-vindo ao EquipCPD
           </CardTitle>
           <CardDescription>
             Faça login para acessar o sistema de gestão de equipamentos

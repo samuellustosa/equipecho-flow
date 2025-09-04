@@ -17,7 +17,7 @@ import {
   Shield,
   User,
   Loader2,
-  ExternalLink
+  MoreHorizontal,
 } from 'lucide-react';
 import {
   Table,
@@ -64,12 +64,13 @@ import { Label } from '@/components/ui/label';
 import { toast } from '@/components/ui/use-toast';
 import { useIsMobile } from '@/hooks/use-mobile';
 import {
-  Carousel,
-  CarouselContent,
-  CarouselItem,
-  CarouselPrevious,
-  CarouselNext,
-} from "@/components/ui/carousel";
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+import { cn } from '@/lib/utils';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
 // Definição do esquema de validação com Zod
 const formSchema = z.object({
@@ -143,6 +144,7 @@ export const Users: React.FC = () => {
   };
 
   const getUserInitials = (name: string) => {
+    if (!name) return '';
     return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
   };
   
@@ -241,8 +243,6 @@ export const Users: React.FC = () => {
       }
     });
   };
-
-
 
   if (isLoading) {
     return (
@@ -389,68 +389,68 @@ export const Users: React.FC = () => {
         )}
       </div>
 
-      {/* Stats Cards - Mobile Carousel / Desktop Grid */}
+      {/* Stats Cards - Mobile Accordion / Desktop Grid */}
       {isMobile ? (
-        <div className="py-2">
-          <Carousel className="w-full">
-            <CarouselContent>
-              <CarouselItem className="pl-4">
-                <Card className="shadow-card">
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm text-muted-foreground">Total de Usuários</p>
-                        <p className="text-2xl font-bold">{stats.totalUsers}</p>
-                      </div>
-                      <UsersIcon className="h-8 w-8 text-muted-foreground" />
+        <Accordion type="single" collapsible className="w-full">
+          <AccordionItem value="item-1">
+            <AccordionTrigger className="font-semibold text-lg flex items-center gap-2">
+              <UsersIcon className="h-5 w-5" />
+              Estatísticas de Usuários
+            </AccordionTrigger>
+            <AccordionContent className="flex flex-col gap-2">
+              <Card className="shadow-card">
+                <CardContent className="flex items-center justify-between p-4 py-3">
+                  <div className="flex items-center gap-3">
+                    <UsersIcon className="h-6 w-6 text-muted-foreground" />
+                    <div>
+                      <p className="text-sm font-medium">Total de Usuários</p>
+                      <p className="text-xl font-bold">{stats.totalUsers}</p>
                     </div>
-                  </CardContent>
-                </Card>
-              </CarouselItem>
-              <CarouselItem className="pl-4">
-                <Card className="shadow-card">
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm text-muted-foreground">Usuários Ativos</p>
-                        <p className="text-2xl font-bold text-success">{stats.activeUsers}</p>
-                      </div>
-                      <User className="h-8 w-8 text-success" />
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className="shadow-card">
+                <CardContent className="flex items-center justify-between p-4 py-3">
+                  <div className="flex items-center gap-3">
+                    <User className="h-6 w-6 text-success" />
+                    <div>
+                      <p className="text-sm font-medium">Usuários Ativos</p>
+                      <p className="text-xl font-bold text-success">
+                        {stats.activeUsers}
+                      </p>
                     </div>
-                  </CardContent>
-                </Card>
-              </CarouselItem>
-              <CarouselItem className="pl-4">
-                <Card className="shadow-card">
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm text-muted-foreground">Administradores</p>
-                        <p className="text-2xl font-bold text-destructive">{stats.admins}</p>
-                      </div>
-                      <Crown className="h-8 w-8 text-destructive" />
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className="shadow-card">
+                <CardContent className="flex items-center justify-between p-4 py-3">
+                  <div className="flex items-center gap-3">
+                    <Crown className="h-6 w-6 text-destructive" />
+                    <div>
+                      <p className="text-sm font-medium">Administradores</p>
+                      <p className="text-xl font-bold text-destructive">
+                        {stats.admins}
+                      </p>
                     </div>
-                  </CardContent>
-                </Card>
-              </CarouselItem>
-              <CarouselItem className="pl-4 pr-4">
-                <Card className="shadow-card">
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm text-muted-foreground">Gerentes</p>
-                        <p className="text-2xl font-bold text-warning">{stats.managers}</p>
-                      </div>
-                      <Shield className="h-8 w-8 text-warning" />
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className="shadow-card">
+                <CardContent className="flex items-center justify-between p-4 py-3">
+                  <div className="flex items-center gap-3">
+                    <Shield className="h-6 w-6 text-warning" />
+                    <div>
+                      <p className="text-sm font-medium">Gerentes</p>
+                      <p className="text-xl font-bold text-warning">
+                        {stats.managers}
+                      </p>
                     </div>
-                  </CardContent>
-                </Card>
-              </CarouselItem>
-            </CarouselContent>
-            <CarouselPrevious />
-            <CarouselNext />
-          </Carousel>
-        </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <Card className="shadow-card">
@@ -566,108 +566,188 @@ export const Users: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* Users Table */}
-      <Card className="shadow-card">
-        <CardHeader>
-          <CardTitle>Lista de Usuários</CardTitle>
-          <CardDescription>
-            Visualize e gerencie todos os usuários do sistema
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Usuário</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Função</TableHead>
-                  <TableHead>Criado em</TableHead>
-                  {authState.user?.role === 'admin' && <TableHead className="text-right">Ações</TableHead>}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredUsers.map((user) => {
-                  const roleInfo = getRoleInfo(user.role);
-                  const RoleIcon = roleInfo.icon;
-                  const isCurrentUser = authState.user?.id === user.id;
-                  
-                  return (
-                    <TableRow key={user.id}>
-                      <TableCell className="font-medium">
-                        <div className="flex items-center gap-3">
-                          <Avatar className="h-8 w-8">
-                            <AvatarFallback className="text-xs">
-                              {getUserInitials(user.name)}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div>
-                            <p className="font-semibold">{user.name}</p>
-                            <p className="text-xs text-muted-foreground">
-                              ID: {user.id.slice(0, 8)}...
-                            </p>
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell>{user.email}</TableCell>
-                      <TableCell>
-                        <Badge className={roleInfo.color}>
-                          <RoleIcon className="h-3 w-3 mr-1" />
-                          {roleInfo.description}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {new Date(user.created_at).toLocaleDateString('pt-BR')}
-                      </TableCell>
-                      {authState.user?.role === 'admin' && (
-                        <TableCell className="text-right">
-                          <div className="flex justify-end gap-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleOpenModal(user)}
+      {isMobile ? (
+        <div className="flex flex-col gap-4">
+          {filteredUsers.map((user) => {
+            const roleInfo = getRoleInfo(user.role);
+            const RoleIcon = roleInfo.icon;
+            const isCurrentUser = authState.user?.id === user.id;
+
+            return (
+              <Card key={user.id} className="shadow-card">
+                <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
+                  <div className="flex items-center gap-3">
+                    <Avatar className="h-12 w-12">
+                      <AvatarFallback className="text-sm">
+                        {getUserInitials(user.name)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold truncate">{user.name}</p>
+                      <p className="text-xs text-muted-foreground truncate">
+                        {user.email}
+                      </p>
+                      <Badge className={cn("mt-1", roleInfo.color)}>
+                        <RoleIcon className="h-3 w-3 mr-1" />
+                        {roleInfo.description}
+                      </Badge>
+                    </div>
+                  </div>
+                  {authState.user?.role === 'admin' && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" className="h-8 w-8 p-0">
+                          <span className="sr-only">Abrir menu</span>
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuLabel>Ações</DropdownMenuLabel>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={() => handleOpenModal(user)}>
+                          <Edit className="h-3 w-3 mr-2" />
+                          Editar
+                        </DropdownMenuItem>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <DropdownMenuItem 
+                              onSelect={(e) => e.preventDefault()}
+                              disabled={isCurrentUser}
+                              className="text-destructive"
                             >
-                              <Edit className="h-3 w-3" />
-                            </Button>
-                            <AlertDialog>
-                              <AlertDialogTrigger asChild>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  disabled={isCurrentUser}
-                                >
-                                  <Trash2 className="h-3 w-3" />
-                                </Button>
-                              </AlertDialogTrigger>
-                              <AlertDialogContent>
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
-                                  <AlertDialogDescription>
-                                    Esta ação não pode ser desfeita. Isso excluirá permanentemente o usuário <strong style={{ color: 'red' }}>{user.name}</strong>.
-                                  </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                  <AlertDialogAction
-                                    onClick={() => handleDelete(user.id)}
-                                    disabled={isDeleting}
-                                  >
-                                    {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Continuar'}
-                                  </AlertDialogAction>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
+                              <Trash2 className="h-3 w-3 mr-2" />
+                              Excluir
+                            </DropdownMenuItem>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Esta ação não pode ser desfeita. Isso excluirá permanentemente o usuário <strong style={{ color: 'red' }}>{user.name}</strong>.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() => handleDelete(user.id)}
+                                disabled={isDeleting}
+                              >
+                                {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Continuar'}
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
+                </CardHeader>
+              </Card>
+            );
+          })}
+        </div>
+      ) : (
+        <Card className="shadow-card">
+          <CardHeader>
+            <CardTitle>Lista de Usuários</CardTitle>
+            <CardDescription>
+              Visualize e gerencie todos os usuários do sistema
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Usuário</TableHead>
+                    <TableHead>Email</TableHead>
+                    <TableHead>Função</TableHead>
+                    <TableHead>Criado em</TableHead>
+                    {authState.user?.role === 'admin' && <TableHead className="text-right">Ações</TableHead>}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredUsers.map((user) => {
+                    const roleInfo = getRoleInfo(user.role);
+                    const RoleIcon = roleInfo.icon;
+                    const isCurrentUser = authState.user?.id === user.id;
+                    
+                    return (
+                      <TableRow key={user.id}>
+                        <TableCell className="font-medium">
+                          <div className="flex items-center gap-3">
+                            <Avatar className="h-8 w-8">
+                              <AvatarFallback className="text-xs">
+                                {getUserInitials(user.name)}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <p className="font-semibold">{user.name}</p>
+                              <p className="text-xs text-muted-foreground">
+                                ID: {user.id.slice(0, 8)}...
+                              </p>
+                            </div>
                           </div>
                         </TableCell>
-                      )}
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
+                        <TableCell>{user.email}</TableCell>
+                        <TableCell>
+                          <Badge className={roleInfo.color}>
+                            <RoleIcon className="h-3 w-3 mr-1" />
+                            {roleInfo.description}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {new Date(user.created_at).toLocaleDateString('pt-BR')}
+                        </TableCell>
+                        {authState.user?.role === 'admin' && (
+                          <TableCell className="text-right">
+                            <div className="flex justify-end gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleOpenModal(user)}
+                              >
+                                <Edit className="h-3 w-3" />
+                              </Button>
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    disabled={isCurrentUser}
+                                  >
+                                    <Trash2 className="h-3 w-3" />
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      Esta ação não pode ser desfeita. Isso excluirá permanentemente o usuário <strong style={{ color: 'red' }}>{user.name}</strong>.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                    <AlertDialogAction
+                                      onClick={() => handleDelete(user.id)}
+                                      disabled={isDeleting}
+                                    >
+                                      {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Continuar'}
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            </div>
+                          </TableCell>
+                        )}
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 };

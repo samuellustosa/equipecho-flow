@@ -9,6 +9,8 @@ import {
   Trash2,
   HelpCircle,
   Loader2,
+  Search,
+  MoreHorizontal
 } from 'lucide-react';
 import {
   Table,
@@ -53,7 +55,16 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/components/ui/use-toast';
 import { cn } from '@/lib/utils';
-import { useFaqs, useCreateFaq, useUpdateFaq, useDeleteFaq } from '@/hooks/useFaqs'; // <-- Use o novo hook
+import { useFaqs, useCreateFaq, useUpdateFaq, useDeleteFaq } from '@/hooks/useFaqs';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+import { useIsMobile } from '@/hooks/use-mobile';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+
 
 export interface FaqItem {
   id: string;
@@ -61,7 +72,6 @@ export interface FaqItem {
   answer: string;
 }
 
-// Definição do esquema de validação com Zod
 const formSchema = z.object({
   question: z.string().min(10, "A pergunta deve ter pelo menos 10 caracteres."),
   answer: z.string().min(20, "A resposta deve ter pelo menos 20 caracteres."),
@@ -71,14 +81,16 @@ type FormValues = z.infer<typeof formSchema>;
 
 export const Faqs: React.FC = () => {
   const { authState } = useAuth();
-  const { data: faqs = [], isLoading, error } = useFaqs(); // <-- Use o hook para buscar dados
+  const isMobile = useIsMobile();
+  const { data: faqs = [], isLoading, error } = useFaqs();
   const { mutate: createFaq, isPending: isCreating } = useCreateFaq();
   const { mutate: updateFaq, isPending: isUpdating } = useUpdateFaq();
   const { mutate: deleteFaq, isPending: isDeleting } = useDeleteFaq();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingFaq, setEditingFaq] = useState<FaqItem | null>(null);
-
+  const [searchTerm, setSearchTerm] = useState('');
+  
   const isProcessing = isCreating || isUpdating || isDeleting;
 
   const form = useForm<FormValues>({
@@ -88,6 +100,11 @@ export const Faqs: React.FC = () => {
       answer: "",
     },
   });
+
+  const filteredFaqs = faqs.filter(faq => 
+    faq.question.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    faq.answer.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   const handleOpenModal = (faq: FaqItem | null = null) => {
     setEditingFaq(faq);
@@ -145,7 +162,6 @@ export const Faqs: React.FC = () => {
     });
   };
 
-  // Apenas administradores podem acessar esta página
   if (authState.isLoading || authState.user?.role !== 'admin') {
     return (
       <div className="p-6">
@@ -239,78 +255,167 @@ export const Faqs: React.FC = () => {
         </Dialog>
       </div>
 
-      {/* Tabela de FAQs */}
       <Card className="shadow-card">
-        <CardHeader>
-          <CardTitle>Lista de Perguntas Frequentes</CardTitle>
-          <CardDescription>
-            Visualize e gerencie todas as FAQs do sistema.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[40%]">Pergunta</TableHead>
-                  <TableHead className="w-[50%]">Resposta</TableHead>
-                  <TableHead className="w-[10%] text-right">Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {faqs.map((faq) => (
-                  <TableRow key={faq.id}>
-                    <TableCell className="font-medium">
-                      {faq.question}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {faq.answer.substring(0, 100)}...
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleOpenModal(faq)}
-                        >
-                          <Edit className="h-3 w-3" />
-                        </Button>
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                Esta ação não pode ser desfeita. Isso excluirá permanentemente a FAQ selecionada.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                              <AlertDialogAction
-                                onClick={() => handleDelete(faq.id)}
-                                disabled={isProcessing}
-                              >
-                                {isProcessing ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Continuar'}
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+        <CardContent className="p-6">
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar FAQs..."
+                className="pl-10"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
           </div>
         </CardContent>
       </Card>
+
+      {isLoading ? (
+        <div className="p-6 space-y-4">
+          <div className="animate-pulse space-y-4">
+            <div className="h-12 bg-muted rounded"></div>
+            <div className="h-12 bg-muted rounded"></div>
+            <div className="h-12 bg-muted rounded"></div>
+          </div>
+        </div>
+      ) : filteredFaqs.length === 0 ? (
+        <Card className="shadow-card">
+          <CardContent className="p-6 text-center text-muted-foreground">
+            Nenhuma FAQ encontrada.
+          </CardContent>
+        </Card>
+      ) : isMobile ? (
+        <Accordion type="single" collapsible className="w-full">
+          {filteredFaqs.map((faq) => (
+            <AccordionItem value={`item-${faq.id}`} key={faq.id}>
+              <AccordionTrigger className="text-left font-medium hover:no-underline">
+                {faq.question}
+              </AccordionTrigger>
+              <AccordionContent className="text-sm text-muted-foreground">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    {faq.answer}
+                  </div>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" className="h-8 w-8 p-0 ml-4">
+                        <span className="sr-only">Abrir menu</span>
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuLabel>Ações</DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={() => handleOpenModal(faq)}>
+                        <Edit className="h-3 w-3 mr-2" />
+                        Editar
+                      </DropdownMenuItem>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive">
+                            <Trash2 className="h-3 w-3 mr-2" />
+                            Excluir
+                          </DropdownMenuItem>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Esta ação não pode ser desfeita. Isso excluirá permanentemente a FAQ selecionada.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={() => handleDelete(faq.id)}
+                              disabled={isProcessing}
+                            >
+                              {isProcessing ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Continuar'}
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+          ))}
+        </Accordion>
+      ) : (
+        <Card className="shadow-card">
+          <CardHeader>
+            <CardTitle>Lista de Perguntas Frequentes</CardTitle>
+            <CardDescription>
+              Visualize e gerencie todas as FAQs do sistema.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[40%]">Pergunta</TableHead>
+                    <TableHead className="w-[50%]">Resposta</TableHead>
+                    <TableHead className="w-[10%] text-right">Ações</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredFaqs.map((faq) => (
+                    <TableRow key={faq.id}>
+                      <TableCell className="font-medium">
+                        {faq.question}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {faq.answer.substring(0, 100)}...
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleOpenModal(faq)}
+                          >
+                            <Edit className="h-3 w-3" />
+                          </Button>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Esta ação não pode ser desfeita. Isso excluirá permanentemente a FAQ selecionada.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={() => handleDelete(faq.id)}
+                                  disabled={isProcessing}
+                                >
+                                  {isProcessing ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Continuar'}
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 };

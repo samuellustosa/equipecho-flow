@@ -7,12 +7,12 @@ import {
   Plus,
   Edit,
   Trash2,
-  HelpCircle,
   Loader2,
   Info,
   AlertTriangle,
   XCircle,
   CheckCircle,
+  MoreHorizontal,
 } from 'lucide-react';
 import {
   Table,
@@ -67,6 +67,14 @@ import {
 } from '@/hooks/useAnnouncements';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+import { useIsMobile } from '@/hooks/use-mobile';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
 const formSchema = z.object({
   message: z.string().min(10, "A mensagem deve ter pelo menos 10 caracteres."),
@@ -94,18 +102,18 @@ const typeIcons = {
 
 export const Announcements: React.FC = () => {
   const { authState } = useAuth();
-  const { data: allAnnouncements = [], isLoading, error } = useAnnouncements(); // Buscar todos os avisos
+  const isMobile = useIsMobile();
+  const { data: allAnnouncements = [], isLoading, error } = useAnnouncements();
   const { mutate: createAnnouncement, isPending: isCreating } = useCreateAnnouncement();
   const { mutate: updateAnnouncement, isPending: isUpdating } = useUpdateAnnouncement();
   const { mutate: deleteAnnouncement, isPending: isDeleting } = useDeleteAnnouncement();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingAnnouncement, setEditingAnnouncement] = useState<Announcement | null>(null);
-  const [showAll, setShowAll] = useState(true); // Novo estado para controlar o filtro
+  const [showAll, setShowAll] = useState(true);
 
   const isProcessing = isCreating || isUpdating || isDeleting;
   
-  // Lógica para filtrar a lista de avisos
   const announcements = showAll ? allAnnouncements : allAnnouncements.filter(a => a.is_active);
 
   const form = useForm<FormValues>({
@@ -328,35 +336,104 @@ export const Announcements: React.FC = () => {
               {showAll ? 'Mostrar Apenas Ativos' : 'Mostrar Todos'}
             </Button>
           </div>
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Mensagem</TableHead>
-                  <TableHead className="w-[100px]">Tipo</TableHead>
-                  <TableHead className="w-[100px]">Ativo</TableHead>
-                  <TableHead className="w-[100px] text-right">Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {isLoading ? (
-                  <TableRow>
-                    <TableCell colSpan={4} className="text-center">
-                      <div className="flex items-center justify-center py-4">
-                        <Loader2 className="h-6 w-6 animate-spin" />
+          {isLoading ? (
+            <div className="p-6 space-y-4">
+              <div className="animate-pulse space-y-4">
+                <div className="h-12 bg-muted rounded"></div>
+                <div className="h-12 bg-muted rounded"></div>
+                <div className="h-12 bg-muted rounded"></div>
+              </div>
+            </div>
+          ) : announcements.length === 0 ? (
+            <div className="p-6 text-center text-muted-foreground">
+              Nenhum aviso encontrado.
+            </div>
+          ) : isMobile ? (
+            <Accordion type="single" collapsible className="w-full">
+              {announcements.map((announcement) => (
+                <AccordionItem value={`item-${announcement.id}`} key={announcement.id}>
+                  <AccordionTrigger className="text-left font-medium hover:no-underline">
+                    <div className="flex items-center gap-2">
+                        {typeIcons[announcement.type as keyof typeof typeIcons]}
+                        <span className="flex-1 min-w-0">{announcement.message}</span>
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent className="text-sm text-muted-foreground">
+                    <div className="space-y-4">
+                      <div className="flex justify-between items-center">
+                        <span className="font-semibold text-foreground">Status:</span>
+                        <div className="flex items-center gap-2">
+                          <Switch
+                            checked={announcement.is_active}
+                            onCheckedChange={(newStatus) => handleToggleActive(announcement, newStatus)}
+                          />
+                          <span className="text-sm">
+                            {announcement.is_active ? 'Ativo' : 'Inativo'}
+                          </span>
+                        </div>
                       </div>
-                    </TableCell>
-                  </TableRow>
-                ) : announcements.length === 0 ? (
+                      <div className="flex justify-between items-center">
+                        <span className="font-semibold text-foreground">Tipo:</span>
+                        <span className={cn(typeColors[announcement.type as keyof typeof typeColors], 'capitalize')}>
+                          {announcement.type}
+                        </span>
+                      </div>
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleOpenModal(announcement)}
+                        >
+                          <Edit className="h-3 w-3" />
+                        </Button>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Esta ação não pode ser desfeita. Isso excluirá permanentemente o aviso selecionado.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() => handleDelete(announcement.id)}
+                                disabled={isProcessing}
+                              >
+                                {isProcessing ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Continuar'}
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              ))}
+            </Accordion>
+          ) : (
+            <div className="rounded-md border">
+              <Table>
+                <TableHeader>
                   <TableRow>
-                    <TableCell colSpan={4} className="text-center text-muted-foreground py-4">
-                      Nenhum aviso encontrado.
-                    </TableCell>
+                    <TableHead>Mensagem</TableHead>
+                    <TableHead className="w-[100px]">Tipo</TableHead>
+                    <TableHead className="w-[100px]">Ativo</TableHead>
+                    <TableHead className="w-[100px] text-right">Ações</TableHead>
                   </TableRow>
-                ) : (
-                  announcements.map((announcement) => (
+                </TableHeader>
+                <TableBody>
+                  {announcements.map((announcement) => (
                     <TableRow key={announcement.id}>
-                      <TableCell className="font-medium max-w-[300px] truncate">
+                      <TableCell className="max-w-[300px] overflow-hidden">
                         {announcement.message}
                       </TableCell>
                       <TableCell>
@@ -410,11 +487,11 @@ export const Announcements: React.FC = () => {
                         </div>
                       </TableCell>
                     </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
