@@ -1,97 +1,52 @@
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { Routes, Route, Navigate } from 'react-router-dom';
+import { Dashboard } from './pages/Dashboard';
+import { Inventory } from './pages/Inventory';
+import { Equipments } from './pages/Equipments';
+import { Auth } from './pages/Auth';
+import { ProtectedRoute } from './components/ProtectedRoute';
+import { MainLayout } from './components/MainLayout';
+import { Settings } from './pages/Settings';
+import { Users } from './pages/Users';
+import { Faqs } from './pages/Faqs';
+import { Announcements } from './pages/Announcements';
+import { HelpCenter } from './pages/HelpCenter';
+import NotFound from './pages/NotFound';
+import { WaitingForApproval } from './pages/WaitingForApproval';
+import { useAuth } from './hooks/useAuth';
 
-// Components
-import { AuthProvider } from "@/components/AuthProvider";
-import { ProtectedRoute } from "@/components/ProtectedRoute";
-import { MainLayout } from "@/components/MainLayout";
-import { ThemeProvider } from "@/components/ThemeProvider";
+function App() {
+  const { authState } = useAuth();
+  const { isLoggedIn, isPending } = authState;
 
-// Pages
-import { Auth } from "./pages/Auth";
-import { Dashboard } from "./pages/Dashboard";
-import { Equipments } from "./pages/Equipments";
-import { Inventory } from "./pages/Inventory";
-import { Users } from "./pages/Users";
-import { Settings } from "./pages/Settings";
-import { Faqs } from "./pages/Faqs";
-import { HelpCenter } from "./pages/HelpCenter";
-import { Announcements } from "./pages/Announcements";
-import NotFound from "./pages/NotFound";
+  return (
+    <Routes>
+      <Route path="/auth" element={<Auth />} />
+      <Route path="/pending-approval" element={<WaitingForApproval />} />
 
-const queryClient = new QueryClient();
+      <Route
+        path="/"
+        element={
+          isLoggedIn && !isPending ? (
+            <MainLayout />
+          ) : (
+            <Navigate to="/auth" replace />
+          )
+        }
+      >
+        <Route index element={<Navigate to="/dashboard" replace />} />
+        <Route path="dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+        <Route path="inventory" element={<ProtectedRoute allowedRoles={['admin', 'manager']}><Inventory /></ProtectedRoute>} />
+        <Route path="equipments" element={<ProtectedRoute allowedRoles={['admin', 'manager']}><Equipments /></ProtectedRoute>} />
+        <Route path="settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+        <Route path="users" element={<ProtectedRoute allowedRoles={['admin']}><Users /></ProtectedRoute>} />
+        <Route path="faqs" element={<ProtectedRoute><Faqs /></ProtectedRoute>} />
+        <Route path="announcements" element={<ProtectedRoute><Announcements /></ProtectedRoute>} />
+        <Route path="help-center" element={<ProtectedRoute><HelpCenter /></ProtectedRoute>} />
+      </Route>
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <ThemeProvider defaultTheme="system" storageKey="equipecho-theme">
-      <AuthProvider>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter>
-          <Routes>
-            {/* Rota pública para a tela de login */}
-            <Route path="/auth" element={<Auth />} />
-            
-            {/* Rota aninhada que usa o MainLayout e o Sidebar */}
-            <Route element={<MainLayout />}>
-              <Route path="/" element={
-                <ProtectedRoute>
-                  <Dashboard />
-                </ProtectedRoute>
-              } />
-              
-              <Route path="/equipments" element={
-                <ProtectedRoute>
-                  <Equipments />
-                </ProtectedRoute>
-              } />
-              
-              <Route path="/inventory" element={
-                <ProtectedRoute> {/* Removida a propriedade allowedRoles */}
-                  <Inventory />
-                </ProtectedRoute>
-              } />
-              
-              <Route path="/users" element={
-                <ProtectedRoute allowedRoles={['admin']}>
-                  <Users />
-                </ProtectedRoute>
-              } />
-              
-              <Route path="/settings" element={
-                <ProtectedRoute>
-                  <Settings />
-                </ProtectedRoute>
-              } />
-              
-              <Route path="/faqs" element={
-                <ProtectedRoute allowedRoles={['admin']}>
-                  <Faqs />
-                </ProtectedRoute>
-              } />
-              
-              <Route path="/announcements" element={
-                <ProtectedRoute allowedRoles={['admin']}>
-                  <Announcements />
-                </ProtectedRoute>
-              } />
-              
-              {/* Rota pública que utiliza o layout, mas não a proteção */}
-              <Route path="/help-center" element={<HelpCenter />} />
-            </Route>
-            
-            {/* Rota para páginas não encontradas */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-          </BrowserRouter>
-        </TooltipProvider>
-      </AuthProvider>
-    </ThemeProvider>
-  </QueryClientProvider>
-);
+      <Route path="*" element={<NotFound />} />
+    </Routes>
+  );
+}
 
 export default App;

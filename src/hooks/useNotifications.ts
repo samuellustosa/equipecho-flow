@@ -1,7 +1,7 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { differenceInDays } from 'date-fns';
-import { useMemo } from 'react';
+import { useMemo, useEffect } from 'react'; // Importar useEffect
 import { useAuth } from './useAuth';
 
 export interface EquipmentAlert {
@@ -22,14 +22,16 @@ export interface InventoryAlert {
 
 export const useEquipmentAlerts = () => {
   const { authState } = useAuth();
-  
-  return useQuery<EquipmentAlert[], Error>({
+  const queryClient = useQueryClient();
+
+  // O queryFn agora retorna apenas a Promise com a lista de alertas
+  const alertsQuery = useQuery<EquipmentAlert[], Error>({
     queryKey: ['equipmentAlerts'],
     queryFn: async () => {
       if (!authState.user?.overdue_maintenance_alerts_enabled) {
         return [];
       }
-      
+
       const { data: equipments, error } = await supabase
         .from('equipments')
         .select(`id, name, next_cleaning`);
@@ -55,15 +57,41 @@ export const useEquipmentAlerts = () => {
         };
       });
     },
-    enabled: !!authState.user, // A consulta só é ativada se houver um utilizador logado
-    refetchInterval: 60000, // Atualiza a cada 1 minuto
+    enabled: !!authState.user,
+    staleTime: Infinity,
+    gcTime: Infinity,
+    refetchOnWindowFocus: false,
+    refetchOnMount: true,
   });
+
+  // A inscrição em tempo real agora é feita em um useEffect separado
+  useEffect(() => {
+    if (!authState.user) return;
+    
+    console.log('Setting up Realtime subscription for equipments...');
+    
+    const subscription = supabase
+      .channel('public:equipments')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'equipments' }, () => {
+        console.log('Realtime change received for equipments, invalidating query...');
+        queryClient.invalidateQueries({ queryKey: ['equipmentAlerts'] });
+      })
+      .subscribe();
+
+    return () => {
+      console.log('Unsubscribing from equipments realtime channel.');
+      supabase.removeChannel(subscription);
+    };
+  }, [authState.user, queryClient]);
+
+  return alertsQuery;
 };
 
 export const useInventoryAlerts = () => {
   const { authState } = useAuth();
+  const queryClient = useQueryClient();
 
-  return useQuery<InventoryAlert[], Error>({
+  const alertsQuery = useQuery<InventoryAlert[], Error>({
     queryKey: ['inventoryAlerts'],
     queryFn: async () => {
       if (!authState.user?.low_stock_alerts_enabled) {
@@ -78,7 +106,7 @@ export const useInventoryAlerts = () => {
 
       return inventory.filter(i => {
         const status = (i.current_quantity / i.minimum_quantity) * 100;
-        return status <= 100; // Estoque baixo ou crítico
+        return status <= 100;
       }).map(i => {
         const status = (i.current_quantity / i.minimum_quantity) * 100;
         return {
@@ -90,9 +118,33 @@ export const useInventoryAlerts = () => {
         };
       });
     },
-    enabled: !!authState.user, // A consulta só é ativada se houver um utilizador logado
-    refetchInterval: 60000, // Atualiza a cada 1 minuto
+    enabled: !!authState.user,
+    staleTime: Infinity,
+    gcTime: Infinity,
+    refetchOnWindowFocus: false,
+    refetchOnMount: true,
   });
+
+  useEffect(() => {
+    if (!authState.user) return;
+    
+    console.log('Setting up Realtime subscription for inventory...');
+    
+    const subscription = supabase
+      .channel('public:inventory')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'inventory' }, () => {
+        console.log('Realtime change received for inventory, invalidating query...');
+        queryClient.invalidateQueries({ queryKey: ['inventoryAlerts'] });
+      })
+      .subscribe();
+
+    return () => {
+      console.log('Unsubscribing from inventory realtime channel.');
+      supabase.removeChannel(subscription);
+    };
+  }, [authState.user, queryClient]);
+
+  return alertsQuery;
 };
 
 export const useFilteredAlerts = (maxAgeInDays: number) => {
@@ -103,8 +155,6 @@ export const useFilteredAlerts = (maxAgeInDays: number) => {
   const now = new Date();
   
   return allAlerts.filter(alert => {
-    // Para equipamentos, usamos a data da próxima limpeza como referência
-    // Para inventário, vamos assumir que não temos uma data de "criação do alerta", então eles sempre aparecem
     if ('next_cleaning' in alert) {
       const alertDate = new Date(alert.next_cleaning);
       const daysOld = differenceInDays(now, alertDate);

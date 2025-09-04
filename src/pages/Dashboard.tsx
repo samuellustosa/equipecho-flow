@@ -3,7 +3,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { useEquipments } from '@/hooks/useEquipments';
+import { useEquipments, useEquipmentGrowth } from '@/hooks/useEquipments';
 import { useInventory } from '@/hooks/useInventory';
 import { useEquipmentAlerts, useInventoryAlerts } from '@/hooks/useNotifications';
 import {
@@ -33,8 +33,11 @@ export const Dashboard: React.FC = () => {
   const { data: equipmentAlerts = [], isLoading: equipmentAlertsLoading } = useEquipmentAlerts();
   const { data: inventoryAlerts = [], isLoading: inventoryAlertsLoading } = useInventoryAlerts();
 
+  // NOVO: Usar o hook para o crescimento, passando 7 dias como parâmetro
+  const { data: equipmentGrowth, isLoading: growthLoading } = useEquipmentGrowth(7);
+
   // Combine os estados de carregamento de todos os hooks
-  const isLoading = equipmentsLoading || inventoryLoading || equipmentAlertsLoading || inventoryAlertsLoading;
+  const isLoading = equipmentsLoading || inventoryLoading || equipmentAlertsLoading || inventoryAlertsLoading || growthLoading;
 
   const stats = {
     totalEquipments: equipments.length,
@@ -92,9 +95,15 @@ export const Dashboard: React.FC = () => {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{stats.totalEquipments}</div>
-              <p className="text-xs text-muted-foreground">
-                <span className="text-success">+12%</span> em relação ao mês anterior
-              </p>
+              {/* MODIFICADO: A porcentagem agora é dinâmica */}
+              {equipmentGrowth && (
+                <p className="text-xs text-muted-foreground">
+                  <span className={equipmentGrowth.isPositive ? 'text-success' : 'text-destructive'}>
+                    {equipmentGrowth.isPositive ? '+' : ''}{equipmentGrowth.percentage?.toFixed(1)}%
+                  </span>{" "}
+                  em relação à semana anterior
+                </p>
+              )}
             </CardContent>
           </Card>
           <Card className="shadow-card hover:shadow-card-hover transition-smooth">
@@ -151,9 +160,15 @@ export const Dashboard: React.FC = () => {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{stats.totalEquipments}</div>
-              <p className="text-xs text-muted-foreground">
-                <span className="text-success">+12%</span> em relação ao mês anterior
-              </p>
+              {/* MODIFICADO: A porcentagem agora é dinâmica */}
+              {equipmentGrowth && (
+                <p className="text-xs text-muted-foreground">
+                  <span className={equipmentGrowth.isPositive ? 'text-success' : 'text-destructive'}>
+                    {equipmentGrowth.isPositive ? '+' : ''}{equipmentGrowth.percentage?.toFixed(1)}%
+                  </span>{" "}
+                  em relação à semana anterior
+                </p>
+              )}
             </CardContent>
           </Card>
 

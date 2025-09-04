@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
+import { subDays } from 'date-fns';
 
 export interface Equipment {
   id: string;
@@ -61,6 +62,41 @@ export const useEquipmentsCount = () => {
       return count as number;
     },
     enabled: !!authState.user, // A consulta só é ativada se houver um utilizador logado
+  });
+};
+
+// NOVO: Hook para obter o crescimento de equipamentos no último mês
+export const useEquipmentGrowth = (days: number = 30) => {
+  const { authState } = useAuth();
+  return useQuery({
+    queryKey: ['equipmentGrowth', days],
+    queryFn: async () => {
+      const xDaysAgo = subDays(new Date(), days).toISOString();
+      const twoXDdaysAgo = subDays(new Date(), days * 2).toISOString();
+
+      const { count: currentCount, error: currentError } = await supabase
+        .from('equipments')
+        .select('*', { count: 'exact', head: true })
+        .gte('created_at', xDaysAgo);
+
+      if (currentError) throw currentError;
+
+      const { count: previousCount, error: previousError } = await supabase
+        .from('equipments')
+        .select('*', { count: 'exact', head: true })
+        .lt('created_at', xDaysAgo)
+        .gte('created_at', twoXDdaysAgo);
+        
+      if (previousError) throw previousError;
+
+      if (previousCount === 0) {
+        return { percentage: null, isPositive: currentCount > 0 };
+      }
+
+      const percentage = ((currentCount - previousCount) / previousCount) * 100;
+      return { percentage, isPositive: percentage >= 0 };
+    },
+    enabled: !!authState.user,
   });
 };
 

@@ -224,6 +224,13 @@ export const Inventory: React.FC = () => {
   const [selectedItemForMovement, setSelectedItemForMovement] = useState<InventoryItem | null>(null);
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [selectedItemForHistory, setSelectedItemForHistory] = useState<InventoryItem | null>(null);
+  
+  // NOVO: Estado para gerenciar a exclusão com dependências
+  const [isAlertDialogOpen, setIsAlertDialogOpen] = useState(false);
+  const [alertMessage, setAlertMessage] = useState('');
+  const [pendingDeletion, setPendingDeletion] = useState<{ type: 'item' | 'category' | 'location'; id: string; name: string } | null>(null);
+  const { data: movements = [] } = useInventoryMovementHistory(pendingDeletion?.type === 'item' ? pendingDeletion.id : '');
+
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -419,17 +426,94 @@ export const Inventory: React.FC = () => {
     }
   };
 
-  const handleDelete = (id: string) => {
-    deleteItem(id, {
-      onSuccess: () => {
-        toast({ title: "Item do inventário excluído com sucesso!" });
-      },
-      onError: (err) => {
-        toast({ title: "Erro ao excluir item", description: err.message, variant: "destructive" });
-      }
-    });
+  // NOVO: Função para confirmar a exclusão
+  const handleConfirmDelete = () => {
+    if (!pendingDeletion) return;
+    
+    if (pendingDeletion.type === 'item') {
+      deleteItem(pendingDeletion.id, {
+        onSuccess: () => {
+          toast({ title: "Item do inventário excluído com sucesso!" });
+          setIsAlertDialogOpen(false);
+          setPendingDeletion(null);
+        },
+        onError: (err) => {
+          toast({ title: "Erro ao excluir item", description: err.message, variant: "destructive" });
+          setIsAlertDialogOpen(false);
+        }
+      });
+    } else if (pendingDeletion.type === 'category') {
+      deleteCategory(pendingDeletion.id, {
+        onSuccess: () => {
+          toast({ title: "Categoria excluída com sucesso!" });
+          setIsAlertDialogOpen(false);
+          setPendingDeletion(null);
+        },
+        onError: (err) => {
+          toast({ title: "Erro ao excluir categoria", description: err.message, variant: "destructive" });
+          setIsAlertDialogOpen(false);
+        }
+      });
+    } else if (pendingDeletion.type === 'location') {
+      deleteLocation(pendingDeletion.id, {
+        onSuccess: () => {
+          toast({ title: "Localização excluída com sucesso!" });
+          setIsAlertDialogOpen(false);
+          setPendingDeletion(null);
+        },
+        onError: (err) => {
+          toast({ title: "Erro ao excluir localização", description: err.message, variant: "destructive" });
+          setIsAlertDialogOpen(false);
+        }
+      });
+    }
   };
 
+  // MODIFICADO: Função handleDelete com verificação de dependência
+  const handleDelete = (id: string, name: string) => {
+    const hasMovements = movements.some(m => m.inventory_item_id === id);
+    
+    let message = '';
+    if (hasMovements) {
+      message = `O item "${name}" possui registros de movimentação. Ao excluí-lo, esses registros serão desassociados. Você tem certeza que deseja continuar?`;
+    } else {
+      message = `Você tem certeza que deseja excluir o item "${name}"? Esta ação não pode ser desfeita.`;
+    }
+
+    setAlertMessage(message);
+    setPendingDeletion({ type: 'item', id, name });
+    setIsAlertDialogOpen(true);
+  };
+
+  // NOVO: Funções de exclusão de categoria e localização com alerta de dependência
+  const handleDeleteCategory = (id: string, name: string) => {
+    const hasItems = inventoryItems.some(item => item.category_id === id);
+    let message = '';
+    if (hasItems) {
+      const count = inventoryItems.filter(item => item.category_id === id).length;
+      message = `A categoria "${name}" está associada a ${count} item(s) de inventário. A exclusão irá desassociá-los. Você tem certeza que deseja continuar?`;
+    } else {
+      message = `Você tem certeza que deseja excluir a categoria "${name}"? Esta ação não pode ser desfeita.`;
+    }
+    setAlertMessage(message);
+    setPendingDeletion({ type: 'category', id, name });
+    setIsAlertDialogOpen(true);
+  };
+  
+  const handleDeleteLocation = (id: string, name: string) => {
+    const hasItems = inventoryItems.some(item => item.location_id === id);
+    let message = '';
+    if (hasItems) {
+      const count = inventoryItems.filter(item => item.location_id === id).length;
+      message = `A localização "${name}" está associada a ${count} item(s) de inventário. A exclusão irá desassociá-los. Você tem certeza que deseja continuar?`;
+    } else {
+      message = `Você tem certeza que deseja excluir a localização "${name}"? Esta ação não pode ser desfeita.`;
+    }
+    setAlertMessage(message);
+    setPendingDeletion({ type: 'location', id, name });
+    setIsAlertDialogOpen(true);
+  };
+  
   const handleCreateCategory = () => {
     if (newCategoryName.trim()) {
       createCategory({ name: newCategoryName }, {
@@ -444,17 +528,6 @@ export const Inventory: React.FC = () => {
     }
   };
 
-  const handleDeleteCategory = (id: string) => {
-    deleteCategory(id, {
-      onSuccess: () => {
-        toast({ title: "Categoria excluída com sucesso!" });
-      },
-      onError: (err) => {
-        toast({ title: "Erro ao excluir categoria", description: err.message, variant: "destructive" });
-        }
-      });
-  };
-
   const handleCreateLocation = () => {
     if (newLocationName.trim()) {
       createLocation({ name: newLocationName }, {
@@ -467,17 +540,6 @@ export const Inventory: React.FC = () => {
         }
       });
     }
-  };
-
-  const handleDeleteLocation = (id: string) => {
-    deleteLocation(id, {
-      onSuccess: () => {
-        toast({ title: "Localização excluída com sucesso!" });
-      },
-      onError: (err) => {
-        toast({ title: "Erro ao excluir localização", description: err.message, variant: "destructive" });
-      }
-    });
   };
 
 
@@ -661,7 +723,7 @@ export const Inventory: React.FC = () => {
                                                 <AlertDialogFooter>
                                                   <AlertDialogCancel>Cancelar</AlertDialogCancel>
                                                   <AlertDialogAction
-                                                    onClick={() => handleDeleteCategory(category.id)}
+                                                    onClick={() => handleDeleteCategory(category.id, category.name)}
                                                     disabled={isDeletingCategory}
                                                   >
                                                     {isDeletingCategory ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Excluir'}
@@ -802,7 +864,7 @@ export const Inventory: React.FC = () => {
                                               <AlertDialogFooter>
                                                 <AlertDialogCancel>Cancelar</AlertDialogCancel>
                                                 <AlertDialogAction
-                                                  onClick={() => handleDeleteLocation(location.id)}
+                                                  onClick={() => handleDeleteLocation(location.id, location.name)}
                                                   disabled={isDeletingLocation}
                                                 >
                                                   {isDeletingLocation ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Excluir'}
@@ -1115,7 +1177,7 @@ export const Inventory: React.FC = () => {
                         <AlertDialogFooter>
                           <AlertDialogCancel>Cancelar</AlertDialogCancel>
                           <AlertDialogAction
-                            onClick={() => handleDelete(item.id)}
+                            onClick={() => handleDelete(item.id, item.name)}
                             disabled={isDeleting}
                           >
                             {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Continuar'}
@@ -1226,7 +1288,7 @@ export const Inventory: React.FC = () => {
                                       <AlertDialogFooter>
                                         <AlertDialogCancel>Cancelar</AlertDialogCancel>
                                         <AlertDialogAction
-                                          onClick={() => handleDelete(item.id)}
+                                          onClick={() => handleDelete(item.id, item.name)}
                                           disabled={isDeleting}
                                         >
                                           {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Continuar'}
@@ -1359,6 +1421,25 @@ export const Inventory: React.FC = () => {
           onClose={() => setIsHistoryModalOpen(false)}
         />
       )}
+      <AlertDialog open={isAlertDialogOpen} onOpenChange={setIsAlertDialogOpen}>
+          <AlertDialogContent>
+              <AlertDialogHeader>
+                  <AlertDialogTitle>Confirmação de Exclusão</AlertDialogTitle>
+                  <AlertDialogDescription>
+                      {alertMessage}
+                  </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction
+                      onClick={handleConfirmDelete}
+                      disabled={isDeleting || isDeletingCategory || isDeletingLocation}
+                  >
+                      {isDeleting || isDeletingCategory || isDeletingLocation ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Continuar'}
+                  </AlertDialogAction>
+              </AlertDialogFooter>
+          </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

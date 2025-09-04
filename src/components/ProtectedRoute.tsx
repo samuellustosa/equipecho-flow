@@ -1,11 +1,11 @@
-import React from 'react';
-import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { Navigate, useLocation } from 'react-router-dom';
+import React from 'react';
 import { Loader2 } from 'lucide-react';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
-  allowedRoles?: Array<'admin' | 'manager' | 'user'>;
+  allowedRoles?: ('admin' | 'manager' | 'user')[];
 }
 
 export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ 
@@ -14,8 +14,9 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
 }) => {
   const { authState } = useAuth();
   const location = useLocation();
+  const { isLoggedIn, isLoading, user, isPending } = authState;
 
-  if (authState.isLoading) {
+  if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="flex items-center gap-2 text-muted-foreground">
@@ -26,11 +27,15 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     );
   }
 
-  if (!authState.isAuthenticated) {
+  if (!isLoggedIn) {
     return <Navigate to="/auth" state={{ from: location }} replace />;
   }
+  
+  if (isPending) {
+    return <Navigate to="/pending-approval" replace />;
+  }
 
-  if (authState.user && !allowedRoles.includes(authState.user.role)) {
+  if (user && !allowedRoles.includes(user.role)) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">

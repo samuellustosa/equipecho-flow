@@ -4,6 +4,16 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/hooks/useAuth';
+import { Separator } from "@/components/ui/separator";
+import { Table,
+         TableHeader,
+         TableBody,
+         TableCaption,
+         TableCell,
+         TableFooter,
+         TableHead,
+         TableRow
+} from "@/components/ui/table";
 import { useEquipments, useCreateEquipment, useUpdateEquipment, useDeleteEquipment, Equipment, useEquipmentsCount } from '@/hooks/useEquipments';
 import {
     Plus,
@@ -26,14 +36,6 @@ import {
     ChevronDown,
 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from "@/components/ui/table";
 import {
     Dialog,
     DialogContent,
@@ -390,6 +392,10 @@ export const Equipments: React.FC = () => {
     const { mutate: deleteResponsible, isPending: isDeletingResponsible } = useDeleteResponsible();
     const { mutate: deleteSector, isPending: isDeletingSector } = useDeleteSector();
 
+    // Estado para gerenciar a exclusão com dependências
+    const [isAlertDialogOpen, setIsAlertDialogOpen] = useState(false);
+    const [alertMessage, setAlertMessage] = useState('');
+    const [pendingDeletion, setPendingDeletion] = useState<{ type: 'sector' | 'responsible' | 'equipment'; id: string; name: string } | null>(null);
 
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isSectorModalOpen, setIsSectorModalOpen] = useState(false);
@@ -550,27 +556,79 @@ export const Equipments: React.FC = () => {
         });
     };
     
-    const handleDeleteSector = (id: string) => {
-        deleteSector(id, {
+    // NOVO: Função para lidar com a exclusão de setor com verificação
+    const handleConfirmDeleteSector = () => {
+        if (!pendingDeletion) return;
+        deleteSector(pendingDeletion.id, {
             onSuccess: () => {
                 toast({ title: "Setor excluído com sucesso!" });
+                setIsAlertDialogOpen(false);
+                setPendingDeletion(null);
             },
             onError: (err) => {
                 toast({ title: "Erro ao excluir setor", description: err.message, variant: "destructive" });
+                setIsAlertDialogOpen(false);
             }
         });
     };
 
-    const handleDeleteResponsible = (id: string) => {
-        deleteResponsible(id, {
+    const handleDeleteSector = (sectorId: string, sectorName: string) => {
+        const hasEquipments = equipments.some(eq => eq.sector_id === sectorId);
+        const hasResponsibles = responsibles.some(resp => resp.sector_id === sectorId);
+        
+        let message = '';
+        if (hasEquipments || hasResponsibles) {
+            message = `O setor "${sectorName}" está associado a `
+            if (hasEquipments) {
+                const count = equipments.filter(eq => eq.sector_id === sectorId).length;
+                message += `${count} equipamento(s). `;
+            }
+            if (hasResponsibles) {
+                const count = responsibles.filter(resp => resp.sector_id === sectorId).length;
+                message += `${count} responsável(is). `;
+            }
+            message += 'A exclusão irá desassociá-los. Você tem certeza que deseja continuar?';
+        } else {
+            message = `Você tem certeza que deseja excluir o setor "${sectorName}"?`;
+        }
+
+        setAlertMessage(message);
+        setPendingDeletion({ type: 'sector', id: sectorId, name: sectorName });
+        setIsAlertDialogOpen(true);
+    };
+
+    // NOVO: Função para lidar com a exclusão de responsável com verificação
+    const handleConfirmDeleteResponsible = () => {
+        if (!pendingDeletion) return;
+        deleteResponsible(pendingDeletion.id, {
             onSuccess: () => {
                 toast({ title: "Responsável excluído com sucesso!" });
+                setIsAlertDialogOpen(false);
+                setPendingDeletion(null);
             },
             onError: (err) => {
                 toast({ title: "Erro ao excluir responsável", description: err.message, variant: "destructive" });
+                setIsAlertDialogOpen(false);
             }
         });
     };
+
+    const handleDeleteResponsible = (responsibleId: string, responsibleName: string) => {
+        const hasEquipments = equipments.some(eq => eq.responsible_id === responsibleId);
+
+        let message = '';
+        if (hasEquipments) {
+            const count = equipments.filter(eq => eq.responsible_id === responsibleId).length;
+            message = `O responsável "${responsibleName}" está associado a ${count} equipamento(s). A exclusão irá desassociá-los. Você tem certeza que deseja continuar?`;
+        } else {
+            message = `Você tem certeza que deseja excluir o responsável "${responsibleName}"?`;
+        }
+
+        setAlertMessage(message);
+        setPendingDeletion({ type: 'responsible', id: responsibleId, name: responsibleName });
+        setIsAlertDialogOpen(true);
+    };
+
 
     const handleDelete = (id: string) => {
         deleteEquipment(id, {
@@ -834,7 +892,7 @@ export const Equipments: React.FC = () => {
                                                                                                     <AlertDialogFooter>
                                                                                                         <AlertDialogCancel>Cancelar</AlertDialogCancel>
                                                                                                         <AlertDialogAction
-                                                                                                            onClick={() => handleDeleteSector(sector.id)}
+                                                                                                            onClick={() => handleDeleteSector(sector.id, sector.name)}
                                                                                                             disabled={isDeletingSector}
                                                                                                         >
                                                                                                             {isDeletingSector ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Continuar'}
@@ -910,7 +968,7 @@ export const Equipments: React.FC = () => {
                                                                                             <AlertDialogFooter>
                                                                                                 <AlertDialogCancel>Cancelar</AlertDialogCancel>
                                                                                                 <AlertDialogAction
-                                                                                                    onClick={() => handleDeleteResponsible(responsible.id)}
+                                                                                                    onClick={() => handleDeleteResponsible(responsible.id, responsible.name)}
                                                                                                     disabled={isDeletingResponsible}
                                                                                                 >
                                                                                                     {isDeletingResponsible ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Continuar'}
@@ -1047,7 +1105,7 @@ export const Equipments: React.FC = () => {
                                                     <FormControl>
                                                         <Textarea placeholder="Observações importantes" {...field} />
                                                     </FormControl>
-                                                    <FormMessage />
+                                                        <FormMessage />
                                                 </FormItem>
                                             )}
                                         />
@@ -1128,40 +1186,54 @@ export const Equipments: React.FC = () => {
                                     </DialogTrigger>
                                     <DialogContent className="sm:max-w-[425px]">
                                         <DialogHeader>
-                                            <DialogTitle>Novo Setor</DialogTitle>
+                                            <DialogTitle>Gerenciar Setores</DialogTitle>
                                             <DialogDescription>
-                                                Adicione um novo setor ao sistema.
+                                                Crie e exclua setores existentes.
                                             </DialogDescription>
                                         </DialogHeader>
-                                        <Form {...sectorForm}>
-                                            <form onSubmit={sectorForm.handleSubmit(onSectorSubmit)} className="space-y-4">
-                                                <FormField
-                                                    control={sectorForm.control}
-                                                    name="name"
-                                                    render={({ field }) => (
-                                                        <FormItem>
-                                                            <FormLabel>Nome</FormLabel>
-                                                            <FormControl>
-                                                                <Input placeholder="Nome do setor" {...field} />
-                                                            </FormControl>
-                                                            <FormMessage />
-                                                        </FormItem>
-                                                    )}
-                                                />
-                                                <DialogFooter>
-                                                    <Button type="submit" disabled={isCreatingSector}>
-                                                        {isCreatingSector ? (
-                                                            <>
-                                                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                                                Salvando...
-                                                            </>
-                                                        ) : (
-                                                            "Salvar"
+                                        <div className="max-h-[300px] overflow-y-auto">
+                                            <Form {...sectorForm}>
+                                                <form onSubmit={sectorForm.handleSubmit(onSectorSubmit)} className="space-y-4">
+                                                    <FormField
+                                                        control={sectorForm.control}
+                                                        name="name"
+                                                        render={({ field }) => (
+                                                            <FormItem>
+                                                                <FormLabel>Nome do Setor</FormLabel>
+                                                                <div className="flex gap-2">
+                                                                    <FormControl>
+                                                                        <Input placeholder="Novo setor" {...field} />
+                                                                    </FormControl>
+                                                                    <Button
+                                                                        type="submit"
+                                                                        disabled={!field.value || isCreatingSector}
+                                                                    >
+                                                                        {isCreatingSector ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                                                                    </Button>
+                                                                </div>
+                                                                <FormMessage />
+                                                            </FormItem>
                                                         )}
-                                                    </Button>
-                                                </DialogFooter>
-                                            </form>
-                                        </Form>
+                                                    />
+                                                </form>
+                                            </Form>
+                                            <Separator className="my-4" />
+                                            <Label className="text-sm">Excluir setores existentes</Label>
+                                            <ul className="space-y-2 mt-2">
+                                                {sectors.length > 0 ? (
+                                                    sectors.map(sector => (
+                                                        <li key={sector.id} className="flex items-center justify-between p-2 border rounded-md">
+                                                            <span>{sector.name}</span>
+                                                            <Button variant="ghost" size="sm" onClick={() => handleDeleteSector(sector.id, sector.name)}>
+                                                                <Trash2 className="h-4 w-4 text-destructive" />
+                                                            </Button>
+                                                        </li>
+                                                    ))
+                                                ) : (
+                                                    <p className="text-center text-muted-foreground">Nenhum setor encontrado.</p>
+                                                )}
+                                            </ul>
+                                        </div>
                                     </DialogContent>
                                 </Dialog>
                             </>
@@ -1616,6 +1688,31 @@ export const Equipments: React.FC = () => {
                     onClose={() => setIsHistoryModalOpen(false)}
                 />
             )}
+            <AlertDialog open={isAlertDialogOpen} onOpenChange={setIsAlertDialogOpen}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Confirmação de Exclusão</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            {alertMessage}
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={() => {
+                                if (pendingDeletion?.type === 'sector') {
+                                    handleConfirmDeleteSector();
+                                } else if (pendingDeletion?.type === 'responsible') {
+                                    handleConfirmDeleteResponsible();
+                                }
+                            }}
+                            disabled={isDeletingSector || isDeletingResponsible}
+                        >
+                            {isDeletingSector || isDeletingResponsible ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Continuar'}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     );
 };
