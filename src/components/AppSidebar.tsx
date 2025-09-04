@@ -112,8 +112,8 @@ export function AppSidebar() {
     >
       <SidebarHeader className="border-b p-4">
         <div className="flex items-center gap-3">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg gradient-primary text-primary-foreground font-bold text-sm">
-            CPD
+          <div className="flex h-8 w-8 items-center justify-center">
+            <img src="/appstore.png" alt="EquipCPD Logo" className="h-8 w-10" />
           </div>
           {!isCollapsed && (
             <div>
