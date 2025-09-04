@@ -32,7 +32,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     return <Navigate to="/auth" state={{ from: location }} replace />;
   }
   
-  if (isPending) {
+  if (isPending && !allowedRoles.includes('pending')) {
     return <Navigate to="/pending-approval" replace />;
   }
 

@@ -27,14 +27,12 @@ function App() {
       <Route
         path="/"
         element={
-          isAuthenticated ? (
-            isPending ? (
-              <Navigate to="/pending-approval" replace />
-            ) : (
-              <MainLayout />
-            )
-          ) : (
+          !isAuthenticated ? (
             <Navigate to="/auth" replace />
+          ) : isPending ? (
+            <Navigate to="/pending-approval" replace />
+          ) : (
+            <MainLayout />
           )
         }
       >
