@@ -5,6 +5,9 @@ import { toast } from '@/components/ui/use-toast';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import React from 'react';
 
+// Obtenha a URL base do ambiente
+const BASE_URL = import.meta.env.VITE_PUBLIC_URL || 'http://localhost:8080';
+
 // User types
 export interface User {
   id: string;
@@ -152,7 +155,8 @@ export const useAuthProvider = () => {
         email,
         password,
         options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
+          // Usamos a URL base dinâmica aqui
+          emailRedirectTo: `${BASE_URL}/auth/callback`,
           data: {
             name
           }
