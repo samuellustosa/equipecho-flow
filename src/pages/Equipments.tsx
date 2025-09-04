@@ -1452,7 +1452,7 @@ export const Equipments: React.FC = () => {
                                 key={equipment.id}
                                 className={cn("flex flex-col shadow-card hover:shadow-card-hover transition-smooth", {
                                     'border-destructive/50 bg-destructive/5 hover:bg-destructive/10': isOverdue,
-                                    'border-warning/50 bg-warning/5 hover:bg-warning/10': isDueToday,
+                                    'border-warning/50 bg-warning/25 hover:bg-warning/10': isDueToday,
                                 })}
                             >
                                 <CardHeader className="flex flex-row items-center justify-between p-4 pb-0">
@@ -1469,12 +1469,24 @@ export const Equipments: React.FC = () => {
                                         <span>{equipment.model || 'N/A'}</span>
                                     </div>
                                     <div className="flex items-center gap-2 text-muted-foreground">
-                                        <MapPin className="h-4 w-4" />
+                                        <Building className="h-4 w-4" />
                                         <span>Setor: {equipment.sectors?.name || 'N/A'}</span>
                                     </div>
                                     <div className="flex items-center gap-2 text-muted-foreground">
+                                        <Users className="h-4 w-4" />
+                                        <span>Responsável: {equipment.responsibles?.name || 'N/A'}</span>
+                                    </div>
+                                    <div className="flex items-center gap-2 text-muted-foreground">
                                         <CalendarIcon className="h-4 w-4" />
-                                        <span>Próxima Limpeza: {format(new Date(equipment.next_cleaning + 'T00:00:00'), 'dd/MM/yyyy')}</span>
+                                        <span>Última Limpeza: {equipment.last_cleaning ? format(new Date(equipment.last_cleaning + 'T00:00:00'), 'dd/MM/yyyy') : 'N/A'}</span>
+                                    </div>
+                                    <div className="flex items-center gap-2 text-muted-foreground">
+                                        <Clock className="h-4 w-4" />
+                                        <span className={cn(
+                                            isOverdue ? "text-destructive font-bold" : (isDueToday ? "text-warning font-bold" : "text-foreground")
+                                        )}>
+                                            Próxima Limpeza: {format(new Date(equipment.next_cleaning + 'T00:00:00'), 'dd/MM/yyyy')}
+                                        </span>
                                         <span className={cn(
                                             "text-xs ml-auto",
                                             isOverdue ? "text-destructive font-bold" : (isDueToday ? "text-warning font-bold" : "text-muted-foreground")
@@ -1553,7 +1565,7 @@ export const Equipments: React.FC = () => {
                                         key={equipment.id}
                                         className={cn({
                                             'bg-destructive/10 hover:bg-destructive/20': isOverdue,
-                                            'bg-warning/10 hover:bg-warning/20': isDueToday,
+                                            'bg-warning/25 hover:bg-warning/10': isDueToday,
                                         })}
                                     >
                                         <TableCell className="font-medium">
@@ -1567,7 +1579,7 @@ export const Equipments: React.FC = () => {
                                         <TableCell>{equipment.sectors?.name || 'N/A'}</TableCell>
                                         <TableCell>
                                             <div className="flex items-center gap-1">
-                                                <MapPin className="h-3 w-3 text-muted-foreground" />
+                                                <Users className="h-3 w-3 text-muted-foreground" />
                                                 {equipment.responsibles?.name || 'N/A'}
                                             </div>
                                         </TableCell>
@@ -1584,7 +1596,9 @@ export const Equipments: React.FC = () => {
                                         </TableCell>
                                         <TableCell>
                                             <div className="flex flex-col">
-                                                <span>
+                                                <span className={cn(
+                                                    isOverdue ? "text-destructive font-bold" : (isDueToday ? "text-warning font-bold" : "text-foreground")
+                                                )}>
                                                     {format(new Date(equipment.next_cleaning + 'T00:00:00'), 'dd/MM/yyyy')}
                                                 </span>
                                                 <span className={cn(
