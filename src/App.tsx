@@ -13,6 +13,7 @@ import { Announcements } from './pages/Announcements';
 import { HelpCenter } from './pages/HelpCenter';
 import NotFound from './pages/NotFound';
 import { WaitingForApproval } from './pages/WaitingForApproval';
+import { EmailConfirmation } from './pages/EmailConfirmation';
 import { useAuth } from './hooks/useAuth';
 
 function App() {
@@ -22,6 +23,7 @@ function App() {
   return (
     <Routes>
       <Route path="/auth" element={<Auth />} />
+      <Route path="/email-confirmation" element={<EmailConfirmation />} />
       <Route path="/pending-approval" element={<WaitingForApproval />} />
 
       <Route

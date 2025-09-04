@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { Navigate, useLocation } from 'react-router-dom';
+import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -17,6 +17,7 @@ export const Auth: React.FC = () => {
   const { login, signUp, authState } = useAuth();
   const { toast } = useToast();
   const location = useLocation();
+  const navigate = useNavigate();
 
   // Redirect if already authenticated
   if (authState.isAuthenticated) {
@@ -49,6 +50,7 @@ export const Auth: React.FC = () => {
         title: "Conta criada com sucesso!",
         description: "Verifique seu email para confirmar a conta.",
       });
+      navigate('/email-confirmation', { state: { email: data.email } });
     } catch (error: any) {
       setError(error.message);
     } finally {
