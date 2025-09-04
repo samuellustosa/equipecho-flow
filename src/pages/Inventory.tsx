@@ -22,6 +22,8 @@ import {
   History,
   PlusCircle,
   MinusCircle,
+  Building,
+  ChevronDown,
 } from 'lucide-react';
 import {
   Table,
@@ -82,13 +84,11 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination';
 import { useIsMobile } from '@/hooks/use-mobile';
 import {
-  Carousel,
-  CarouselContent,
-  CarouselItem,
-  CarouselPrevious,
-  CarouselNext,
-} from "@/components/ui/carousel";
-
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 
 const formSchema = z.object({
   name: z.string().min(2, "O nome deve ter pelo menos 2 caracteres."),
@@ -126,60 +126,62 @@ const InventoryMovementHistoryModal: React.FC<InventoryMovementHistoryModalProps
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[800px]">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-[800px] max-h-[90vh] flex flex-col">
+        <DialogHeader className="p-6 pb-0">
           <DialogTitle>Histórico de Estoque - {item.name}</DialogTitle>
           <DialogDescription>
             Movimentações do item: **{item.name}**.
           </DialogDescription>
         </DialogHeader>
-        <ScrollArea className="h-72">
-          <div className="p-4">
-            {isLoading ? (
-              <p>Carregando histórico...</p>
-            ) : error ? (
-              <p className="text-destructive">Erro ao carregar histórico: {error.message}</p>
-            ) : movements.length > 0 ? (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Data</TableHead>
-                    <TableHead>Tipo</TableHead>
-                    <TableHead>Quantidade</TableHead>
-                    <TableHead>Razão</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {movements.map((movement) => (
-                    <TableRow key={movement.id} className="transition-all hover:bg-muted/50">
-                      <TableCell className="text-sm font-medium">
-                        <div className="flex items-center gap-2">
-                          {getMovementIcon(movement.type)}
-                          {format(new Date(movement.created_at), 'dd/MM/yyyy HH:mm', { locale: ptBR })}
-                        </div>
-                      </TableCell>
-                      <TableCell className="capitalize text-muted-foreground">
-                        {movement.type}
-                      </TableCell>
-                      <TableCell className={cn(
-                        "font-bold",
-                        movement.type === 'entrada' ? 'text-success' : 'text-destructive'
-                      )}>
-                        {movement.type === 'entrada' ? '+' : '-'} {movement.quantity}
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {movement.reason || 'N/A'}
-                      </TableCell>
+        <div className="flex-1 overflow-hidden p-6 pt-0">
+          <ScrollArea className="h-full max-h-[400px]">
+            <div className="pr-4">
+              {isLoading ? (
+                <p className="text-center text-muted-foreground">Carregando histórico...</p>
+              ) : error ? (
+                <p className="text-destructive text-center">Erro ao carregar histórico: {error.message}</p>
+              ) : movements.length > 0 ? (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Data</TableHead>
+                      <TableHead>Tipo</TableHead>
+                      <TableHead>Quantidade</TableHead>
+                      <TableHead>Razão</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            ) : (
-              <p className="text-center text-muted-foreground">Nenhum registro de movimentação encontrado.</p>
-            )}
-          </div>
-        </ScrollArea>
-        <DialogFooter>
+                  </TableHeader>
+                  <TableBody>
+                    {movements.map((movement) => (
+                      <TableRow key={movement.id} className="transition-all hover:bg-muted/50">
+                        <TableCell className="text-sm font-medium">
+                          <div className="flex items-center gap-2">
+                            {getMovementIcon(movement.type)}
+                            {format(new Date(movement.created_at), 'dd/MM/yyyy HH:mm', { locale: ptBR })}
+                          </div>
+                        </TableCell>
+                        <TableCell className="capitalize text-muted-foreground">
+                          {movement.type}
+                        </TableCell>
+                        <TableCell className={cn(
+                          "font-bold",
+                          movement.type === 'entrada' ? 'text-success' : 'text-destructive'
+                        )}>
+                          {movement.type === 'entrada' ? '+' : '-'} {movement.quantity}
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {movement.reason || 'N/A'}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              ) : (
+                <p className="text-center text-muted-foreground">Nenhum registro de movimentação encontrado.</p>
+              )}
+            </div>
+          </ScrollArea>
+        </div>
+        <DialogFooter className="p-6 pt-0">
           <Button onClick={onClose}>Fechar</Button>
         </DialogFooter>
       </DialogContent>
@@ -507,6 +509,59 @@ export const Inventory: React.FC = () => {
     );
   }
   
+  const statCards = [
+    <Card className="shadow-card hover:shadow-card-hover transition-smooth">
+      <CardContent className="p-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm text-muted-foreground">Total de Itens</p>
+            <p className="text-2xl font-bold">{stats.totalItems}</p>
+          </div>
+          <Package className="h-8 w-8 text-muted-foreground" />
+        </div>
+      </CardContent>
+    </Card>,
+    <Card className="shadow-card">
+      <CardContent className="p-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm text-muted-foreground">Estoque Normal</p>
+            <p className="text-2xl font-bold text-success">
+              {stats.normalItems}
+            </p>
+          </div>
+          <CheckCircle className="h-8 w-8 text-success" />
+        </div>
+      </CardContent>
+    </Card>,
+    <Card className="shadow-card">
+      <CardContent className="p-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm text-muted-foreground">Estoque Baixo</p>
+            <p className="text-2xl font-bold text-warning">
+              {stats.lowStockItems}
+            </p>
+          </div>
+          <AlertTriangle className="h-8 w-8 text-warning" />
+        </div>
+      </CardContent>
+    </Card>,
+    <Card className="shadow-card">
+      <CardContent className="p-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm text-muted-foreground">Críticos</p>
+            <p className="text-2xl font-bold text-destructive">
+              {stats.criticalItems}
+            </p>
+          </div>
+          <AlertTriangle className="h-8 w-8 text-destructive" />
+        </div>
+      </CardContent>
+    </Card>
+  ];
+
   return (
     <div className="p-6 space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -520,7 +575,7 @@ export const Inventory: React.FC = () => {
           <Dialog open={isModalOpen} onOpenChange={handleCloseModal}>
             <DialogTrigger asChild>
               <Button
-                className="gradient-primary text-primary-foreground transition-smooth"
+                className="gradient-primary text-primary-foreground transition-smooth w-full sm:w-auto"
                 onClick={() => handleOpenModal()}
               >
                 <Plus className="h-4 w-4 mr-2" />
@@ -814,117 +869,70 @@ export const Inventory: React.FC = () => {
         )}
       </div>
 
-      {/* Stats Cards - Mobile Carousel / Desktop Grid */}
       {isMobile ? (
-        <div className="py-2">
-          <Carousel className="w-full">
-            <CarouselContent>
-              <CarouselItem className="pl-4">
-                <Card className="shadow-card">
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm text-muted-foreground">Total de Itens</p>
-                        <p className="text-2xl font-bold">{totalItems}</p>
-                      </div>
-                      <Package className="h-8 w-8 text-muted-foreground" />
+        <Accordion type="single" collapsible className="w-full">
+          <AccordionItem value="item-1">
+            <AccordionTrigger className="font-semibold text-lg flex items-center gap-2">
+              <Package className="h-5 w-5" />
+              Estatísticas do Inventário
+            </AccordionTrigger>
+            <AccordionContent className="flex flex-col gap-2">
+              <Card className="shadow-card">
+                <CardContent className="flex items-center justify-between p-4 py-3">
+                  <div className="flex items-center gap-3">
+                    <Package className="h-6 w-6 text-muted-foreground" />
+                    <div>
+                      <p className="text-sm font-medium">Total de Itens</p>
+                      <p className="text-xl font-bold">{stats.totalItems}</p>
                     </div>
-                  </CardContent>
-                </Card>
-              </CarouselItem>
-              <CarouselItem className="pl-4">
-                <Card className="shadow-card">
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm text-muted-foreground">Estoque Normal</p>
-                        <p className="text-2xl font-bold text-success">{stats.normalItems}</p>
-                      </div>
-                      <CheckCircle className="h-8 w-8 text-success" />
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className="shadow-card">
+                <CardContent className="flex items-center justify-between p-4 py-3">
+                  <div className="flex items-center gap-3">
+                    <CheckCircle className="h-6 w-6 text-success" />
+                    <div>
+                      <p className="text-sm font-medium">Estoque Normal</p>
+                      <p className="text-xl font-bold text-success">
+                        {stats.normalItems}
+                      </p>
                     </div>
-                  </CardContent>
-                </Card>
-              </CarouselItem>
-              <CarouselItem className="pl-4">
-                <Card className="shadow-card">
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm text-muted-foreground">Estoque Baixo</p>
-                        <p className="text-2xl font-bold text-warning">{stats.lowStockItems}</p>
-                      </div>
-                      <AlertTriangle className="h-8 w-8 text-warning" />
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className="shadow-card">
+                <CardContent className="flex items-center justify-between p-4 py-3">
+                  <div className="flex items-center gap-3">
+                    <AlertTriangle className="h-6 w-6 text-warning" />
+                    <div>
+                      <p className="text-sm font-medium">Estoque Baixo</p>
+                      <p className="text-xl font-bold text-warning">
+                        {stats.lowStockItems}
+                      </p>
                     </div>
-                  </CardContent>
-                </Card>
-              </CarouselItem>
-              <CarouselItem className="pl-4 pr-4">
-                <Card className="shadow-card">
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm text-muted-foreground">Críticos</p>
-                        <p className="text-2xl font-bold text-destructive">{stats.criticalItems}</p>
-                      </div>
-                      <AlertTriangle className="h-8 w-8 text-destructive" />
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className="shadow-card">
+                <CardContent className="flex items-center justify-between p-4 py-3">
+                  <div className="flex items-center gap-3">
+                    <AlertTriangle className="h-6 w-6 text-destructive" />
+                    <div>
+                      <p className="text-sm font-medium">Críticos</p>
+                      <p className="text-xl font-bold text-destructive">
+                        {stats.criticalItems}
+                      </p>
                     </div>
-                  </CardContent>
-                </Card>
-              </CarouselItem>
-            </CarouselContent>
-            <CarouselPrevious />
-            <CarouselNext />
-          </Carousel>
-        </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card className="shadow-card">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Total de Itens</p>
-                  <p className="text-2xl font-bold">{totalItems}</p>
-                </div>
-                <Package className="h-8 w-8 text-muted-foreground" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="shadow-card">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Estoque Normal</p>
-                  <p className="text-2xl font-bold text-success">{stats.normalItems}</p>
-                </div>
-                <CheckCircle className="h-8 w-8 text-success" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="shadow-card">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Estoque Baixo</p>
-                  <p className="text-2xl font-bold text-warning">{stats.lowStockItems}</p>
-                </div>
-                <AlertTriangle className="h-8 w-8 text-warning" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="shadow-card">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Críticos</p>
-                  <p className="text-2xl font-bold text-destructive">{stats.criticalItems}</p>
-                </div>
-                <AlertTriangle className="h-8 w-8 text-destructive" />
-              </div>
-            </CardContent>
-          </Card>
+          {statCards}
         </div>
       )}
 
@@ -943,148 +951,330 @@ export const Inventory: React.FC = () => {
       )}
 
       <Card className="shadow-card">
-        <CardHeader>
-          <CardTitle>Itens do Inventário</CardTitle>
-          <CardDescription>
-            Visualize e gerencie todos os itens em estoque
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Item</TableHead>
-                  <TableHead>Categoria</TableHead>
-                  <TableHead>Estoque Atual</TableHead>
-                  <TableHead>Estoque Mínimo</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Localização</TableHead>
-                  {canEdit && <TableHead className="text-right">Ações</TableHead>}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredItems.map((item) => {
-                  const category = categories.find(c => c.id === item.category_id);
-                  const location = locations.find(l => l.id === item.location_id);
-                  const itemStatus = calculateStatus(item.current_quantity, item.minimum_quantity);
-                  return (
-                    <TableRow key={item.id}>
-                      <TableCell className="font-medium">
-                        <div>
-                          <p className="font-semibold">{item.name}</p>
-                          {item.description && (
-                            <p className="text-xs text-muted-foreground">
-                              {item.description}
-                            </p>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>{category?.name || 'N/A'}</TableCell>
-                      <TableCell>
-                        <div className="font-medium">
-                          {item.current_quantity} {item.unit}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        {item.minimum_quantity} {item.unit}
-                      </TableCell>
-                      <TableCell>
-                        <Badge className={getStatusColor(itemStatus)}>
-                          {getStatusLabel(itemStatus)}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>{location?.name || 'N/A'}</TableCell>
-                      {canEdit && (
-                        <TableCell className="text-right">
-                          <div className="flex justify-end gap-2">
-                          <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="outline" size="sm">
-                                    <PlusCircle className="h-3 w-3 mr-1" />
-                                    Ações
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuLabel>Ações</DropdownMenuLabel>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem onClick={() => handleOpenModal(item)}>
-                                  <Edit className="h-3 w-3 mr-2" />
-                                  Editar
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleOpenMovementModal(item)}>
-                                  <PlusCircle className="h-3 w-3 mr-2" />
-                                  Adicionar/Remover Estoque
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleOpenHistoryModal(item)}>
-                                  <History className="h-3 w-3 mr-2" />
-                                  Ver Histórico
-                                </DropdownMenuItem>
-                                <DropdownMenuSeparator />
-                                <AlertDialog>
-                                  <AlertDialogTrigger asChild>
-                                    <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive">
-                                      <Trash2 className="h-3 w-3 mr-2" />
-                                      Excluir
-                                    </DropdownMenuItem>
-                                  </AlertDialogTrigger>
-                                  <AlertDialogContent>
-                                    <AlertDialogHeader>
-                                      <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
-                                      <AlertDialogDescription>
-                                        Esta ação não pode ser desfeita. Isso excluirá permanentemente o item <strong style={{ color: 'red' }}>{item.name}</strong> do inventário.
-                                      </AlertDialogDescription>
-                                    </AlertDialogHeader>
-                                    <AlertDialogFooter>
-                                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                      <AlertDialogAction
-                                        onClick={() => handleDelete(item.id)}
-                                        disabled={isDeleting}
-                                      >
-                                        {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Continuar'}
-                                      </AlertDialogAction>
-                                    </AlertDialogFooter>
-                                  </AlertDialogContent>
-                                </AlertDialog>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </div>
-                        </TableCell>
-                      )}
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </div>
-          <Pagination className="mt-4">
-              <PaginationContent>
-                <PaginationItem>
-                  <PaginationPrevious 
-                    onClick={() => handlePageChange(page - 1)} 
-                    className={cn(page === 1 && "pointer-events-none opacity-50")}
-                  />
-                </PaginationItem>
-                {[...Array(pageCount)].map((_, index) => (
-                  <PaginationItem key={index}>
-                    <PaginationLink 
-                      onClick={() => handlePageChange(index + 1)}
-                      isActive={page === index + 1}
+        <CardContent className="p-6">
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar itens..."
+                className="pl-10"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+            <Dialog open={isFilterModalOpen} onOpenChange={setIsFilterModalOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline">
+                  <Filter className="h-4 w-4 mr-2" />
+                  Filtros
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[425px]">
+                <DialogHeader>
+                  <DialogTitle>Filtrar Inventário</DialogTitle>
+                  <DialogDescription>
+                    Selecione as opções para filtrar a lista de itens.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                  <div className="space-y-2">
+                    <Label>Status</Label>
+                    <Select
+                      onValueChange={(value) => setActiveFilters({ ...activeFilters, status: value })}
+                      value={activeFilters.status}
                     >
-                      {index + 1}
-                    </PaginationLink>
-                  </PaginationItem>
-                ))}
-                <PaginationItem>
-                  <PaginationNext 
-                    onClick={() => handlePageChange(page + 1)} 
-                    className={cn(page === pageCount && "pointer-events-none opacity-50")}
-                  />
-                </PaginationItem>
-              </PaginationContent>
-          </Pagination>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Todos os Status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todos</SelectItem>
+                        <SelectItem value="normal">Normal</SelectItem>
+                        <SelectItem value="baixo">Baixo</SelectItem>
+                        <SelectItem value="critico">Crítico</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Categoria</Label>
+                    <Select
+                      onValueChange={(value) => setActiveFilters({ ...activeFilters, category_id: value })}
+                      value={activeFilters.category_id}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Todas as Categorias" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todas</SelectItem>
+                        {categories.map(category => (
+                          <SelectItem key={category.id} value={category.id}>
+                            {category.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Localização</Label>
+                    <Select
+                      onValueChange={(value) => setActiveFilters({ ...activeFilters, location_id: value })}
+                      value={activeFilters.location_id}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Todas as Localizações" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todas</SelectItem>
+                        {locations.map(location => (
+                          <SelectItem key={location.id} value={location.id}>
+                            {location.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button
+                    variant="outline"
+                    onClick={() => setActiveFilters({ status: 'all', category_id: 'all', location_id: 'all' })}
+                  >
+                    Limpar Filtros
+                  </Button>
+                  <Button onClick={() => setIsFilterModalOpen(false)}>
+                    Aplicar
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
         </CardContent>
       </Card>
+      
+      {/* Condicionalmente renderiza a tabela ou os cards */}
+      {isMobile ? (
+        <div className="flex flex-col gap-4">
+          {filteredItems.map((item) => {
+            const category = categories.find(c => c.id === item.category_id);
+            const location = locations.find(l => l.id === item.location_id);
+            const itemStatus = calculateStatus(item.current_quantity, item.minimum_quantity);
+
+            const statusColor = getStatusColor(itemStatus);
+
+            return (
+              <Card key={item.id} className="shadow-card flex flex-col">
+                <CardHeader className="flex flex-row items-center justify-between p-4 pb-0">
+                  <CardTitle className="text-lg">
+                    {item.name}
+                  </CardTitle>
+                  <Badge className={statusColor}>
+                    {getStatusLabel(itemStatus)}
+                  </Badge>
+                </CardHeader>
+                <CardContent className="flex-1 p-4 pt-2 space-y-3 text-sm">
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <Package className="h-4 w-4" />
+                    <span>Categoria: {category?.name || 'N/A'}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <Building className="h-4 w-4" />
+                    <span>Localização: {location?.name || 'N/A'}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-muted-foreground">
+                    <div>
+                      <p>Estoque atual: {item.current_quantity}</p>
+                      <p>Estoque mínimo: {item.minimum_quantity}</p>
+                    </div>
+                  </div>
+                </CardContent>
+                {canEdit && (
+                  <div className="p-4 pt-0 flex flex-wrap justify-center gap-2 border-t">
+                    <Button variant="outline" size="sm" onClick={() => handleOpenMovementModal(item)}>
+                      <PlusCircle className="h-3 w-3 sm:mr-1" />
+                      <span className="hidden sm:inline">Mover Estoque</span>
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => handleOpenHistoryModal(item)}>
+                      <History className="h-3 w-3 sm:mr-1" />
+                      <span className="hidden sm:inline">Histórico</span>
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => handleOpenModal(item)}>
+                      <Edit className="h-3 w-3" />
+                    </Button>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="outline" size="sm">
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Esta ação não pode ser desfeita. Isso excluirá permanentemente o item <strong style={{ color: 'red' }}>{item.name}</strong> do inventário.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={() => handleDelete(item.id)}
+                            disabled={isDeleting}
+                          >
+                            {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Continuar'}
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
+                )}
+              </Card>
+            );
+          })}
+        </div>
+      ) : (
+        <Card className="shadow-card">
+          <CardHeader>
+            <CardTitle>Itens do Inventário</CardTitle>
+            <CardDescription>
+              Visualize e gerencie todos os itens em estoque
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Item</TableHead>
+                    <TableHead>Categoria</TableHead>
+                    <TableHead>Estoque Atual</TableHead>
+                    <TableHead>Estoque Mínimo</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Localização</TableHead>
+                    {canEdit && <TableHead className="text-right">Ações</TableHead>}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredItems.map((item) => {
+                    const category = categories.find(c => c.id === item.category_id);
+                    const location = locations.find(l => l.id === item.location_id);
+                    const itemStatus = calculateStatus(item.current_quantity, item.minimum_quantity);
+                    return (
+                      <TableRow key={item.id}>
+                        <TableCell className="font-medium">
+                          <div>
+                            <p className="font-semibold">{item.name}</p>
+                            {item.description && (
+                              <p className="text-xs text-muted-foreground">
+                                {item.description}
+                              </p>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>{category?.name || 'N/A'}</TableCell>
+                        <TableCell>
+                          <div className="font-medium">
+                            {item.current_quantity} {item.unit}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          {item.minimum_quantity} {item.unit}
+                        </TableCell>
+                        <TableCell>
+                          <Badge className={getStatusColor(itemStatus)}>
+                            {getStatusLabel(itemStatus)}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>{location?.name || 'N/A'}</TableCell>
+                        {canEdit && (
+                          <TableCell className="text-right">
+                            <div className="flex justify-end gap-2">
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="outline" size="sm">
+                                      <PlusCircle className="h-3 w-3 mr-1" />
+                                      Ações
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuLabel>Ações</DropdownMenuLabel>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem onClick={() => handleOpenModal(item)}>
+                                    <Edit className="h-3 w-3 mr-2" />
+                                    Editar
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => handleOpenMovementModal(item)}>
+                                    <PlusCircle className="h-3 w-3 mr-2" />
+                                    Adicionar/Remover Estoque
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => handleOpenHistoryModal(item)}>
+                                    <History className="h-3 w-3 mr-2" />
+                                    Ver Histórico
+                                  </DropdownMenuItem>
+                                  <DropdownMenuSeparator />
+                                  <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                      <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive">
+                                        <Trash2 className="h-3 w-3 mr-2" />
+                                        Excluir
+                                      </DropdownMenuItem>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                      <AlertDialogHeader>
+                                        <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                          Esta ação não pode ser desfeita. Isso excluirá permanentemente o item <strong style={{ color: 'red' }}>{item.name}</strong> do inventário.
+                                        </AlertDialogDescription>
+                                      </AlertDialogHeader>
+                                      <AlertDialogFooter>
+                                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                        <AlertDialogAction
+                                          onClick={() => handleDelete(item.id)}
+                                          disabled={isDeleting}
+                                        >
+                                          {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Continuar'}
+                                        </AlertDialogAction>
+                                      </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                  </AlertDialog>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </div>
+                          </TableCell>
+                        )}
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+      
+      <Pagination className="mt-4">
+          <PaginationContent>
+            <PaginationItem>
+              <PaginationPrevious 
+                onClick={() => handlePageChange(page - 1)} 
+                className={cn(page === 1 && "pointer-events-none opacity-50")}
+              />
+            </PaginationItem>
+            {[...Array(pageCount)].map((_, index) => (
+              <PaginationItem key={index}>
+                <PaginationLink 
+                  onClick={() => handlePageChange(index + 1)}
+                  isActive={page === index + 1}
+                >
+                  {index + 1}
+                </PaginationLink>
+              </PaginationItem>
+            ))}
+            <PaginationItem>
+              <PaginationNext 
+                onClick={() => handlePageChange(page + 1)} 
+                className={cn(page === pageCount && "pointer-events-none opacity-50")}
+              />
+            </PaginationItem>
+          </PaginationContent>
+      </Pagination>
       
       {selectedItemForMovement && (
         <Dialog open={isMovementModalOpen} onOpenChange={setIsMovementModalOpen}>
