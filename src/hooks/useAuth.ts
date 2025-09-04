@@ -5,8 +5,12 @@ import { toast } from '@/components/ui/use-toast';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import React from 'react';
 
-// Obtenha a URL base do ambiente
-const BASE_URL = import.meta.env.VITE_PUBLIC_URL || 'http://localhost:8080';
+// Define a URL base dinamicamente.
+// A Vercel define a variável de ambiente VERCEL_URL automaticamente.
+// Em vez de usá-la, podemos usar window.location para ser mais genérico e funcionar em qualquer ambiente.
+const BASE_URL = window.location.hostname.includes('localhost')
+  ? `http://${window.location.hostname}:8080`
+  : `https://${window.location.hostname}`;
 
 // User types
 export interface User {
@@ -155,7 +159,6 @@ export const useAuthProvider = () => {
         email,
         password,
         options: {
-          // Usamos a URL base dinâmica aqui
           emailRedirectTo: `${BASE_URL}/auth/callback`,
           data: {
             name
