@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth } from '@/hooks/useAuth';
+import { usePushNotificationStatus, usePushNotificationSubscription, usePushNotificationUnsubscribe } from '@/hooks/usePushNotifications';
 import { Separator } from '@/components/ui/separator';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -45,7 +46,7 @@ import { Link } from 'react-router-dom';
 import packageJson from '../../package.json';
 import { useFaqs } from '@/hooks/useFaqs';
 import { useQueryClient } from '@tanstack/react-query';
-import { usePushNotificationSubscription } from '@/hooks/usePushNotifications';
+
 
 const profileFormSchema = z.object({
   firstName: z.string().min(2, "O nome deve ter pelo menos 2 caracteres."),
@@ -73,7 +74,9 @@ export const Settings: React.FC = () => {
   const [isUpdatingPassword, setIsUpdatingPassword] = React.useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
-  const { mutate: subscribeToPush, isPending: isSubscribing } = usePushNotificationSubscription();
+  const { data: pushStatus } = usePushNotificationStatus();
+  const subscribeMutation = usePushNotificationSubscription();
+  const unsubscribeMutation = usePushNotificationUnsubscribe();
 
 
   const profileForm = useForm<ProfileFormValues>({
@@ -170,7 +173,15 @@ export const Settings: React.FC = () => {
         });
       } finally {
         setIsUpdatingPassword(false);
-      }
+    }
+  };
+
+  const handlePushNotificationToggle = () => {
+    if (pushStatus?.hasSubscription) {
+      unsubscribeMutation.mutate();
+    } else {
+      subscribeMutation.mutate();
+    }
   };
   
   const handleWhatsappSupport = () => {
@@ -266,9 +277,6 @@ export const Settings: React.FC = () => {
     });
   };
   
-  const handleSubscribe = () => {
-    subscribeToPush();
-  };
 
   if (authState.isLoading) {
     return (
@@ -453,24 +461,33 @@ export const Settings: React.FC = () => {
                 Notificações Push
               </CardTitle>
               <CardDescription>
-                Receba alertas mesmo com o aplicativo fechado.
+                Receba notificações importantes mesmo quando o app estiver fechado
               </CardDescription>
             </CardHeader>
-            <CardContent>
-              <Button 
-                onClick={handleSubscribe} 
-                disabled={isSubscribing} 
-                className="w-full sm:w-auto"
-              >
-                {isSubscribing ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Se inscrevendo...
-                  </>
-                ) : (
-                  'Ativar Notificações Push'
-                )}
-              </Button>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="space-y-1">
+                  <Label>Notificações Push</Label>
+                  <p className="text-sm text-muted-foreground">
+                    {pushStatus?.hasSubscription 
+                      ? 'Você está recebendo notificações push' 
+                      : 'Ative para receber notificações importantes'}
+                  </p>
+                </div>
+                <Switch
+                  checked={pushStatus?.hasSubscription || false}
+                  onCheckedChange={handlePushNotificationToggle}
+                  disabled={subscribeMutation.isPending || unsubscribeMutation.isPending}
+                />
+              </div>
+              
+              {!pushStatus?.hasPermission && (
+                <div className="rounded-md bg-yellow-50 dark:bg-yellow-900/20 p-3">
+                  <p className="text-sm text-yellow-700 dark:text-yellow-200">
+                    Para receber notificações, você precisa permitir notificações no seu navegador.
+                  </p>
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -623,6 +640,44 @@ export const Settings: React.FC = () => {
               </Button>
               
 
+            </CardContent>
+          </Card>
+
+          {/* Push Notifications */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Bell className="h-5 w-5" />
+                Notificações Push
+              </CardTitle>
+              <CardDescription>
+                Receba notificações importantes mesmo quando o app estiver fechado
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="space-y-1">
+                  <Label>Notificações Push</Label>
+                  <p className="text-sm text-muted-foreground">
+                    {pushStatus?.hasSubscription 
+                      ? 'Você está recebendo notificações push' 
+                      : 'Ative para receber notificações importantes'}
+                  </p>
+                </div>
+                <Switch
+                  checked={pushStatus?.hasSubscription || false}
+                  onCheckedChange={handlePushNotificationToggle}
+                  disabled={subscribeMutation.isPending || unsubscribeMutation.isPending}
+                />
+              </div>
+              
+              {!pushStatus?.hasPermission && (
+                <div className="rounded-md bg-yellow-50 dark:bg-yellow-900/20 p-3">
+                  <p className="text-sm text-yellow-700 dark:text-yellow-200">
+                    Para receber notificações, você precisa permitir notificações no seu navegador.
+                  </p>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
