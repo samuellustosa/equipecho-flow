@@ -68,7 +68,7 @@ export const Auth: React.FC = () => {
       <Card className="shadow-card w-full max-w-md">
         <CardHeader className="text-center space-y-2">
           <div className="mx-auto mb-4">
-              <img src="/logo.jpg" alt="EquipCPD Logo" className="h-12" />
+              <img src="/appstore.png" alt="EquipCPD Logo" className="h-12" />
           </div>
           <CardTitle className="text-2xl font-bold">
             Bem-vindo ao EquipCPD
