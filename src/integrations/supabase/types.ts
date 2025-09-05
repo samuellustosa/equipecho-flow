@@ -346,6 +346,35 @@ export type Database = {
         }
         Relationships: []
       }
+      push_subscriptions: {
+        Row: {
+          created_at: string
+          id: string
+          subscription_data: Json
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          subscription_data: Json
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          subscription_data?: Json
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "push_subscriptions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       responsibles: {
         Row: {
           created_at: string
@@ -416,10 +445,6 @@ export type Database = {
       get_user_role: {
         Args: { user_id: string }
         Returns: Database["public"]["Enums"]["user_role"]
-      }
-      migrate_inventory_categories_and_locations: {
-        Args: Record<PropertyKey, never>
-        Returns: undefined
       }
     }
     Enums: {

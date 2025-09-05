@@ -45,6 +45,7 @@ import { Link } from 'react-router-dom';
 import packageJson from '../../package.json';
 import { useFaqs } from '@/hooks/useFaqs';
 import { useQueryClient } from '@tanstack/react-query';
+import { usePushNotificationSubscription } from '@/hooks/usePushNotifications';
 
 const profileFormSchema = z.object({
   firstName: z.string().min(2, "O nome deve ter pelo menos 2 caracteres."),
@@ -72,6 +73,8 @@ export const Settings: React.FC = () => {
   const [isUpdatingPassword, setIsUpdatingPassword] = React.useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
+  const { mutate: subscribeToPush, isPending: isSubscribing } = usePushNotificationSubscription();
+
 
   const profileForm = useForm<ProfileFormValues>({
     resolver: zodResolver(profileFormSchema),
@@ -262,7 +265,10 @@ export const Settings: React.FC = () => {
       }
     });
   };
-
+  
+  const handleSubscribe = () => {
+    subscribeToPush();
+  };
 
   if (authState.isLoading) {
     return (
@@ -436,6 +442,35 @@ export const Settings: React.FC = () => {
                   />
                 </div>
               </div>
+            </CardContent>
+          </Card>
+          
+          {/* Push Notifications */}
+          <Card className="shadow-card">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Bell className="h-5 w-5" />
+                Notificações Push
+              </CardTitle>
+              <CardDescription>
+                Receba alertas mesmo com o aplicativo fechado.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button 
+                onClick={handleSubscribe} 
+                disabled={isSubscribing} 
+                className="w-full sm:w-auto"
+              >
+                {isSubscribing ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Se inscrevendo...
+                  </>
+                ) : (
+                  'Ativar Notificações Push'
+                )}
+              </Button>
             </CardContent>
           </Card>
 
