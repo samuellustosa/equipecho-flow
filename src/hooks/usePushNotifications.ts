@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 import { toast } from '@/components/ui/use-toast';
 
-const VAPID_PUBLIC_KEY = 'BMi3TAXX9-alz7ZTCFZkCawhVfJ2iedKfYIjhUxt97-lQ1YyjImlGKa4cVdfIz8SRk4byEwbQSYD_oY3U9g2qCM';
+const VAPID_PUBLIC_KEY = 'BHCJ5XvM3EOHrf1i0uNPTP5_sd-xn6I2_gKkHAnpTWyl1MHt_9WO1IQcInulmJRjPEhBqNmP8OGcqhjnzBSS0YE';
 
 // Hook para verificar se o usuário já tem uma subscription
 export const usePushNotificationStatus = () => {

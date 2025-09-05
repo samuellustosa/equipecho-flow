@@ -642,44 +642,6 @@ export const Settings: React.FC = () => {
 
             </CardContent>
           </Card>
-
-          {/* Push Notifications */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Bell className="h-5 w-5" />
-                Notificações Push
-              </CardTitle>
-              <CardDescription>
-                Receba notificações importantes mesmo quando o app estiver fechado
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="space-y-1">
-                  <Label>Notificações Push</Label>
-                  <p className="text-sm text-muted-foreground">
-                    {pushStatus?.hasSubscription 
-                      ? 'Você está recebendo notificações push' 
-                      : 'Ative para receber notificações importantes'}
-                  </p>
-                </div>
-                <Switch
-                  checked={pushStatus?.hasSubscription || false}
-                  onCheckedChange={handlePushNotificationToggle}
-                  disabled={subscribeMutation.isPending || unsubscribeMutation.isPending}
-                />
-              </div>
-              
-              {!pushStatus?.hasPermission && (
-                <div className="rounded-md bg-yellow-50 dark:bg-yellow-900/20 p-3">
-                  <p className="text-sm text-yellow-700 dark:text-yellow-200">
-                    Para receber notificações, você precisa permitir notificações no seu navegador.
-                  </p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
         </div>
       </div>
     </div>
