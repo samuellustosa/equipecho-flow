@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 import { toast } from '@/components/ui/use-toast';
 
+// Chave pública VAPID consistente para o frontend
 const VAPID_PUBLIC_KEY = 'BEt0TF1j23ldmLEOEsfQbxHcVZgn4NKC1gna1vBG0jHFbf05CRuuDbN3GCTInOfdOFTM0icY050coe3jaFzldRw';
 
 // Hook para verificar se o usuário já tem uma subscription
