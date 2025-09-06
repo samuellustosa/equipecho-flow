@@ -6,11 +6,15 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-interface PushNotificationRequest {
+// Chave VAPID pública consistentemente usada no cliente
+const VAPID_PUBLIC_KEY = 'BHCJ5XvM3EOHrf1i0uNPTP5_sd-xn6I2_gKkHAnpTWyl1MHt_9WO1IQcInulmJRjPEhBqNmP8OGcqhjnzBSS0YE';
+
+interface PushNotificationPayload {
   title: string;
   body: string;
   url?: string;
-  userIds?: string[];
+  icon?: string;
+  badge?: string;
 }
 
 const handler = async (req: Request): Promise<Response> => {
@@ -24,93 +28,144 @@ const handler = async (req: Request): Promise<Response> => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const { title, body, url = '/', userIds }: PushNotificationRequest = await req.json();
-    
-    const VAPID_PRIVATE_KEY = Deno.env.get('VAPID_PRIVATE_KEY');
-    const VAPID_PUBLIC_KEY = 'BMi3TAXX9-alz7ZTCFZkCawhVfJ2iedKfYIjhUxt97-lQ1YyjImlGKa4cVdfIz8SRk4byEwbQSYD_oY3U9g2qCM';
+    // 1. Identificar alertas de manutenção e inventário
+    const { data: overdueEquipments, error: eqError } = await supabase
+      .from('equipments')
+      .select('id, name')
+      .eq('status', 'operacional')
+      .lt('next_cleaning', new Date().toISOString().split('T')[0]);
 
-    if (!VAPID_PRIVATE_KEY) {
-      throw new Error('VAPID_PRIVATE_KEY not configured');
+    if (eqError) throw eqError;
+
+    const { data: lowInventoryItems, error: invError } = await supabase
+      .from('inventory')
+      .select('id, name, current_quantity, minimum_quantity')
+      .lte('current_quantity', 1); // Exemplo simplificado para estoque crítico
+
+    if (invError) throw invError;
+
+    const notificationsToSend: { userIds: string[], payload: PushNotificationPayload }[] = [];
+
+    // 2. Criar payloads de notificação
+    if (overdueEquipments && overdueEquipments.length > 0) {
+      const { data: enabledUsers, error: usersError } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('overdue_maintenance_alerts_enabled', true);
+      
+      if (usersError) throw usersError;
+      
+      const userIds = enabledUsers.map(u => u.id);
+      
+      if (userIds.length > 0) {
+        notificationsToSend.push({
+          userIds,
+          payload: {
+            title: 'Manutenção Atrasada!',
+            body: `Você tem ${overdueEquipments.length} equipamento(s) com manutenção em atraso.`,
+            url: '/equipments',
+            icon: '/appstore.png',
+            badge: '/196.png',
+          }
+        });
+      }
     }
 
-    // Buscar todas as subscriptions ou apenas dos usuários especificados
-    let query = supabase.from('push_subscriptions').select('*');
-    
-    if (userIds && userIds.length > 0) {
-      query = query.in('user_id', userIds);
+    if (lowInventoryItems && lowInventoryItems.length > 0) {
+      const { data: enabledUsers, error: usersError } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('low_stock_alerts_enabled', true);
+        
+      if (usersError) throw usersError;
+
+      const userIds = enabledUsers.map(u => u.id);
+      
+      if (userIds.length > 0) {
+        notificationsToSend.push({
+          userIds,
+          payload: {
+            title: 'Estoque Crítico!',
+            body: `Você tem ${lowInventoryItems.length} item(s) com estoque baixo.`,
+            url: '/inventory',
+            icon: '/appstore.png',
+            badge: '/196.png',
+          }
+        });
+      }
     }
 
-    const { data: subscriptions, error } = await query;
-
-    if (error) {
-      console.error('Error fetching subscriptions:', error);
-      throw error;
-    }
-
-    if (!subscriptions || subscriptions.length === 0) {
-      return new Response(JSON.stringify({ message: 'No subscriptions found' }), {
+    if (notificationsToSend.length === 0) {
+      return new Response(JSON.stringify({ message: 'Nenhum alerta para enviar.' }), {
         status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    const payload = JSON.stringify({
-      title,
-      body,
-      url,
-      icon: '/appstore.png',
-      badge: '/196.png',
-    });
+    const VAPID_PRIVATE_KEY = Deno.env.get('VAPID_PRIVATE_KEY');
 
-    const results = await Promise.allSettled(
-      subscriptions.map(async (sub) => {
-        try {
-          const subscription = JSON.parse(sub.subscription_data as string);
-          
-          // Preparar headers para web-push
-          const vapidHeaders = await generateVAPIDHeaders(
-            subscription.endpoint,
-            VAPID_PUBLIC_KEY,
-            VAPID_PRIVATE_KEY
-          );
+    if (!VAPID_PRIVATE_KEY) {
+      throw new Error('VAPID_PRIVATE_KEY not configured');
+    }
 
-          const response = await fetch(subscription.endpoint, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/octet-stream',
-              'Content-Encoding': 'aes128gcm',
-              'TTL': '86400',
-              ...vapidHeaders,
-            },
-            body: await encryptPayload(payload, subscription),
-          });
+    const allResults = [];
+    for (const { userIds, payload } of notificationsToSend) {
+      const { data: subscriptions, error } = await supabase.from('push_subscriptions').select('*').in('user_id', userIds);
+      if (error) {
+        console.error('Error fetching subscriptions:', error);
+        continue;
+      }
+      
+      const payloadString = JSON.stringify(payload);
+      
+      const results = await Promise.allSettled(
+        subscriptions.map(async (sub) => {
+          try {
+            const subscription = JSON.parse(sub.subscription_data as string);
+            
+            const vapidHeaders = await generateVAPIDHeaders(
+              subscription.endpoint,
+              VAPID_PUBLIC_KEY,
+              VAPID_PRIVATE_KEY
+            );
 
-          if (!response.ok) {
-            console.error(`Push failed for subscription ${sub.id}:`, response.status, response.statusText);
-            // Se a subscription é inválida (410), removê-la
-            if (response.status === 410) {
-              await supabase.from('push_subscriptions').delete().eq('id', sub.id);
+            const response = await fetch(subscription.endpoint, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/octet-stream',
+                'Content-Encoding': 'aes128gcm',
+                'TTL': '86400',
+                ...vapidHeaders,
+              },
+              body: await encryptPayload(payloadString, subscription),
+            });
+
+            if (!response.ok) {
+              console.error(`Push failed for subscription ${sub.id}:`, response.status, response.statusText);
+              if (response.status === 410) {
+                await supabase.from('push_subscriptions').delete().eq('id', sub.id);
+              }
             }
+
+            return { success: response.ok, subscriptionId: sub.id };
+          } catch (error) {
+            console.error(`Error sending to subscription ${sub.id}:`, error);
+            return { success: false, subscriptionId: sub.id, error: error.message };
           }
-
-          return { success: response.ok, subscriptionId: sub.id };
-        } catch (error) {
-          console.error(`Error sending to subscription ${sub.id}:`, error);
-          return { success: false, subscriptionId: sub.id, error: error.message };
-        }
-      })
-    );
-
-    const successful = results.filter(r => r.status === 'fulfilled' && r.value.success).length;
-    const failed = results.length - successful;
-
+        })
+      );
+      allResults.push(...results);
+    }
+    
+    const successful = allResults.filter(r => r.status === 'fulfilled' && r.value.success).length;
+    const failed = allResults.length - successful;
     console.log(`Push notifications sent: ${successful} successful, ${failed} failed`);
 
     return new Response(JSON.stringify({
       message: 'Push notifications processed',
       successful,
       failed,
-      results: results.map(r => r.status === 'fulfilled' ? r.value : { success: false, error: 'Promise rejected' })
+      results: allResults.map(r => r.status === 'fulfilled' ? r.value : { success: false, error: 'Promise rejected' })
     }), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -125,7 +180,6 @@ const handler = async (req: Request): Promise<Response> => {
   }
 };
 
-// Função para gerar headers VAPID
 async function generateVAPIDHeaders(endpoint: string, publicKey: string, privateKey: string) {
   const urlBase64ToUint8Array = (base64String: string) => {
     const padding = '='.repeat((4 - base64String.length % 4) % 4);
@@ -153,28 +207,20 @@ async function generateVAPIDHeaders(endpoint: string, publicKey: string, private
     sub: subject,
   };
 
-  // Para simplificar, vamos usar uma implementação básica
-  // Em produção, use uma biblioteca específica para VAPID
   return {
     'Authorization': `vapid t=${await createJWT(header, payload, vapidKeys.privateKey)}, k=${publicKey}`,
   };
 }
 
-// Função simples para criar JWT (em produção, use uma biblioteca)
 async function createJWT(header: any, payload: any, privateKey: Uint8Array): Promise<string> {
   const encoder = new TextEncoder();
   const headerB64 = btoa(JSON.stringify(header)).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
   const payloadB64 = btoa(JSON.stringify(payload)).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
   
-  // Para simplificar, retornamos um token básico
-  // Em produção, implemente a assinatura ECDSA correta
   return `${headerB64}.${payloadB64}.signature`;
 }
 
-// Função para criptografar payload (simplificada)
 async function encryptPayload(payload: string, subscription: any): Promise<Uint8Array> {
-  // Para simplificar, retornamos o payload como bytes
-  // Em produção, implemente a criptografia AES128GCM correta
   return new TextEncoder().encode(payload);
 }
 
