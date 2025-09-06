@@ -7,6 +7,7 @@ import { ThemeProvider } from './components/ThemeProvider.tsx';
 import { AuthProvider } from './components/AuthProvider.tsx';
 import { Toaster } from './components/ui/toaster.tsx';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import './integrations/firebase/client.ts';
 
 const queryClient = new QueryClient();
 
