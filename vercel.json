@@ -8,7 +8,7 @@
   "crons": [
     {
       "path": "/functions/v1/send-push-notification",
-      "schedule": "*/1 * * * *"
+      "schedule": "0 0 * * *"
     }
   ]
 }
