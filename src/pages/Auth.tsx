@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -19,9 +19,15 @@ export const Auth: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
 
+  // Criação de referências para os campos de entrada
+  const loginEmailRef = useRef<HTMLInputElement>(null);
+  const loginPasswordRef = useRef<HTMLInputElement>(null);
+  const registerNameRef = useRef<HTMLInputElement>(null);
+  const registerEmailRef = useRef<HTMLInputElement>(null);
+  const registerPasswordRef = useRef<HTMLInputElement>(null);
+
   // Redirect if already authenticated
   if (authState.isAuthenticated) {
-    // Redireciona sempre para o dashboard, independentemente da rota anterior.
     return <Navigate to="/" replace />;
   }
 
@@ -50,7 +56,6 @@ export const Auth: React.FC = () => {
         title: "Conta criada com sucesso!",
         description: "Verifique seu email para confirmar a conta.",
       });
-      // Adiciona o email ao localStorage antes de navegar
       localStorage.setItem('pendingConfirmationEmail', data.email);
       navigate('/email-confirmation', { state: { email: data.email } });
     } catch (error: any) {
@@ -102,7 +107,7 @@ export const Auth: React.FC = () => {
               }} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="login-email">Email</Label>
-                  <div className="relative">
+                  <div className="relative" onClick={() => loginEmailRef.current?.focus()}>
                     <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
                       id="login-email"
@@ -112,13 +117,14 @@ export const Auth: React.FC = () => {
                       className="pl-10"
                       required
                       disabled={isLoading}
+                      ref={loginEmailRef}
                     />
                   </div>
                 </div>
                 
                 <div className="space-y-2">
                   <Label htmlFor="login-password">Senha</Label>
-                  <div className="relative">
+                  <div className="relative" onClick={() => loginPasswordRef.current?.focus()}>
                     <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
                       id="login-password"
@@ -128,6 +134,7 @@ export const Auth: React.FC = () => {
                       className="pl-10"
                       required
                       disabled={isLoading}
+                      ref={loginPasswordRef}
                     />
                   </div>
                 </div>
@@ -161,7 +168,7 @@ export const Auth: React.FC = () => {
               }} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="register-name">Nome Completo</Label>
-                  <div className="relative">
+                  <div className="relative" onClick={() => registerNameRef.current?.focus()}>
                     <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
                       id="register-name"
@@ -171,13 +178,14 @@ export const Auth: React.FC = () => {
                       className="pl-10"
                       required
                       disabled={isLoading}
+                      ref={registerNameRef}
                     />
                   </div>
                 </div>
                 
                 <div className="space-y-2">
                   <Label htmlFor="register-email">Email</Label>
-                  <div className="relative">
+                  <div className="relative" onClick={() => registerEmailRef.current?.focus()}>
                     <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
                       id="register-email"
@@ -187,13 +195,14 @@ export const Auth: React.FC = () => {
                       className="pl-10"
                       required
                       disabled={isLoading}
+                      ref={registerEmailRef}
                     />
                   </div>
                 </div>
                 
                 <div className="space-y-2">
                   <Label htmlFor="register-password">Senha</Label>
-                  <div className="relative">
+                  <div className="relative" onClick={() => registerPasswordRef.current?.focus()}>
                     <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
                       id="register-password"
@@ -204,6 +213,7 @@ export const Auth: React.FC = () => {
                       required
                       minLength={6}
                       disabled={isLoading}
+                      ref={registerPasswordRef}
                     />
                   </div>
                 </div>
