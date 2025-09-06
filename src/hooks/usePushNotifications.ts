@@ -2,12 +2,16 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 import { toast } from '@/components/ui/use-toast';
+import { getMessaging, getToken, onMessage } from 'firebase/messaging';
+import { useEffect } from 'react';
 
-const VAPID_PUBLIC_KEY = 'BECjiG-y6HMU-pOQunOGpb_5K9qxbsnJbUKHwsBWnmgx3WG87_AXOkBazwUkQ2SC5-4_zDDt7N9Mj3rj7BTntzs';
+// O VAPID Key para o Firebase Cloud Messaging, obtido no console do Firebase
+const VAPID_PUBLIC_KEY = 'BMauxkOMTmUUpmvhqnKvm1jXMHRNZ67K1znbg1_fgBXBrPxGgdSjgQmEOFX4ueh1wt9kFgxrPA5GPVU5JfUb5sQ';
 
 // Hook para verificar se o usuário já tem uma subscription
 export const usePushNotificationStatus = () => {
   const { authState } = useAuth();
+  const queryClient = useQueryClient();
 
   return useQuery({
     queryKey: ['push-notification-status', authState.user?.id],
@@ -48,14 +52,15 @@ export const usePushNotificationSubscription = () => {
         throw new Error('Notification permission denied.');
       }
 
-      const registration = await navigator.serviceWorker.getRegistration();
+      const registration = await navigator.serviceWorker.getRegistration('/firebase-messaging-sw.js');
       if (!registration) {
         throw new Error('Service Worker not registered.');
       }
 
-      const subscription = await registration.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: VAPID_PUBLIC_KEY,
+      // Use o getToken do Firebase para obter o token do dispositivo.
+      const token = await getToken(getMessaging(), {
+        vapidKey: VAPID_PUBLIC_KEY,
+        serviceWorkerRegistration: registration,
       });
 
       // Verificar se já existe uma subscription para este usuário
@@ -69,7 +74,7 @@ export const usePushNotificationSubscription = () => {
         // Atualizar subscription existente
         const { data, error } = await supabase
           .from('push_subscriptions')
-          .update({ subscription_data: JSON.stringify(subscription) })
+          .update({ subscription_data: JSON.stringify({ token }) })
           .eq('user_id', authState.user.id)
           .select()
           .single();
@@ -82,7 +87,7 @@ export const usePushNotificationSubscription = () => {
           .from('push_subscriptions')
           .insert({
             user_id: authState.user.id,
-            subscription_data: JSON.stringify(subscription),
+            subscription_data: JSON.stringify({ token }),
           })
           .select()
           .single();
@@ -129,4 +134,20 @@ export const usePushNotificationUnsubscribe = () => {
       toast({ title: 'Erro ao desativar notificações', description: err.message, variant: 'destructive' });
     },
   });
+};
+
+// Hook para lidar com notificações em primeiro plano
+export const useForegroundPushNotifications = () => {
+  useEffect(() => {
+    // onMessage do Firebase para exibir notificações quando o app está aberto
+    const unsubscribe = onMessage(getMessaging(), (payload) => {
+      console.log('Foreground message received:', payload);
+      // Exibe a notificação usando o sistema de toast
+      toast({
+        title: payload.notification?.title,
+        description: payload.notification?.body,
+      });
+    });
+    return () => unsubscribe();
+  }, []);
 };

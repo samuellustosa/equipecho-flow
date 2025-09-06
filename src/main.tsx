@@ -13,7 +13,8 @@ const queryClient = new QueryClient();
 // Register service worker for push notifications
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js')
+    // Altera o nome do arquivo para o padrão do Firebase
+    navigator.serviceWorker.register('/firebase-messaging-sw.js')
       .then((registration) => {
         console.log('SW registered: ', registration);
       })

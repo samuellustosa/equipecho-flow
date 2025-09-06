@@ -7,6 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/use-toast';
 import { usePushNotificationSubscription, usePushNotificationStatus } from '@/hooks/usePushNotifications';
+import { Loader2 } from 'lucide-react';
 
 export default function TestNotifications() {
   const [title, setTitle] = useState('Teste de Notificação');
@@ -23,7 +24,8 @@ export default function TestNotifications() {
   const handleTestNotification = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke('send-push-notification', {
+      // Chama a nova função Edge do Supabase para enviar a notificação
+      const { data, error } = await supabase.functions.invoke('send-firebase-notifications', {
         body: {
           title,
           body,

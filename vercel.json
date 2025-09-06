@@ -7,7 +7,7 @@
   ],
   "crons": [
     {
-      "path": "/functions/v1/send-push-notification",
+      "path": "/functions/v1/send-firebase-notifications",
       "schedule": "0 0 * * *"
     }
   ]
