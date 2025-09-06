@@ -27,16 +27,29 @@ self.addEventListener('fetch', (event) => {
 
 // Adicione a lógica para notificações push
 self.addEventListener('push', (event) => {
-  const data = event.data.json();
+  console.log('Push event received:', event);
+  
+  let data = {};
+  try {
+    data = event.data ? event.data.json() : {};
+  } catch (error) {
+    console.error('Error parsing push data:', error);
+    data = {};
+  }
+  
   const title = data.title || 'EquipCPD Notification';
   const options = {
     body: data.body || 'Você tem uma nova notificação.',
     icon: '/appstore.png',
     badge: '/196.png',
+    tag: 'equipcpd-notification',
+    requireInteraction: true,
     data: {
       url: data.url || '/'
     }
   };
+
+  console.log('Showing notification:', title, options);
 
   event.waitUntil(
     self.registration.showNotification(title, options)

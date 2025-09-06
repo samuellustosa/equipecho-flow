@@ -28,7 +28,31 @@ const handler = async (req: Request): Promise<Response> => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // 1. Identificar alertas de manutenção e inventário
+    // Verificar se é uma notificação manual enviada via POST
+    if (req.method === 'POST') {
+      const requestBody = await req.json();
+      
+      if (requestBody.title && requestBody.body) {
+        // Notificação manual
+        const { data: subscriptions, error } = await supabase
+          .from('push_subscriptions')
+          .select('*');
+        
+        if (error) throw error;
+        
+        const payload = {
+          title: requestBody.title,
+          body: requestBody.body,
+          url: requestBody.url || '/dashboard',
+          icon: '/appstore.png',
+          badge: '/196.png',
+        };
+        
+        return await sendNotificationsToSubscriptions(subscriptions, payload);
+      }
+    }
+
+    // 1. Identificar alertas de manutenção e inventário (funcionamento automático)
     const { data: overdueEquipments, error: eqError } = await supabase
       .from('equipments')
       .select('id, name')
@@ -102,12 +126,7 @@ const handler = async (req: Request): Promise<Response> => {
       });
     }
 
-    const VAPID_PRIVATE_KEY = Deno.env.get('VAPID_PRIVATE_KEY');
-
-    if (!VAPID_PRIVATE_KEY) {
-      throw new Error('VAPID_PRIVATE_KEY not configured');
-    }
-
+    // Enviar notificações automáticas
     const allResults = [];
     for (const { userIds, payload } of notificationsToSend) {
       const { data: subscriptions, error } = await supabase.from('push_subscriptions').select('*').in('user_id', userIds);
@@ -116,56 +135,14 @@ const handler = async (req: Request): Promise<Response> => {
         continue;
       }
       
-      const payloadString = JSON.stringify(payload);
-      
-      const results = await Promise.allSettled(
-        subscriptions.map(async (sub) => {
-          try {
-            const subscription = JSON.parse(sub.subscription_data as string);
-            
-            const vapidHeaders = await generateVAPIDHeaders(
-              subscription.endpoint,
-              VAPID_PUBLIC_KEY,
-              VAPID_PRIVATE_KEY
-            );
-
-            const response = await fetch(subscription.endpoint, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/octet-stream',
-                'Content-Encoding': 'aes128gcm',
-                'TTL': '86400',
-                ...vapidHeaders,
-              },
-              body: await encryptPayload(payloadString, subscription),
-            });
-
-            if (!response.ok) {
-              console.error(`Push failed for subscription ${sub.id}:`, response.status, response.statusText);
-              if (response.status === 410) {
-                await supabase.from('push_subscriptions').delete().eq('id', sub.id);
-              }
-            }
-
-            return { success: response.ok, subscriptionId: sub.id };
-          } catch (error) {
-            console.error(`Error sending to subscription ${sub.id}:`, error);
-            return { success: false, subscriptionId: sub.id, error: error.message };
-          }
-        })
-      );
-      allResults.push(...results);
+      const result = await sendNotificationsToSubscriptions(subscriptions, payload);
+      allResults.push(result);
     }
     
-    const successful = allResults.filter(r => r.status === 'fulfilled' && r.value.success).length;
-    const failed = allResults.length - successful;
-    console.log(`Push notifications sent: ${successful} successful, ${failed} failed`);
-
     return new Response(JSON.stringify({
-      message: 'Push notifications processed',
-      successful,
-      failed,
-      results: allResults.map(r => r.status === 'fulfilled' ? r.value : { success: false, error: 'Promise rejected' })
+      message: 'No alerts to send automatically',
+      successful: 0,
+      failed: 0
     }), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -217,11 +194,103 @@ async function createJWT(header: any, payload: any, privateKey: Uint8Array): Pro
   const headerB64 = btoa(JSON.stringify(header)).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
   const payloadB64 = btoa(JSON.stringify(payload)).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
   
-  return `${headerB64}.${payloadB64}.signature`;
+  const data = encoder.encode(`${headerB64}.${payloadB64}`);
+  
+  // Import the private key for signing
+  const key = await crypto.subtle.importKey(
+    'raw',
+    privateKey,
+    { name: 'ECDSA', namedCurve: 'P-256' },
+    false,
+    ['sign']
+  );
+  
+  // Sign the data
+  const signature = await crypto.subtle.sign(
+    { name: 'ECDSA', hash: 'SHA-256' },
+    key,
+    data
+  );
+  
+  // Convert signature to base64url
+  const signatureArray = new Uint8Array(signature);
+  const signatureB64 = btoa(String.fromCharCode(...signatureArray))
+    .replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
+  
+  return `${headerB64}.${payloadB64}.${signatureB64}`;
 }
 
 async function encryptPayload(payload: string, subscription: any): Promise<Uint8Array> {
+  // For now, return the payload as is (unencrypted)
+  // In production, you should implement proper Web Push encryption
   return new TextEncoder().encode(payload);
+}
+
+async function sendNotificationsToSubscriptions(subscriptions: any[], payload: PushNotificationPayload) {
+  const VAPID_PRIVATE_KEY = Deno.env.get('VAPID_PRIVATE_KEY');
+
+  if (!VAPID_PRIVATE_KEY) {
+    throw new Error('VAPID_PRIVATE_KEY not configured');
+  }
+
+  const payloadString = JSON.stringify(payload);
+  
+  const results = await Promise.allSettled(
+    subscriptions.map(async (sub) => {
+      try {
+        const subscription = JSON.parse(sub.subscription_data as string);
+        
+        console.log('Sending to subscription:', sub.id);
+        
+        // Para teste, vamos simplificar e não usar criptografia por enquanto
+        const response = await fetch(subscription.endpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'TTL': '86400',
+          },
+          body: payloadString,
+        });
+
+        console.log('Response status:', response.status);
+
+        if (!response.ok) {
+          console.error(`Push failed for subscription ${sub.id}:`, response.status, response.statusText);
+          const responseText = await response.text();
+          console.error('Response body:', responseText);
+          
+          if (response.status === 410) {
+            // Subscription expired, remove it
+            const supabase = createClient(
+              Deno.env.get('SUPABASE_URL') ?? '',
+              Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+            );
+            await supabase.from('push_subscriptions').delete().eq('id', sub.id);
+          }
+        }
+
+        return { success: response.ok, subscriptionId: sub.id };
+      } catch (error) {
+        console.error(`Error sending to subscription ${sub.id}:`, error);
+        return { success: false, subscriptionId: sub.id, error: error.message };
+      }
+    })
+  );
+  
+  const successful = results.filter(r => r.status === 'fulfilled' && r.value.success).length;
+  const failed = results.length - successful;
+  
+  console.log(`Push notifications sent: ${successful} successful, ${failed} failed`);
+
+  return new Response(JSON.stringify({
+    message: 'Push notifications processed',
+    successful,
+    failed,
+    results: results.map(r => r.status === 'fulfilled' ? r.value : { success: false, error: 'Promise rejected' })
+  }), {
+    status: 200,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
 }
 
 serve(handler);

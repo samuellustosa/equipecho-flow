@@ -14,6 +14,7 @@ import { HelpCenter } from './pages/HelpCenter';
 import NotFound from './pages/NotFound';
 import { WaitingForApproval } from './pages/WaitingForApproval';
 import { EmailConfirmation } from './pages/EmailConfirmation';
+import TestNotifications from './pages/TestNotifications';
 import { useAuth } from './hooks/useAuth';
 import { RedirectAfterAuth } from './pages/RedirectAfterAuth'; // Adicionada a importação do novo componente
 
@@ -50,6 +51,7 @@ function App() {
         <Route path="faqs" element={<ProtectedRoute><Faqs /></ProtectedRoute>} />
         <Route path="announcements" element={<ProtectedRoute><Announcements /></ProtectedRoute>} />
         <Route path="help-center" element={<ProtectedRoute><HelpCenter /></ProtectedRoute>} />
+        <Route path="test-notifications" element={<ProtectedRoute allowedRoles={['admin']}><TestNotifications /></ProtectedRoute>} />
       </Route>
 
       <Route path="*" element={<NotFound />} />

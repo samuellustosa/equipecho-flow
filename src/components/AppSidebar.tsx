@@ -9,6 +9,7 @@ import {
   ChevronRight,
   HelpCircle,
   Megaphone,
+  Bell,
 } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
@@ -70,6 +71,12 @@ const navigationItems = [
     title: "Avisos", 
     url: "/announcements", 
     icon: Megaphone,
+    allowedRoles: ['admin']
+  },
+  { 
+    title: "Teste Push", 
+    url: "/test-notifications", 
+    icon: Bell,
     allowedRoles: ['admin']
   },
 ];
