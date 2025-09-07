@@ -16,7 +16,6 @@ const calculateStatusColor = (daysUntilDue: number, currentStatus: string) => {
   if (daysUntilDue < 0) {
     return 'bg-destructive text-destructive-foreground'; // Atrasado
   }
-  // Lógica corrigida para mostrar aviso apenas se for HOJE
   if (daysUntilDue === 0) {
     return 'bg-warning text-warning-foreground'; // Aviso
   }
@@ -30,7 +29,6 @@ const getStatusLabel = (daysUntilDue: number, currentStatus: string) => {
   if (daysUntilDue < 0) {
     return `ATRASADO (${Math.abs(daysUntilDue)} dias)`;
   }
-  // Lógica corrigida para mostrar aviso apenas se for HOJE
   if (daysUntilDue === 0) {
     return 'AVISO (Hoje)';
   }
@@ -88,7 +86,12 @@ export const EquipmentStatusGrid = () => {
           <CardContent className="p-4">
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
               {equipments.map(equipment => {
-                const daysUntilDue = differenceInDays(parseISO(equipment.next_cleaning), new Date());
+                // Ajustado para criar objetos de data no fuso horário local para evitar o problema de fuso horário.
+                const nextCleaning = new Date(equipment.next_cleaning + 'T00:00:00');
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                const daysUntilDue = differenceInDays(nextCleaning, today);
+
                 const colorClass = calculateStatusColor(daysUntilDue, equipment.status);
                 
                 const lastCleaningDate = equipment.last_cleaning ? format(parseISO(equipment.last_cleaning), 'dd/MM/yyyy', { locale: ptBR }) : 'N/A';
