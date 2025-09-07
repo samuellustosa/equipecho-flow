@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -14,7 +14,7 @@ import { Table,
          TableHead,
          TableRow
 } from "@/components/ui/table";
-import { useAllEquipments, useEquipments, useCreateEquipment, useUpdateEquipment, useDeleteEquipment, Equipment, useEquipmentsCount } from '@/hooks/useEquipments';
+import { useAllEquipments, useCreateEquipment, useUpdateEquipment, useDeleteEquipment, Equipment } from '@/hooks/useEquipments';
 import {
     Plus,
     Edit,
@@ -81,7 +81,7 @@ import { toast } from '@/components/ui/use-toast';
 import { useCreateMaintenance, useMaintenanceHistory } from '@/hooks/useMaintenances';
 import { Database } from '@/integrations/supabase/types';
 import { Label } from '@/components/ui/label';
-import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination';
+import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious, PaginationEllipsis } from '@/components/ui/pagination';
 import { useIsMobile } from '@/hooks/use-mobile';
 import {
     Accordion,
@@ -379,11 +379,8 @@ export const Equipments: React.FC = () => {
     const isMobile = useIsMobile();
     const [page, setPage] = useState(1);
     const itemsPerPage = 10;
-    const offset = (page - 1) * itemsPerPage;
 
     const { data: allEquipments = [], isLoading: allEquipmentsLoading, error: allEquipmentsError } = useAllEquipments();
-    const { data: equipments = [], isLoading: equipmentsLoading, error: equipmentsError } = useEquipments(itemsPerPage, offset);
-    const { data: totalEquipments = 0, isLoading: countLoading } = useEquipmentsCount();
 
     const { data: responsibles = [] } = useResponsibles();
     const { data: sectors = [] } = useSectors();
@@ -667,34 +664,93 @@ export const Equipments: React.FC = () => {
     const canEdit = authState.user?.role === 'admin' || authState.user?.role === 'manager';
     const isAdmin = authState.user?.role === 'admin';
 
-    const filteredEquipments = equipments.filter(equipment => {
+    const filteredEquipments = useMemo(() => {
         const term = searchTerm.toLowerCase();
-        const matchesSearch = (
-            equipment.name.toLowerCase().includes(term) ||
-            equipment.model?.toLowerCase().includes(term) ||
-            equipment.serial_number?.toLowerCase().includes(term) ||
-            (equipment.sectors?.name.toLowerCase() || '').includes(term) ||
-            (equipment.responsibles?.name.toLowerCase() || '').includes(term)
-        );
+        return allEquipments.filter(equipment => {
+            const matchesSearch = (
+                equipment.name.toLowerCase().includes(term) ||
+                equipment.model?.toLowerCase().includes(term) ||
+                equipment.serial_number?.toLowerCase().includes(term) ||
+                (equipment.sectors?.name.toLowerCase() || '').includes(term) ||
+                (equipment.responsibles?.name.toLowerCase() || '').includes(term)
+            );
 
-        const matchesFilters = (
-            (activeFilters.status === 'all' || equipment.status === activeFilters.status) &&
-            (activeFilters.sector_id === 'all' || equipment.sector_id === activeFilters.sector_id) &&
-            (activeFilters.responsible_id === 'all' || equipment.responsible_id === activeFilters.responsible_id)
-        );
+            const matchesFilters = (
+                (activeFilters.status === 'all' || equipment.status === activeFilters.status) &&
+                (activeFilters.sector_id === 'all' || equipment.sector_id === activeFilters.sector_id) &&
+                (activeFilters.responsible_id === 'all' || equipment.responsible_id === activeFilters.responsible_id)
+            );
 
-        return matchesSearch && matchesFilters;
-    });
+            return matchesSearch && matchesFilters;
+        });
+    }, [allEquipments, searchTerm, activeFilters]);
 
-    const pageCount = Math.ceil(totalEquipments / itemsPerPage);
+    const paginatedEquipments = useMemo(() => {
+        const offset = (page - 1) * itemsPerPage;
+        return filteredEquipments.slice(offset, offset + itemsPerPage);
+    }, [filteredEquipments, page, itemsPerPage]);
+
+    const pageCount = Math.ceil(filteredEquipments.length / itemsPerPage);
+
     const handlePageChange = (newPage: number) => {
         if (newPage > 0 && newPage <= pageCount) {
             setPage(newPage);
         }
     };
+    
+    // NOVO: Lógica de paginação aprimorada
+    const renderPaginationItems = () => {
+        const items = [];
+        if (isMobile) {
+            items.push(
+                <PaginationItem key="current">
+                    <span className="text-sm font-medium text-foreground">
+                        Página {page} de {pageCount}
+                    </span>
+                </PaginationItem>
+            );
+        } else {
+            const maxPageButtons = 5;
+            const startPage = Math.max(1, page - Math.floor(maxPageButtons / 2));
+            const endPage = Math.min(pageCount, startPage + maxPageButtons - 1);
+
+            if (startPage > 1) {
+                items.push(
+                    <PaginationItem key={1}>
+                        <PaginationLink onClick={() => handlePageChange(1)} isActive={page === 1}>1</PaginationLink>
+                    </PaginationItem>
+                );
+                if (startPage > 2) {
+                    items.push(<PaginationEllipsis key="start-ellipsis" />);
+                }
+            }
+
+            for (let i = startPage; i <= endPage; i++) {
+                items.push(
+                    <PaginationItem key={i}>
+                        <PaginationLink onClick={() => handlePageChange(i)} isActive={page === i}>
+                            {i}
+                        </PaginationLink>
+                    </PaginationItem>
+                );
+            }
+
+            if (endPage < pageCount) {
+                if (endPage < pageCount - 1) {
+                    items.push(<PaginationEllipsis key="end-ellipsis" />);
+                }
+                items.push(
+                    <PaginationItem key={pageCount}>
+                        <PaginationLink onClick={() => handlePageChange(pageCount)} isActive={page === pageCount}>{pageCount}</PaginationLink>
+                    </PaginationItem>
+                );
+            }
+        }
+        return items;
+    };
 
     const stats = {
-        totalItems: totalEquipments,
+        totalItems: allEquipments.length,
         operacionalItems: allEquipments.filter(e => e.status === 'operacional').length,
         manutencaoItems: allEquipments.filter(e => e.status === 'manutencao').length,
         paradoItems: allEquipments.filter(e => e.status === 'parado').length,
@@ -781,7 +837,7 @@ export const Equipments: React.FC = () => {
         </Card>
     ];
 
-    if (equipmentsLoading || allEquipmentsLoading || countLoading) {
+    if (allEquipmentsLoading) {
         return (
             <div className="p-6 space-y-6">
                 <div className="animate-pulse space-y-4">
@@ -793,12 +849,12 @@ export const Equipments: React.FC = () => {
         );
     }
 
-    if (equipmentsError || allEquipmentsError) {
+    if (allEquipmentsError) {
         return (
             <div className="p-6">
                 <Card>
                     <CardContent className="p-6">
-                        <p className="text-destructive">Erro ao carregar equipamentos: {equipmentsError?.message || allEquipmentsError?.message}</p>
+                        <p className="text-destructive">Erro ao carregar equipamentos: {allEquipmentsError?.message}</p>
                     </CardContent>
                 </Card>
             </div>
@@ -865,6 +921,19 @@ export const Equipments: React.FC = () => {
                                             />
                                         </div>
                                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                            <FormField
+                                                control={form.control}
+                                                name="serial_number"
+                                                render={({ field }) => (
+                                                    <FormItem>
+                                                        <FormLabel>Número de Série</FormLabel>
+                                                        <FormControl>
+                                                            <Input placeholder="Número de série" {...field} />
+                                                        </FormControl>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}
+                                            />
                                             <FormField
                                                 control={form.control}
                                                 name="sector_id"
@@ -1456,7 +1525,7 @@ export const Equipments: React.FC = () => {
                             {isMobile ? (
                                 // Layout para mobile (cards)
                                 <div className="flex flex-col gap-4">
-                                    {filteredEquipments.map((equipment) => {
+                                    {paginatedEquipments.map((equipment) => {
                                         const daysUntilNextCleaning = getDaysUntilNextCleaning(equipment.next_cleaning);
                                         const isOverdue = daysUntilNextCleaning < 0;
                                         const isDueToday = daysUntilNextCleaning === 0;
@@ -1495,19 +1564,22 @@ export const Equipments: React.FC = () => {
                                                         <CalendarIcon className="h-4 w-4" />
                                                         <span>Última Limpeza: {equipment.last_cleaning ? format(new Date(equipment.last_cleaning + 'T00:00:00'), 'dd/MM/yyyy') : 'N/A'}</span>
                                                     </div>
-                                                    <div className="flex items-center gap-2 text-muted-foreground">
-                                                        <Clock className="h-4 w-4" />
-                                                        <span className={cn(
-                                                            isOverdue ? "text-destructive font-bold" : (isDueToday ? "text-warning font-bold" : "text-foreground")
-                                                        )}>
-                                                            Próxima Limpeza: {format(new Date(equipment.next_cleaning + 'T00:00:00'), 'dd/MM/yyyy')}
-                                                        </span>
-                                                        <span className={cn(
-                                                            "text-xs ml-auto",
+                                                    <div className="flex flex-col gap-1 text-muted-foreground">
+                                                        <div className="flex items-center gap-2">
+                                                            <Clock className="h-4 w-4 shrink-0" />
+                                                            <p className={cn(
+                                                                "font-medium leading-tight",
+                                                                isOverdue ? "text-destructive" : (isDueToday ? "text-warning" : "text-foreground")
+                                                            )}>
+                                                                Próxima Limpeza: {format(new Date(equipment.next_cleaning + 'T00:00:00'), 'dd/MM/yyyy')}
+                                                            </p>
+                                                        </div>
+                                                        <p className={cn(
+                                                            "text-xs ml-6",
                                                             isOverdue ? "text-destructive font-bold" : (isDueToday ? "text-warning font-bold" : "text-muted-foreground")
                                                         )}>
                                                             {isOverdue ? `(Atrasado há ${Math.abs(daysUntilNextCleaning)} dias)` : (isDueToday ? `(Aviso)` : `(Faltam ${daysUntilNextCleaning} dias)`)}
-                                                        </span>
+                                                        </p>
                                                     </div>
                                                 </CardContent>
                                                 {canEdit && (
@@ -1569,7 +1641,7 @@ export const Equipments: React.FC = () => {
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
-                                            {filteredEquipments.map((equipment) => {
+                                            {paginatedEquipments.map((equipment) => {
                                                 const daysUntilNextCleaning = getDaysUntilNextCleaning(equipment.next_cleaning);
                                                 const isOverdue = daysUntilNextCleaning < 0;
                                                 const isDueToday = daysUntilNextCleaning === 0;
@@ -1697,16 +1769,7 @@ export const Equipments: React.FC = () => {
                                             className={cn(page === 1 && "pointer-events-none opacity-50")}
                                         />
                                     </PaginationItem>
-                                    {[...Array(pageCount)].map((_, index) => (
-                                        <PaginationItem key={index}>
-                                            <PaginationLink
-                                                onClick={() => handlePageChange(index + 1)}
-                                                isActive={page === index + 1}
-                                            >
-                                                {index + 1}
-                                            </PaginationLink>
-                                        </PaginationItem>
-                                    ))}
+                                    {renderPaginationItems()}
                                     <PaginationItem>
                                         <PaginationNext
                                             onClick={() => handlePageChange(page + 1)}

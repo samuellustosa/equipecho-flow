@@ -16,6 +16,7 @@ const calculateStatusColor = (daysUntilDue: number, currentStatus: string) => {
   if (daysUntilDue < 0) {
     return 'bg-destructive text-destructive-foreground'; // Atrasado
   }
+  // Lógica corrigida para mostrar aviso apenas se for HOJE
   if (daysUntilDue === 0) {
     return 'bg-warning text-warning-foreground'; // Aviso
   }
@@ -29,6 +30,7 @@ const getStatusLabel = (daysUntilDue: number, currentStatus: string) => {
   if (daysUntilDue < 0) {
     return `ATRASADO (${Math.abs(daysUntilDue)} dias)`;
   }
+  // Lógica corrigida para mostrar aviso apenas se for HOJE
   if (daysUntilDue === 0) {
     return 'AVISO (Hoje)';
   }
