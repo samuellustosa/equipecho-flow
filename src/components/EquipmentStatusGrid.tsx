@@ -7,7 +7,7 @@ import { Loader2, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { differenceInDays, parseISO, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { ResponsiveTooltip } from '@/components/ResponsiveTooltip';
 
 const calculateStatusColor = (daysUntilDue: number, currentStatus: string) => {
   if (currentStatus === 'parado') {
@@ -99,8 +99,9 @@ export const EquipmentStatusGrid = () => {
                 const statusLabel = getStatusLabel(daysUntilDue, equipment.status);
 
                 return (
-                  <Tooltip key={equipment.id}>
-                    <TooltipTrigger asChild>
+                  <ResponsiveTooltip
+                    key={equipment.id}
+                    trigger={
                       <Button 
                         variant="outline" 
                         className={cn(
@@ -111,8 +112,8 @@ export const EquipmentStatusGrid = () => {
                       >
                         <span className="font-semibold leading-tight text-center">{equipment.name}</span>
                       </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
+                    }
+                    content={
                       <div className="flex flex-col text-sm">
                         <p>
                           <span className="font-semibold">Nome:</span> {equipment.name}
@@ -130,8 +131,8 @@ export const EquipmentStatusGrid = () => {
                           <span className="font-semibold">Próxima Limpeza:</span> {nextCleaningDate}
                         </p>
                       </div>
-                    </TooltipContent>
-                  </Tooltip>
+                    }
+                  />
                 );
               })}
             </div>
