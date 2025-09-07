@@ -10,6 +10,7 @@ import {
   HelpCircle,
   Megaphone,
   Bell,
+  ChartBar, // NOVO: Ícone para o quadro de status
 } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
@@ -29,6 +30,10 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from '@/components/ui/dialog'; // NOVO: Componentes do Dialog
+import { EquipmentStatusGrid } from "./EquipmentStatusGrid"; // NOVO: Componente do Quadro de Status
+import { ScrollArea } from "./ui/scroll-area";
+import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 
 const navigationItems = [
   { 
@@ -161,6 +166,32 @@ export function AppSidebar() {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
+
+              {/* NOVO ITEM PARA O QUADRO DE STATUS */}
+              <Dialog>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild className="w-full justify-start transition-smooth">
+                    <DialogTrigger className="flex w-full items-center gap-2 p-2 rounded-md hover:bg-accent/50 text-sm font-medium">
+                      <ChartBar className="h-4 w-4 flex-shrink-0" />
+                      {!isCollapsed && (
+                        <span className="ml-3">Quadro de Status</span>
+                      )}
+                    </DialogTrigger>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <DialogContent className="max-w-full sm:max-w-7xl max-h-[90vh] flex flex-col">
+                    <DialogHeader>
+                        <DialogTitle>Quadro de Status dos Equipamentos</DialogTitle>
+                        <DialogDescription>
+                            Visualize o status de manutenção de todos os equipamentos de forma rápida.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="overflow-y-auto">
+                        <EquipmentStatusGrid />
+                    </div>
+                </DialogContent>
+              </Dialog>
+
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

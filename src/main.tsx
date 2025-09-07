@@ -1,3 +1,5 @@
+// src/main.tsx
+
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
@@ -8,6 +10,7 @@ import { AuthProvider } from './components/AuthProvider.tsx';
 import { Toaster } from './components/ui/toaster.tsx';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import './integrations/firebase/client.ts';
+import { TooltipProvider } from './components/ui/tooltip.tsx'; // Importe o TooltipProvider
 
 const queryClient = new QueryClient();
 
@@ -31,7 +34,10 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
       <QueryClientProvider client={queryClient}>
         <ThemeProvider defaultTheme="light" storageKey="vite-ui-theme">
           <AuthProvider>
-            <App />
+            {/* Adicione o TooltipProvider aqui para que ele envolva toda a sua aplicação */}
+            <TooltipProvider>
+              <App />
+            </TooltipProvider>
             <Toaster />
           </AuthProvider>
         </ThemeProvider>

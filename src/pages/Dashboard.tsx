@@ -16,6 +16,7 @@ import {
   Activity,
   ArrowRight,
   Loader2,
+  ChartBar,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import {
@@ -25,6 +26,8 @@ import {
   CarouselPrevious,
   CarouselNext,
 } from "@/components/ui/carousel";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { EquipmentStatusGrid } from '@/components/EquipmentStatusGrid';
 
 export const Dashboard: React.FC = () => {
   const isMobile = useIsMobile();
@@ -33,24 +36,16 @@ export const Dashboard: React.FC = () => {
   const { data: equipmentAlerts = [], isLoading: equipmentAlertsLoading } = useEquipmentAlerts();
   const { data: inventoryAlerts = [], isLoading: inventoryAlertsLoading } = useInventoryAlerts();
 
-  // NOVO: Usar o hook para o crescimento, passando 7 dias como parâmetro
   const { data: equipmentGrowth, isLoading: growthLoading } = useEquipmentGrowth(7);
 
-  // Combine os estados de carregamento de todos os hooks
   const isLoading = equipmentsCountLoading || inventoryCountLoading || equipmentAlertsLoading || inventoryAlertsLoading || growthLoading;
 
   const stats = {
     totalEquipments,
-    // A contagem de equipamentos ativos precisa ser feita em um novo hook ou buscar todos os equipamentos
-    // Para simplificar, estamos usando a contagem de alertas de manutenção, que já busca todos.
-    // Em uma implementação ideal, você criaria um novo hook para contar equipamentos por status.
-    // Mas a melhoria a seguir já resolve.
-    // Para este caso, vamos usar o total de alertas como uma indicação.
     maintenanceNeeded: equipmentAlerts.length,
     lowStockItems: inventoryAlerts.length,
   };
   
-  // Condicionalmente renderiza o esqueleto de carregamento
   if (isLoading) {
     return (
       <div className="p-6 space-y-6">
@@ -77,7 +72,6 @@ export const Dashboard: React.FC = () => {
         </p>
       </div>
 
-      {/* Stats Cards - Mobile Flexbox / Desktop Grid */}
       {isMobile ? (
         <div className="flex flex-col gap-4">
           <Card className="shadow-card hover:shadow-card-hover transition-smooth">
@@ -89,7 +83,6 @@ export const Dashboard: React.FC = () => {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{stats.totalEquipments}</div>
-              {/* MODIFICADO: A porcentagem agora é dinâmica */}
               {equipmentGrowth && (
                 <p className="text-xs text-muted-foreground">
                   <span className={equipmentGrowth.isPositive ? 'text-success' : 'text-destructive'}>
@@ -140,7 +133,6 @@ export const Dashboard: React.FC = () => {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{stats.totalEquipments}</div>
-              {/* MODIFICADO: A porcentagem agora é dinâmica */}
               {equipmentGrowth && (
                 <p className="text-xs text-muted-foreground">
                   <span className={equipmentGrowth.isPositive ? 'text-success' : 'text-destructive'}>
@@ -151,7 +143,6 @@ export const Dashboard: React.FC = () => {
               )}
             </CardContent>
           </Card>
-
           <Card className="shadow-card hover:shadow-card-hover transition-smooth">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">
@@ -166,7 +157,6 @@ export const Dashboard: React.FC = () => {
               </p>
             </CardContent>
           </Card>
-
           <Card className="shadow-card hover:shadow-card-hover transition-smooth">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">
@@ -212,10 +202,26 @@ export const Dashboard: React.FC = () => {
                 <span>Adicionar Item</span>
               </Button>
             </Link>
-            <Button className="h-20 flex-col gap-2 w-full" variant="outline">
-              <TrendingUp className="h-6 w-6" />
-              <span>Relatórios - (EM BREVE...)</span>
-            </Button>
+            {/* NOVO BOTÃO */}
+            <Dialog>
+                <DialogTrigger asChild>
+                <Button className="h-20 flex-col gap-2 w-full" variant="outline">
+                    <ChartBar className="h-6 w-6" />
+                    <span>Ver Quadro de Status</span>
+                </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-full sm:max-w-7xl max-h-[90vh] flex flex-col">
+                <DialogHeader>
+                    <DialogTitle>Quadro de Status dos Equipamentos</DialogTitle>
+                    <DialogDescription>
+                    Visualize o status de manutenção de todos os equipamentos de forma rápida.
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="overflow-y-auto">
+                    <EquipmentStatusGrid />
+                </div>
+                </DialogContent>
+            </Dialog>
           </div>
         </CardContent>
       </Card>
