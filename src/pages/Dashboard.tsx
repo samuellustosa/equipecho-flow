@@ -8,7 +8,7 @@ import { useEquipmentAlerts, useInventoryAlerts } from '@/hooks/useNotifications
 import { useSectors } from '@/hooks/useSectors';
 import { useCategories } from '@/hooks/useCategories';
 import { useAuth } from '@/hooks/useAuth';
-import { useAuditLogs } from '@/hooks/useAuditLogs'; // Importação do useAuditLogs
+import { useAuditLogs } from '@/hooks/useAuditLogs';
 import {
   Wrench,
   Package,
@@ -59,7 +59,7 @@ export const Dashboard: React.FC = () => {
   const { data: equipmentAlerts = [], isLoading: equipmentAlertsLoading } = useEquipmentAlerts();
   const { data: inventoryAlerts = [], isLoading: inventoryAlertsLoading } = useInventoryAlerts();
   const { data: equipmentGrowth, isLoading: growthLoading } = useEquipmentGrowth(7);
-  const { data: latestAuditLogs = [], isLoading: auditLogsLoading } = useAuditLogs(); // Utiliza os logs de auditoria
+  const { data: latestAuditLogs = [], isLoading: auditLogsLoading } = useAuditLogs();
 
   const isLoading =
     equipmentsCountLoading ||
@@ -122,9 +122,9 @@ export const Dashboard: React.FC = () => {
   }, [allEquipments]);
   
   const getDaysLabel = (daysUntilDue) => {
-      if (daysUntilDue === 0) return 'Hoje';
-      if (daysUntilDue === 1) return 'Amanhã';
-      return `Em ${daysUntilDue} dias`;
+    if (daysUntilDue === 0) return 'Hoje';
+    if (daysUntilDue === 1) return 'Amanhã';
+    return `Em ${daysUntilDue} dias`;
   };
   
   const getDaysBadgeVariant = (daysUntilDue) => {
@@ -229,9 +229,9 @@ export const Dashboard: React.FC = () => {
               Acompanhe o status e as próximas manutenções.
             </CardDescription>
           </CardHeader>
-          <CardContent className="h-72 flex flex-col items-center lg:flex-row space-y-4 lg:space-y-0 lg:space-x-4">
+          <CardContent className="flex flex-col md:flex-row items-center space-y-4 md:space-y-0 md:space-x-4">
             {/* Gráfico */}
-            <div className="h-full w-full lg:w-1/2">
+            <div className="h-48 w-full md:h-full md:w-1/2">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
@@ -253,7 +253,7 @@ export const Dashboard: React.FC = () => {
               </ResponsiveContainer>
             </div>
             {/* Lista */}
-            <div className="h-full w-full lg:w-1/2">
+            <div className="h-full w-full md:w-1/2">
                 <h4 className="text-sm font-semibold mb-2">Próximas Manutenções</h4>
                 <ScrollArea className="h-44 pr-4">
                     <div className="space-y-3">
