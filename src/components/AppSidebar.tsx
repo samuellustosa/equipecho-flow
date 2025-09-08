@@ -10,7 +10,7 @@ import {
   HelpCircle,
   Megaphone,
   Bell,
-  ChartBar, // NOVO: Ícone para o quadro de status
+  ChartBar, 
 } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
@@ -30,8 +30,8 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from '@/components/ui/dialog'; // NOVO: Componentes do Dialog
-import { EquipmentStatusGrid } from "./EquipmentStatusGrid"; // NOVO: Componente do Quadro de Status
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from '@/components/ui/dialog'; 
+import { EquipmentStatusGrid } from "./EquipmentStatusGrid";
 import { ScrollArea } from "./ui/scroll-area";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 
@@ -76,12 +76,6 @@ const navigationItems = [
     title: "Avisos", 
     url: "/announcements", 
     icon: Megaphone,
-    allowedRoles: ['admin']
-  },
-  { 
-    title: "Teste Push", 
-    url: "/test-notifications", 
-    icon: Bell,
     allowedRoles: ['admin']
   },
 ];
@@ -167,7 +161,7 @@ export function AppSidebar() {
                 </SidebarMenuItem>
               ))}
 
-              {/* NOVO ITEM PARA O QUADRO DE STATUS */}
+              {/*QUADRO DE STATUS */}
               <Dialog>
                 <SidebarMenuItem>
                   <SidebarMenuButton asChild className="w-full justify-start transition-smooth">
@@ -181,9 +175,9 @@ export function AppSidebar() {
                 </SidebarMenuItem>
                 <DialogContent className="max-w-full sm:max-w-7xl max-h-[90vh] flex flex-col">
                     <DialogHeader>
-                        <DialogTitle>Quadro de Status dos Equipamentos</DialogTitle>
+                        <DialogTitle>Status dos Equipamentos</DialogTitle>
                         <DialogDescription>
-                            Visualize o status de manutenção de todos os equipamentos de forma rápida.
+                            Para realizar manutenção va para aba equipamentos.
                         </DialogDescription>
                     </DialogHeader>
                     <div className="overflow-y-auto">
