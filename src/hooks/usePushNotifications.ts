@@ -57,27 +57,21 @@ export const usePushNotificationSubscription = () => {
         throw new Error('Service Worker not registered.');
       }
 
-      // Use o getToken do Firebase para obter o token do dispositivo.
-      const token = await getToken(getMessaging(), {
+      // Obter o token do dispositivo via Firebase
+      const { messaging } = await import('@/integrations/firebase/client');
+      if (!messaging) throw new Error('Navegador não suporta Push/FCM.');
+
+      const token = await getToken(messaging, {
         vapidKey: VAPID_PUBLIC_KEY,
         serviceWorkerRegistration: registration,
       });
 
-      // Enviar o token para a nova função Serverless do Vercel
-      const response = await fetch('/api/subscribe', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${authState.user.id}` // Envie o ID do usuário para a função
-        },
-        body: JSON.stringify({ token, userId: authState.user.id }),
+      // Salvar assinatura via Edge Function do Supabase
+      const { data, error } = await supabase.functions.invoke('subscribe', {
+        body: { token },
       });
-
-      if (!response.ok) {
-        throw new Error('Failed to subscribe to push notifications via Vercel function.');
-      }
-
-      return response.json();
+      if (error) throw new Error(error.message || 'Falha ao salvar assinatura no Supabase.');
+      return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['push-notification-status'] });
@@ -121,15 +115,20 @@ export const usePushNotificationUnsubscribe = () => {
 // Hook para lidar com notificações em primeiro plano
 export const useForegroundPushNotifications = () => {
   useEffect(() => {
-    // onMessage do Firebase para exibir notificações quando o app está aberto
-    const unsubscribe = onMessage(getMessaging(), (payload) => {
-      console.log('Foreground message received:', payload);
-      // Exibe a notificação usando o sistema de toast
-      toast({
-        title: payload.notification?.title,
-        description: payload.notification?.body,
+    let unsubscribe: (() => void) | undefined;
+    (async () => {
+      const { messaging } = await import('@/integrations/firebase/client');
+      if (!messaging) return;
+      unsubscribe = onMessage(messaging, (payload) => {
+        console.log('Foreground message received:', payload);
+        toast({
+          title: payload.notification?.title,
+          description: payload.notification?.body,
+        });
       });
-    });
-    return () => unsubscribe();
+    })();
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
   }, []);
 };
