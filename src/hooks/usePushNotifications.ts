@@ -63,39 +63,21 @@ export const usePushNotificationSubscription = () => {
         serviceWorkerRegistration: registration,
       });
 
-      // Verificar se já existe uma subscription para este usuário
-      const { data: existing } = await supabase
-        .from('push_subscriptions')
-        .select('id')
-        .eq('user_id', authState.user.id)
-        .single();
+      // Enviar o token para a nova função Serverless do Vercel
+      const response = await fetch('/api/subscribe', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authState.user.id}` // Envie o ID do usuário para a função
+        },
+        body: JSON.stringify({ token, userId: authState.user.id }),
+      });
 
-      if (existing) {
-        // Atualizar subscription existente
-        const { data, error } = await supabase
-          .from('push_subscriptions')
-          .update({ subscription_data: JSON.stringify({ token }) })
-          .eq('user_id', authState.user.id)
-          .select()
-          .single();
-        
-        if (error) throw error;
-        return data;
-      } else {
-        // Criar nova subscription
-        const { data, error } = await supabase
-          .from('push_subscriptions')
-          .insert({
-            user_id: authState.user.id,
-            subscription_data: JSON.stringify({ token }),
-          })
-          .select()
-          .single();
-        
-        if (error) throw error;
-        return data;
+      if (!response.ok) {
+        throw new Error('Failed to subscribe to push notifications via Vercel function.');
       }
-      
+
+      return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['push-notification-status'] });
