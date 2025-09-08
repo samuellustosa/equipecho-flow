@@ -58,7 +58,8 @@ export const usePushNotificationSubscription = () => {
       }
 
       // Obter o token do dispositivo via Firebase
-      const { messaging } = await import('@/integrations/firebase/client');
+      const { getFirebaseMessaging } = await import('@/integrations/firebase/client');
+      const messaging = await getFirebaseMessaging();
       if (!messaging) throw new Error('Navegador não suporta Push/FCM.');
 
       const token = await getToken(messaging, {
@@ -66,12 +67,26 @@ export const usePushNotificationSubscription = () => {
         serviceWorkerRegistration: registration,
       });
 
-      // Salvar assinatura via Edge Function do Supabase
-      const { data, error } = await supabase.functions.invoke('subscribe', {
-        body: { token },
-      });
-      if (error) throw new Error(error.message || 'Falha ao salvar assinatura no Supabase.');
-      return data;
+      // Salvar no banco diretamente
+      const { data: existing } = await supabase
+        .from('push_subscriptions')
+        .select('id')
+        .eq('user_id', authState.user.id)
+        .maybeSingle();
+
+      if (existing) {
+        const { error } = await supabase
+          .from('push_subscriptions')
+          .update({ subscription_data: { token } })
+          .eq('user_id', authState.user.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from('push_subscriptions')
+          .insert({ user_id: authState.user.id, subscription_data: { token } });
+        if (error) throw error;
+      }
+      return { success: true };
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['push-notification-status'] });
@@ -116,17 +131,26 @@ export const usePushNotificationUnsubscribe = () => {
 export const useForegroundPushNotifications = () => {
   useEffect(() => {
     let unsubscribe: (() => void) | undefined;
-    (async () => {
-      const { messaging } = await import('@/integrations/firebase/client');
-      if (!messaging) return;
-      unsubscribe = onMessage(messaging, (payload) => {
-        console.log('Foreground message received:', payload);
-        toast({
-          title: payload.notification?.title,
-          description: payload.notification?.body,
+    
+    const initializeMessaging = async () => {
+      try {
+        const { getFirebaseMessaging } = await import('@/integrations/firebase/client');
+        const messaging = await getFirebaseMessaging();
+        if (!messaging) return;
+        
+        unsubscribe = onMessage(messaging, (payload) => {
+          toast({
+            title: payload.notification?.title,
+            description: payload.notification?.body,
+          });
         });
-      });
-    })();
+      } catch (error) {
+        console.warn('Failed to initialize foreground messaging:', error);
+      }
+    };
+
+    initializeMessaging();
+    
     return () => {
       if (unsubscribe) unsubscribe();
     };

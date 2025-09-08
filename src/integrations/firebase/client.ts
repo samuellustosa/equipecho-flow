@@ -7,7 +7,7 @@ const firebaseConfig = {
   apiKey: 'AIzaSyCo3cUtYSOivxFcv6dMt8JY1xG7l5R0mfQ',
   authDomain: 'quipcpd.firebaseapp.com',
   projectId: 'quipcpd',
-  storageBucket: 'quipcpd.appspot.com', // ajuste para o formato esperado
+  storageBucket: 'quipcpd.firebasestorage.app',
   messagingSenderId: '809870831674',
   appId: '1:809870831674:web:19848532a7464a4fa64503',
   measurementId: 'G-ZMHH9TSWJB',
@@ -16,19 +16,23 @@ const firebaseConfig = {
 // Inicializa o Firebase
 const app = initializeApp(firebaseConfig);
 
-// Cria o Messaging apenas em ambientes suportados (https/localhost, navegador compatível)
+// Inicializa messaging de forma lazy para evitar travamentos
 let messaging: ReturnType<typeof getMessaging> | null = null;
-(async () => {
+
+export { messaging, app };
+
+// Função para obter messaging apenas quando necessário
+export const getFirebaseMessaging = async () => {
+  if (messaging) return messaging;
+  
   try {
     if (await isSupported()) {
       messaging = getMessaging(app);
-      console.info('[FCM] Messaging habilitado');
-    } else {
-      console.warn('[FCM] Messaging não é suportado neste navegador/ambiente');
+      return messaging;
     }
   } catch (e) {
-    console.warn('[FCM] Falha ao inicializar messaging:', e);
+    console.warn('[FCM] Messaging não suportado:', e);
   }
-})();
-
-export { messaging };
+  
+  return null;
+};
