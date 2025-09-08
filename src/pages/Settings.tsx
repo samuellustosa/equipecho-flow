@@ -6,7 +6,6 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth } from '@/hooks/useAuth';
-import { usePushNotificationStatus, usePushNotificationSubscription, usePushNotificationUnsubscribe } from '@/hooks/usePushNotifications';
 import { Separator } from '@/components/ui/separator';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -74,9 +73,6 @@ export const Settings: React.FC = () => {
   const [isUpdatingPassword, setIsUpdatingPassword] = React.useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
-  const { data: pushStatus } = usePushNotificationStatus();
-  const subscribeMutation = usePushNotificationSubscription();
-  const unsubscribeMutation = usePushNotificationUnsubscribe();
 
 
   const profileForm = useForm<ProfileFormValues>({
@@ -176,13 +172,6 @@ export const Settings: React.FC = () => {
     }
   };
 
-  const handlePushNotificationToggle = () => {
-    if (pushStatus?.hasSubscription) {
-      unsubscribeMutation.mutate();
-    } else {
-      subscribeMutation.mutate();
-    }
-  };
   
   const handleWhatsappSupport = () => {
     const phoneNumber = "5586988582431";
@@ -453,43 +442,6 @@ export const Settings: React.FC = () => {
             </CardContent>
           </Card>
           
-          {/* Push Notifications */}
-          <Card className="shadow-card">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Bell className="h-5 w-5" />
-                Notificações Push
-              </CardTitle>
-              <CardDescription>
-                Receba notificações importantes mesmo quando o app estiver fechado
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="space-y-1">
-                  <Label>Notificações Push</Label>
-                  <p className="text-sm text-muted-foreground">
-                    {pushStatus?.hasSubscription 
-                      ? 'Você está recebendo notificações push' 
-                      : 'Ative para receber notificações importantes'}
-                  </p>
-                </div>
-                <Switch
-                  checked={pushStatus?.hasSubscription || false}
-                  onCheckedChange={handlePushNotificationToggle}
-                  disabled={subscribeMutation.isPending || unsubscribeMutation.isPending}
-                />
-              </div>
-              
-              {!pushStatus?.hasPermission && (
-                <div className="rounded-md bg-yellow-50 dark:bg-yellow-900/20 p-3">
-                  <p className="text-sm text-yellow-700 dark:text-yellow-200">
-                    Para receber notificações, você precisa permitir notificações no seu navegador.
-                  </p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
 
           {/* Security Settings */}
           <Card className="shadow-card">
