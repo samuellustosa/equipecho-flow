@@ -58,7 +58,7 @@ export default async function handler(req, res) {
             body: 'Existem manutenções vencidas ou itens com estoque baixo. Volte para o sistema!'
           },
           webpush: {
-            fcmOptions: { // propriedade corrigida para 'fcmOptions'
+            fcmOptions: {
               link: '/'
             }
           }
