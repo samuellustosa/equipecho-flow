@@ -1,4 +1,3 @@
-// src/App.tsx
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { Dashboard } from './pages/Dashboard';
 import { Inventory } from './pages/Inventory';
@@ -17,6 +16,7 @@ import { EmailConfirmation } from './pages/EmailConfirmation';
 import TestNotifications from './pages/TestNotifications';
 import { useAuth } from './hooks/useAuth';
 import { RedirectAfterAuth } from './pages/RedirectAfterAuth';
+import { AuditLogs } from './pages/AuditLogs';
 
 function App() {
   const { authState } = useAuth();
@@ -50,6 +50,7 @@ function App() {
         <Route path="faqs" element={<ProtectedRoute><Faqs /></ProtectedRoute>} />
         <Route path="announcements" element={<ProtectedRoute><Announcements /></ProtectedRoute>} />
         <Route path="help-center" element={<ProtectedRoute><HelpCenter /></ProtectedRoute>} />
+        <Route path="audit-logs" element={<ProtectedRoute allowedRoles={['admin']}><AuditLogs /></ProtectedRoute>} />
       </Route>
 
       <Route path="*" element={<NotFound />} />

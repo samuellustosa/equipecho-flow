@@ -34,6 +34,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { EquipmentStatusGrid } from "./EquipmentStatusGrid";
 import { ScrollArea } from "./ui/scroll-area";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
+import { FileClock } from "lucide-react";
 
 const navigationItems = [
   { 
@@ -76,6 +77,12 @@ const navigationItems = [
     title: "Avisos", 
     url: "/announcements", 
     icon: Megaphone,
+    allowedRoles: ['admin']
+  },
+  {
+    title: "Logs de Auditoria",
+    url: "/audit-logs",
+    icon: FileClock,
     allowedRoles: ['admin']
   },
 ];
