@@ -15,7 +15,7 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Missing token or userId in request body' });
     }
 
-    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    const supabase = createClient( SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
     // Verificar se já existe uma subscription para este usuário
     const { data: existing } = await supabase
