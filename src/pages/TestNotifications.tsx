@@ -1,62 +1,18 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/use-toast';
 import { usePushNotificationSubscription, usePushNotificationStatus } from '@/hooks/usePushNotifications';
-import { Loader2 } from 'lucide-react';
 
 export default function TestNotifications() {
   const [title, setTitle] = useState('Teste de Notificação');
   const [body, setBody] = useState('Esta é uma notificação de teste do EquipCPD');
-  const [loading, setLoading] = useState(false);
   
   const { data: status } = usePushNotificationStatus();
   const subscribeMutation = usePushNotificationSubscription();
 
   const handleSubscribe = async () => {
     subscribeMutation.mutate();
-  };
-
-  const handleTestNotification = async () => {
-    setLoading(true);
-    try {
-      // Chama a nova função Edge do Supabase para enviar a notificação
-      const { data, error } = await supabase.functions.invoke('send-firebase-notifications', {
-        body: {
-          title,
-          body,
-          url: '/dashboard'
-        }
-      });
-
-      if (error) {
-        console.error('Erro ao enviar notificação:', error);
-        toast({
-          title: 'Erro ao enviar notificação',
-          description: error.message,
-          variant: 'destructive'
-        });
-      } else {
-        console.log('Notificação enviada:', data);
-        toast({
-          title: 'Notificação enviada!',
-          description: 'A notificação foi enviada com sucesso.'
-        });
-      }
-    } catch (error: any) {
-      console.error('Erro:', error);
-      toast({
-        title: 'Erro',
-        description: error.message,
-        variant: 'destructive'
-      });
-    } finally {
-      setLoading(false);
-    }
   };
 
   const handleTestLocalNotification = () => {
@@ -126,48 +82,6 @@ export default function TestNotifications() {
             >
               Testar Notificação Local
             </Button>
-          </CardContent>
-        </Card>
-
-        <Card className="md:col-span-2">
-          <CardHeader>
-            <CardTitle>Teste de Notificação Push</CardTitle>
-            <CardDescription>
-              Envie uma notificação push através do servidor
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="title">Título</Label>
-              <Input
-                id="title"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="Título da notificação"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="body">Mensagem</Label>
-              <Textarea
-                id="body"
-                value={body}
-                onChange={(e) => setBody(e.target.value)}
-                placeholder="Corpo da notificação"
-                rows={3}
-              />
-            </div>
-            <Button 
-              onClick={handleTestNotification}
-              disabled={loading || !status?.hasSubscription}
-              className="w-full"
-            >
-              {loading ? 'Enviando...' : 'Enviar Notificação Push'}
-            </Button>
-            {!status?.hasSubscription && (
-              <p className="text-sm text-muted-foreground text-center">
-                Você precisa se inscrever primeiro para receber notificações push
-              </p>
-            )}
           </CardContent>
         </Card>
       </div>
