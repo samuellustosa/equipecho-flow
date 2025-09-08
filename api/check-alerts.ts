@@ -3,7 +3,7 @@ import * as admin from 'firebase-admin';
 
 // Use as variáveis de ambiente do Vercel para uma conexão segura e confiável.
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
-const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const SUPABASE_SERVICE_ROLE_KEY = process.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
 const FIREBASE_SERVICE_ACCOUNT_KEY_BASE64 = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
 
 // Verifica se todas as variáveis de ambiente estão definidas.
@@ -58,7 +58,7 @@ export default async function handler(req, res) {
             body: 'Existem manutenções vencidas ou itens com estoque baixo. Volte para o sistema!'
           },
           webpush: {
-            fcm_options: {
+            fcmOptions: { // propriedade corrigida para 'fcmOptions'
               link: '/'
             }
           }
