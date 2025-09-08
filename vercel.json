@@ -11,8 +11,8 @@
   ],
   "crons": [
     {
-      "path": "/functions/v1/send-firebase-notifications",
-      "schedule": "0 0 * * *"
+      "path": "/api/check-alerts",
+      "schedule": "0 8 * * *"
     }
   ]
 }
