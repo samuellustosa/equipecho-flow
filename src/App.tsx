@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 import { ThemeProvider } from "./components/ThemeProvider";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "./components/ui/sonner";
@@ -33,7 +33,6 @@ export default function App() {
     <ThemeProvider defaultTheme="light" storageKey="vite-ui-theme">
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
-          <BrowserRouter>
             <Routes>
               {/* Rotas públicas (sem necessidade de autenticação) */}
               <Route path="/auth" element={<Auth />} />
@@ -59,7 +58,6 @@ export default function App() {
               {/* Rota para lidar com URLs não encontradas */}
               <Route path="*" element={<NotFound />} />
             </Routes>
-          </BrowserRouter>
         </AuthProvider>
       </QueryClientProvider>
       <Toaster />

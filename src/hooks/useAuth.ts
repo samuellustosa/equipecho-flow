@@ -1,7 +1,7 @@
 import { useState, useContext, createContext, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import type { Session } from '@supabase/supabase-js';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQueryClient, useMutation } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 
 // Define a URL base dinamicamente.
@@ -39,7 +39,40 @@ export const AuthContext = createContext<{
   signUp: (email: string, password: string, name: string) => Promise<void>;
   setAuthUser: (updates: Partial<User>) => void;
   resetPassword: (email: string) => Promise<void>;
+  useUpdateUserNotifications: () => ReturnType<typeof useMutation>;
 } | null>(null);
+
+// Hook para atualizar notificações lidas
+export const useUpdateUserNotifications = () => {
+  const queryClient = useQueryClient();
+  const { authState } = useAuth();
+
+  return useMutation({
+    mutationFn: async (readNotificationIds: string[]) => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .update({ read_notification_ids: readNotificationIds })
+        .eq('id', authState.user?.id)
+        .select()
+        .single();
+      if (error) throw new Error(error.message);
+      return data;
+    },
+    onSuccess: (updatedProfile) => {
+      if (updatedProfile) {
+        // Atualiza o estado local do usuário após a mutação
+        queryClient.setQueryData(['authState'], (old: any) => ({
+          ...old,
+          user: {
+            ...old.user,
+            read_notification_ids: updatedProfile.read_notification_ids,
+          },
+        }));
+      }
+    },
+  });
+};
+
 
 // O gancho que contém a lógica do provedor.
 export const useAuthProvider = () => {
@@ -200,6 +233,7 @@ export const useAuthProvider = () => {
     logout,
     setAuthUser,
     resetPassword,
+    useUpdateUserNotifications,
   };
 };
 
