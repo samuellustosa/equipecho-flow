@@ -1,61 +1,68 @@
-import { Routes, Route, Navigate } from 'react-router-dom';
-import { Dashboard } from './pages/Dashboard';
-import { Inventory } from './pages/Inventory';
-import { Equipments } from './pages/Equipments';
-import { Auth } from './pages/Auth';
-import { ProtectedRoute } from './components/ProtectedRoute';
-import { MainLayout } from './components/MainLayout';
-import { Settings } from './pages/Settings';
-import { Users } from './pages/Users';
-import { Faqs } from './pages/Faqs';
-import { Announcements } from './pages/Announcements';
-import { HelpCenter } from './pages/HelpCenter';
-import NotFound from './pages/NotFound';
-import { WaitingForApproval } from './pages/WaitingForApproval';
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { ThemeProvider } from "./components/ThemeProvider";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { Toaster } from "./components/ui/sonner";
+import { AuthProvider } from "./components/AuthProvider";
+import { Auth } from "./pages/Auth";
+import { RedirectAfterAuth } from "./pages/RedirectAfterAuth";
+import { ProtectedRoute } from "./components/ProtectedRoute";
+import { MainLayout } from "./components/MainLayout";
+import { Dashboard } from "./pages/Dashboard";
+import { Equipments } from "./pages/Equipments";
+import { Inventory } from "./pages/Inventory";
+import { Users } from "./pages/Users";
+import { AuditLogs } from "./pages/AuditLogs";
+import { WaitingForApproval } from "./pages/WaitingForApproval";
+import { Settings } from "./pages/Settings";
+import { Faqs } from "./pages/Faqs";
+import { HelpCenter } from "./pages/HelpCenter";
+import { Announcements } from "./pages/Announcements";
+import NotFound from "./pages/NotFound";
 import { EmailConfirmation } from './pages/EmailConfirmation';
-import TestNotifications from './pages/TestNotifications';
 import { useAuth } from './hooks/useAuth';
-import { RedirectAfterAuth } from './pages/RedirectAfterAuth';
-import { AuditLogs } from './pages/AuditLogs';
+import { UpdatePassword } from "./pages/UpdatePassword";
 
-function App() {
+
+const queryClient = new QueryClient();
+
+export default function App() {
   const { authState } = useAuth();
   const { isAuthenticated, isPending } = authState;
 
   return (
-    <Routes>
-      <Route path="/auth" element={<Auth />} />
-      <Route path="/email-confirmation" element={<EmailConfirmation />} />
-      <Route path="/pending-approval" element={<WaitingForApproval />} />
-      <Route path="/auth/callback" element={<RedirectAfterAuth />} />
+    <ThemeProvider defaultTheme="light" storageKey="vite-ui-theme">
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <BrowserRouter>
+            <Routes>
+              {/* Rotas públicas (sem necessidade de autenticação) */}
+              <Route path="/auth" element={<Auth />} />
+              <Route path="/auth/callback" element={<RedirectAfterAuth />} />
+              <Route path="/auth/update-password" element={<UpdatePassword />} />
+              <Route path="/email-confirmation" element={<EmailConfirmation />} />
+              <Route path="/waiting-for-approval" element={<WaitingForApproval />} />
 
-      <Route
-        path="/"
-        element={
-          !isAuthenticated ? (
-            <Navigate to="/auth" replace />
-          ) : isPending ? (
-            <Navigate to="/pending-approval" replace />
-          ) : (
-            <MainLayout />
-          )
-        }
-      >
-        <Route index element={<Navigate to="/dashboard" replace />} />
-        <Route path="dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-        <Route path="inventory" element={<ProtectedRoute allowedRoles={['admin', 'manager']}><Inventory /></ProtectedRoute>} />
-        <Route path="equipments" element={<ProtectedRoute allowedRoles={['admin', 'manager']}><Equipments /></ProtectedRoute>} />
-        <Route path="settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
-        <Route path="users" element={<ProtectedRoute allowedRoles={['admin']}><Users /></ProtectedRoute>} />
-        <Route path="faqs" element={<ProtectedRoute><Faqs /></ProtectedRoute>} />
-        <Route path="announcements" element={<ProtectedRoute><Announcements /></ProtectedRoute>} />
-        <Route path="help-center" element={<ProtectedRoute><HelpCenter /></ProtectedRoute>} />
-        <Route path="audit-logs" element={<ProtectedRoute allowedRoles={['admin']}><AuditLogs /></ProtectedRoute>} />
-      </Route>
-
-      <Route path="*" element={<NotFound />} />
-    </Routes>
+              {/* Rota protegida: garante que o usuário esteja logado e com aprovação */}
+              <Route path="/" element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>
+                <Route index element={<Navigate to="/dashboard" replace />} />
+                <Route path="dashboard" element={<Dashboard />} />
+                <Route path="equipments" element={<Equipments />} />
+                <Route path="inventory" element={<Inventory />} />
+                <Route path="users" element={<Users />} />
+                <Route path="audit-logs" element={<AuditLogs />} />
+                <Route path="settings" element={<Settings />} />
+                <Route path="announcements" element={<Announcements />} />
+                <Route path="faqs" element={<Faqs />} />
+                <Route path="help-center" element={<HelpCenter />} />
+              </Route>
+              
+              {/* Rota para lidar com URLs não encontradas */}
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </BrowserRouter>
+        </AuthProvider>
+      </QueryClientProvider>
+      <Toaster />
+    </ThemeProvider>
   );
 }
-
-export default App;

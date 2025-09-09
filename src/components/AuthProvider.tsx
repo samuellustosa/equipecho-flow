@@ -1,15 +1,20 @@
-import React from 'react';
-import { AuthContext, useAuthProvider } from '@/hooks/useAuth';
+import React, { ReactNode } from 'react';
+import { AuthContext, useAuthProvider } from '../hooks/useAuth';
 
-interface AuthProviderProps {
-  children: React.ReactNode;
-}
+export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  const { authState, login, signUp, logout, setAuthUser, resetPassword } = useAuthProvider();
 
-export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
-  const auth = useAuthProvider();
+  const value = {
+    authState,
+    login,
+    signUp,
+    logout,
+    setAuthUser,
+    resetPassword,
+  };
 
   return (
-    <AuthContext.Provider value={auth}>
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );

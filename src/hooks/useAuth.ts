@@ -1,13 +1,10 @@
-import { useState, useEffect, createContext, useContext } from 'react';
+import { useState, useContext, createContext, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import type { Session } from '@supabase/supabase-js';
-import { toast } from '@/components/ui/use-toast';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import React from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 
 // Define a URL base dinamicamente.
-// A Vercel define a variável de ambiente VERCEL_URL automaticamente.
-// Em vez de usá-la, podemos usar window.location para ser mais genérico e funcionar em qualquer ambiente.
 const BASE_URL = window.location.hostname.includes('localhost')
   ? `http://${window.location.hostname}:8080`
   : `https://${window.location.hostname}`;
@@ -41,16 +38,10 @@ export const AuthContext = createContext<{
   logout: () => void;
   signUp: (email: string, password: string, name: string) => Promise<void>;
   setAuthUser: (updates: Partial<User>) => void;
+  resetPassword: (email: string) => Promise<void>;
 } | null>(null);
 
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within AuthProvider');
-  }
-  return context;
-};
-
+// O gancho que contém a lógica do provedor.
 export const useAuthProvider = () => {
   const [authState, setAuthState] = useState<AuthState>({
     user: null,
@@ -59,6 +50,9 @@ export const useAuthProvider = () => {
     isAuthenticated: false,
     isPending: false,
   });
+
+  const queryClient = useQueryClient();
+  const navigate = useNavigate();
   
   const fetchUserProfile = async (userId: string) => {
     try {
@@ -184,6 +178,13 @@ export const useAuthProvider = () => {
   const logout = async () => {
     await supabase.auth.signOut();
   };
+  
+  const resetPassword = async (email: string) => {
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${BASE_URL}/auth/update-password`,
+    });
+    if (error) throw new Error(error.message);
+  };
 
   const setAuthUser = (updates: Partial<User>) => {
     setAuthState(prev => ({
@@ -197,42 +198,16 @@ export const useAuthProvider = () => {
     login,
     signUp,
     logout,
-    setAuthUser
+    setAuthUser,
+    resetPassword,
   };
 };
 
-export const useUpdateUserNotifications = () => {
-  const queryClient = useQueryClient();
-  const { authState, setAuthUser } = useAuth();
-
-  return useMutation({
-    mutationFn: async (readAlertIds: string[]) => {
-      if (!authState.user) throw new Error('User not authenticated');
-      
-      const currentReadIds = authState.user.read_notification_ids || [];
-      const newReadIds = [...new Set([...currentReadIds, ...readAlertIds])];
-      
-      const { data, error } = await supabase
-        .from('profiles')
-        .update({ read_notification_ids: newReadIds })
-        .eq('id', authState.user.id)
-        .select()
-        .single();
-      
-      if (error) throw error;
-      return data;
-    },
-    onSuccess: (data) => {
-      setAuthUser({ read_notification_ids: data.read_notification_ids as string[] });
-      queryClient.invalidateQueries({ queryKey: ['equipmentAlerts'] });
-      queryClient.invalidateQueries({ queryKey: ['inventoryAlerts'] });
-    },
-    onError: (error) => {
-      toast({
-        title: "Erro ao atualizar notificações",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
+// O gancho para consumir o contexto
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error("useAuth must be used within an AuthProvider");
+  }
+  return context;
 };
