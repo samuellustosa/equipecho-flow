@@ -316,9 +316,18 @@ export const Inventory: React.FC = () => {
 
   const stats = {
     totalItems: allInventoryItems.length,
-    lowStockItems: allInventoryItems.filter(item => item.status === 'baixo' || item.status === 'critico').length,
-    criticalItems: allInventoryItems.filter(item => item.status === 'critico').length,
-    normalItems: allInventoryItems.filter(item => item.status === 'normal').length
+    lowStockItems: allInventoryItems.filter(item => {
+      const calculatedStatus = calculateStatus(item.current_quantity, item.minimum_quantity);
+      return calculatedStatus === 'baixo' || calculatedStatus === 'critico';
+    }).length,
+    criticalItems: allInventoryItems.filter(item => {
+      const calculatedStatus = calculateStatus(item.current_quantity, item.minimum_quantity);
+      return calculatedStatus === 'critico';
+    }).length,
+    normalItems: allInventoryItems.filter(item => {
+      const calculatedStatus = calculateStatus(item.current_quantity, item.minimum_quantity);
+      return calculatedStatus === 'normal';
+    }).length
   };
 
   const canEdit = authState.user?.role === 'admin' || authState.user?.role === 'manager';
