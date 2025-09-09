@@ -325,7 +325,7 @@ export const Dashboard: React.FC = () => {
           </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Link to="/equipments/new">
+            <Link to="/equipments">
               <Button className="h-20 flex-col gap-2 w-full" variant="outline">
                 <Wrench className="h-6 w-6" />
                 <span>Novo Equipamento</span>
