@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { differenceInDays } from 'date-fns';
-import { useMemo, useEffect } from 'react'; // Importar useEffect
+import { differenceInDays, subDays } from 'date-fns';
+import { useMemo, useEffect } from 'react';
 import { useAuth } from './useAuth';
 
 export interface EquipmentAlert {
@@ -12,12 +12,14 @@ export interface EquipmentAlert {
   type: 'warning' | 'overdue';
 }
 
+// Interface corrigida para incluir created_at
 export interface InventoryAlert {
   id: string;
   name: string;
   current_quantity: number;
   minimum_quantity: number;
   type: 'low' | 'critical';
+  created_at: string; // Adicionado created_at aqui
 }
 
 export const useEquipmentAlerts = () => {
@@ -98,9 +100,10 @@ export const useInventoryAlerts = () => {
         return [];
       }
 
+      // Adicionado created_at à consulta de inventário
       const { data: inventory, error } = await supabase
         .from('inventory')
-        .select(`id, name, current_quantity, minimum_quantity`);
+        .select(`id, name, current_quantity, minimum_quantity, created_at`);
 
       if (error) throw new Error(error.message);
 
@@ -115,6 +118,7 @@ export const useInventoryAlerts = () => {
           current_quantity: i.current_quantity,
           minimum_quantity: i.minimum_quantity,
           type: status <= 50 ? 'critical' : 'low',
+          created_at: i.created_at,
         };
       });
     },

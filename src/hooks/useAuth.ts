@@ -45,7 +45,7 @@ export const AuthContext = createContext<{
 // Hook para atualizar notificações lidas
 export const useUpdateUserNotifications = () => {
   const queryClient = useQueryClient();
-  const { authState } = useAuth();
+  const { authState, setAuthUser } = useAuth(); // Modificação aqui: obtenha setAuthUser
 
   return useMutation({
     mutationFn: async (readNotificationIds: string[]) => {
@@ -60,14 +60,8 @@ export const useUpdateUserNotifications = () => {
     },
     onSuccess: (updatedProfile) => {
       if (updatedProfile) {
-        // Atualiza o estado local do usuário após a mutação
-        queryClient.setQueryData(['authState'], (old: any) => ({
-          ...old,
-          user: {
-            ...old.user,
-            read_notification_ids: updatedProfile.read_notification_ids,
-          },
-        }));
+        // Atualiza o estado local do usuário após a mutação usando setAuthUser
+        setAuthUser({ read_notification_ids: updatedProfile.read_notification_ids });
       }
     },
   });

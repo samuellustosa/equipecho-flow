@@ -1418,7 +1418,11 @@ export const Equipments: React.FC = () => {
             ) : (
                 // Layout de Grid para Desktop (inalterado)
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
-                    {statCards}
+                    {statCards.map((card, index) => (
+                        <React.Fragment key={index}>
+                            {card}
+                        </React.Fragment>
+                    ))}
                 </div>
             )}
             

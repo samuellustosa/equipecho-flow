@@ -39,9 +39,28 @@ export const MainLayout: React.FC = () => {
   
   const { mutate: updateUserNotifications } = useUpdateUserNotifications();
 
+  // Filtra as notificações para exibir apenas as dos últimos 7 dias
+  const filteredEquipmentAlerts = useMemo(() => {
+    const now = new Date();
+    return equipmentAlerts.filter(alert => {
+      const alertDate = new Date(alert.next_cleaning);
+      const daysOld = differenceInDays(now, alertDate);
+      return daysOld < 7;
+    });
+  }, [equipmentAlerts]);
+
+  const filteredInventoryAlerts = useMemo(() => {
+    const now = new Date();
+    return inventoryAlerts.filter(alert => {
+      const alertDate = new Date(alert.created_at);
+      const daysOld = differenceInDays(now, alertDate);
+      return daysOld < 7;
+    });
+  }, [inventoryAlerts]);
+
   const allAlerts = useMemo(() => {
-    return [...equipmentAlerts, ...inventoryAlerts];
-  }, [equipmentAlerts, inventoryAlerts]);
+    return [...filteredEquipmentAlerts, ...filteredInventoryAlerts];
+  }, [filteredEquipmentAlerts, filteredInventoryAlerts]);
 
   const handleOpenChange = (newOpenState: boolean) => {
     if (!newOpenState) {
@@ -55,12 +74,12 @@ export const MainLayout: React.FC = () => {
   }, [allAlerts, readAlertsIdsFromProfile]);
 
   const unreadEquipmentAlerts = useMemo(() => {
-    return equipmentAlerts.filter(alert => !readAlertsIdsFromProfile.includes(alert.id));
-  }, [equipmentAlerts, readAlertsIdsFromProfile]);
+    return filteredEquipmentAlerts.filter(alert => !readAlertsIdsFromProfile.includes(alert.id));
+  }, [filteredEquipmentAlerts, readAlertsIdsFromProfile]);
 
   const unreadInventoryAlerts = useMemo(() => {
-    return inventoryAlerts.filter(alert => !readAlertsIdsFromProfile.includes(alert.id));
-  }, [inventoryAlerts, readAlertsIdsFromProfile]);
+    return filteredInventoryAlerts.filter(alert => !readAlertsIdsFromProfile.includes(alert.id));
+  }, [filteredInventoryAlerts, readAlertsIdsFromProfile]);
   
 
   const getUserInitials = (name: string) => {
@@ -165,13 +184,13 @@ export const MainLayout: React.FC = () => {
           <div className="flex flex-col gap-3 py-4">
             {allAlerts.length > 0 ? (
               <>
-                {equipmentAlerts.length > 0 && (
+                {filteredEquipmentAlerts.length > 0 && (
                   <>
                     <h4 className="text-sm font-semibold flex items-center gap-2">
                       <Wrench className="h-4 w-4 text-destructive" />
                       Manutenções Vencidas
                     </h4>
-                    {equipmentAlerts.map(alert => (
+                    {filteredEquipmentAlerts.map(alert => (
                       <div key={alert.id} className="flex items-start gap-2">
                         <CalendarClock className="h-4 w-4 mt-1 text-destructive" />
                         <div className="flex-1 text-sm">
@@ -184,14 +203,14 @@ export const MainLayout: React.FC = () => {
                     ))}
                   </>
                 )}
-                {equipmentAlerts.length > 0 && inventoryAlerts.length > 0 && <Separator className="my-2" />}
-                {inventoryAlerts.length > 0 && (
+                {filteredEquipmentAlerts.length > 0 && filteredInventoryAlerts.length > 0 && <Separator className="my-2" />}
+                {filteredInventoryAlerts.length > 0 && (
                   <>
                     <h4 className="text-sm font-semibold flex items-center gap-2">
                       <Package className="h-4 w-4 text-warning" />
                       Inventário
                     </h4>
-                    {inventoryAlerts.map(alert => (
+                    {filteredInventoryAlerts.map(alert => (
                       <div key={alert.id} className="flex items-start gap-2">
                         <AlertCircle className={`h-4 w-4 mt-1 ${alert.type === 'critical' ? 'text-destructive' : 'text-warning'}`} />
                         <div className="flex-1 text-sm">
@@ -272,13 +291,13 @@ export const MainLayout: React.FC = () => {
                         <div className="flex flex-col gap-3 py-4">
                           {allAlerts.length > 0 ? (
                             <>
-                              {equipmentAlerts.length > 0 && (
+                              {filteredEquipmentAlerts.length > 0 && (
                                 <>
                                   <h4 className="text-sm font-semibold flex items-center gap-2">
                                     <Wrench className="h-4 w-4 text-destructive" />
                                     Manutenções Vencidas
                                   </h4>
-                                  {equipmentAlerts.map(alert => (
+                                  {filteredEquipmentAlerts.map(alert => (
                                     <div key={alert.id} className="flex items-start gap-2">
                                       <CalendarClock className="h-4 w-4 mt-1 text-destructive" />
                                       <div className="flex-1 text-sm">
@@ -291,14 +310,14 @@ export const MainLayout: React.FC = () => {
                                   ))}
                                 </>
                               )}
-                              {equipmentAlerts.length > 0 && inventoryAlerts.length > 0 && <Separator className="my-2" />}
-                              {inventoryAlerts.length > 0 && (
+                              {filteredEquipmentAlerts.length > 0 && filteredInventoryAlerts.length > 0 && <Separator className="my-2" />}
+                              {filteredInventoryAlerts.length > 0 && (
                                 <>
                                   <h4 className="text-sm font-semibold flex items-center gap-2">
                                     <Package className="h-4 w-4 text-warning" />
                                     Inventário
                                   </h4>
-                                  {inventoryAlerts.map(alert => (
+                                  {filteredInventoryAlerts.map(alert => (
                                     <div key={alert.id} className="flex items-start gap-2">
                                       <AlertCircle className={`h-4 w-4 mt-1 ${alert.type === 'critical' ? 'text-destructive' : 'text-warning'}`} />
                                       <div className="flex-1 text-sm">
