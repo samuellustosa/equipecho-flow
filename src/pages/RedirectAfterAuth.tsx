@@ -1,7 +1,8 @@
+// src/pages/RedirectAfterAuth.tsx
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Loader2, CheckCircle } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from '@/components/ui/use-toast';
 
@@ -10,15 +11,28 @@ export const RedirectAfterAuth = () => {
     const navigate = useNavigate();
 
     useEffect(() => {
+        if (authState.isLoading) {
+            return;
+        }
+
         if (authState.isAuthenticated) {
-            // Se o usuário está autenticado, a confirmação foi bem-sucedida.
-            toast({
-                title: "Login realizado com sucesso!",
-                description: "Bem-vindo ao EquipCPD.",
-            });
-            navigate("/", { replace: true });
-        } else if (!authState.isLoading && !authState.isAuthenticated) {
-            // Se a autenticação falhou (pode ser uma sessão inválida ou link expirado)
+            if (authState.user?.role === 'pending') {
+                // Redireciona usuários com o status 'pending' para a página de espera.
+                toast({
+                    title: "Conta confirmada!",
+                    description: "Aguardando aprovação de um administrador.",
+                });
+                navigate("/pending-approval", { replace: true });
+            } else {
+                // Usuários autenticados e não pendentes são redirecionados para a dashboard.
+                toast({
+                    title: "Login realizado com sucesso!",
+                    description: "Bem-vindo ao EquipCPD.",
+                });
+                navigate("/", { replace: true });
+            }
+        } else {
+            // Se a autenticação falhou (sessão inválida ou link expirado)
             toast({
                 title: "Falha na confirmação de email",
                 description: "O link pode ser inválido ou expirado. Tente fazer login novamente.",
