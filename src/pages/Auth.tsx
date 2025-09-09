@@ -107,7 +107,7 @@ export const Auth: React.FC = () => {
               }} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="login-email">Email</Label>
-                  <div className="relative" onClick={() => loginEmailRef.current?.focus()}>
+                  <div className="relative">
                     <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
                       id="login-email"
@@ -124,7 +124,7 @@ export const Auth: React.FC = () => {
                 
                 <div className="space-y-2">
                   <Label htmlFor="login-password">Senha</Label>
-                  <div className="relative" onClick={() => loginPasswordRef.current?.focus()}>
+                  <div className="relative">
                     <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
                       id="login-password"
@@ -168,7 +168,7 @@ export const Auth: React.FC = () => {
               }} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="register-name">Nome Completo</Label>
-                  <div className="relative" onClick={() => registerNameRef.current?.focus()}>
+                  <div className="relative">
                     <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
                       id="register-name"
@@ -185,7 +185,7 @@ export const Auth: React.FC = () => {
                 
                 <div className="space-y-2">
                   <Label htmlFor="register-email">Email</Label>
-                  <div className="relative" onClick={() => registerEmailRef.current?.focus()}>
+                  <div className="relative">
                     <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
                       id="register-email"
@@ -202,7 +202,7 @@ export const Auth: React.FC = () => {
                 
                 <div className="space-y-2">
                   <Label htmlFor="register-password">Senha</Label>
-                  <div className="relative" onClick={() => registerPasswordRef.current?.focus()}>
+                  <div className="relative">
                     <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
                       id="register-password"
