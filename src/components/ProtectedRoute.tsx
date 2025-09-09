@@ -33,7 +33,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   }
   
   if (isPending && !allowedRoles.includes('pending')) {
-    return <Navigate to="/pending-approval" replace />;
+    return <Navigate to="/waiting-for-approval" replace />;
   }
 
   // O erro de tipo foi corrigido permitindo "pending" na definição do tipo de allowedRoles.
