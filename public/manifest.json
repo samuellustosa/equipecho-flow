@@ -1,6 +1,7 @@
 {
   "name": "EquipCPD",
-  "short_name": "EquipCPD",
+  "short_name": "EquipCPD v1.1",
+  "version": "1.1",
   "description": "Sistema completo para gestão de equipamentos, manutenções e inventário",
   "start_url": "/",
   "display": "standalone",
