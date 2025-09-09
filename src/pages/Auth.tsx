@@ -138,7 +138,7 @@ export const Auth: React.FC = () => {
                     <Input
                       id="email"
                       type="email"
-                      placeholder="exemplo@flow.com"
+                      placeholder="exemplo@cpd.com"
                       required
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
@@ -198,7 +198,7 @@ export const Auth: React.FC = () => {
                     <Input
                       id="email"
                       type="email"
-                      placeholder="exemplo@flow.com"
+                      placeholder="exemplo@cpd.com"
                       required
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
@@ -278,7 +278,7 @@ export const Auth: React.FC = () => {
                     <Input
                       id="email"
                       type="email"
-                      placeholder="exemplo@flow.com"
+                      placeholder="exemplo@cpd.com"
                       required
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
