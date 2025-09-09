@@ -2,17 +2,21 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from '@/components/ui/use-toast';
-import { usePushNotificationSubscription, usePushNotificationStatus } from '@/hooks/usePushNotifications';
+
 
 export default function TestNotifications() {
   const [title, setTitle] = useState('Teste de Notificação');
   const [body, setBody] = useState('Esta é uma notificação de teste do EquipCPD');
   
-  const { data: status } = usePushNotificationStatus();
-  const subscribeMutation = usePushNotificationSubscription();
+  const status = { hasPermission: 'Notification' in window && Notification.permission === 'granted', hasSubscription: false };
 
   const handleSubscribe = async () => {
-    subscribeMutation.mutate();
+    if ('Notification' in window) {
+      const permission = await Notification.requestPermission();
+      if (permission === 'granted') {
+        toast({ title: 'Permissão concedida!', description: 'Você pode receber notificações.' });
+      }
+    }
   };
 
   const handleTestLocalNotification = () => {
@@ -55,13 +59,12 @@ export default function TestNotifications() {
                 {status?.hasSubscription ? 'Sim' : 'Não'}
               </span>
             </div>
-            {!status?.hasSubscription && (
+            {!status?.hasPermission && (
               <Button 
                 onClick={handleSubscribe} 
-                disabled={subscribeMutation.isPending}
                 className="w-full"
               >
-                {subscribeMutation.isPending ? 'Inscrevendo...' : 'Inscrever-se'}
+                Solicitar Permissão
               </Button>
             )}
           </CardContent>

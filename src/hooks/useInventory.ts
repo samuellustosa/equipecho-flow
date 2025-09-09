@@ -121,6 +121,7 @@ export const useCreateInventoryItem = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['inventory'] });
+      queryClient.invalidateQueries({ queryKey: ['allInventory'] });
       queryClient.invalidateQueries({ queryKey: ['inventoryCount'] });
       queryClient.invalidateQueries({ queryKey: ['inventoryAlerts'] });
     },
@@ -142,6 +143,7 @@ export const useUpdateInventoryItem = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['inventory'] });
+      queryClient.invalidateQueries({ queryKey: ['allInventory'] });
       queryClient.invalidateQueries({ queryKey: ['inventoryAlerts'] });
     },
   });
@@ -159,6 +161,7 @@ export const useDeleteInventoryItem = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['inventory'] });
+      queryClient.invalidateQueries({ queryKey: ['allInventory'] });
       queryClient.invalidateQueries({ queryKey: ['inventoryCount'] });
       queryClient.invalidateQueries({ queryKey: ['inventoryAlerts'] });
     },
@@ -205,6 +208,7 @@ export const useCreateInventoryMovement = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['inventoryMovements'] });
       queryClient.invalidateQueries({ queryKey: ['inventory'] });
+      queryClient.invalidateQueries({ queryKey: ['allInventory'] });
       queryClient.invalidateQueries({ queryKey: ['inventoryAlerts'] });
     },
   });
