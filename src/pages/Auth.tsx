@@ -43,7 +43,6 @@ export const Auth: React.FC = () => {
       await login(email, password);
       toast({
         title: "Login bem-sucedido!",
-        description: "Você será redirecionado em breve.",
         className: "bg-green-500 text-white",
       });
       navigate(from, { replace: true });
