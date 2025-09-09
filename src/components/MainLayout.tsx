@@ -160,7 +160,8 @@ export const MainLayout: React.FC = () => {
             Você tem {totalUnreadAlerts} alertas pendentes.
           </DrawerDescription>
         </DrawerHeader>
-        <ScrollArea className="flex-1 px-4">
+        {/* CORREÇÃO APLICADA AQUI: mudando de 'flex-1' para 'h-[70vh]' para garantir a rolagem */}
+        <ScrollArea className="h-[70vh] px-4">
           <div className="flex flex-col gap-3 py-4">
             {allAlerts.length > 0 ? (
               <>
@@ -267,7 +268,7 @@ export const MainLayout: React.FC = () => {
                           Você tem {totalUnreadAlerts} alertas pendentes.
                         </DrawerDescription>
                       </DrawerHeader>
-                      <ScrollArea className="flex-1 px-4">
+                      <ScrollArea className="h-[70vh] px-4">
                         <div className="flex flex-col gap-3 py-4">
                           {allAlerts.length > 0 ? (
                             <>
