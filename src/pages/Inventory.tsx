@@ -1,13 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/hooks/useAuth';
-import { useInventory, useCreateInventoryItem, useUpdateInventoryItem, useDeleteInventoryItem, InventoryItem, useInventoryCount, useAllInventory } from '@/hooks/useInventory';
+import { useCreateInventoryItem, useUpdateInventoryItem, useDeleteInventoryItem, InventoryItem, useAllInventory } from '@/hooks/useInventory';
 import { useCategories, useCreateCategory, useDeleteCategory } from '@/hooks/useCategories';
 import { useLocations, useCreateLocation, useDeleteLocation } from '@/hooks/useLocations';
-import { useCreateInventoryMovement, useInventoryMovementHistory, InventoryMovement } from '@/hooks/useInventoryMovements';
+import { useCreateInventoryMovement, useInventoryMovementHistory } from '@/hooks/useInventoryMovements';
 import {
   Plus,
   Search,
@@ -23,7 +23,6 @@ import {
   PlusCircle,
   MinusCircle,
   Building,
-  ChevronDown,
 } from 'lucide-react';
 import {
   Table,
@@ -194,10 +193,10 @@ export const Inventory: React.FC = () => {
   const isMobile = useIsMobile();
   const [page, setPage] = useState(1);
   const itemsPerPage = 20;
-  const offset = (page - 1) * itemsPerPage;
-  const { data: allInventoryItems = [], isLoading: allItemsLoading } = useAllInventory();
-  const { data: inventoryItems = [], isLoading, error } = useInventory(itemsPerPage, offset);
-  const { data: totalItems = 0, isLoading: countLoading } = useInventoryCount();
+
+  // Lógica de busca e carregamento. Agora depende apenas de useAllInventory.
+  const { data: allInventoryItems = [], isLoading: allItemsLoading, error } = useAllInventory();
+  
   const { mutate: createItem, isPending: isCreating } = useCreateInventoryItem();
   const { mutate: updateItem, isPending: isUpdating } = useUpdateInventoryItem();
   const { mutate: deleteItem, isPending: isDeleting } = useDeleteInventoryItem();
@@ -226,12 +225,10 @@ export const Inventory: React.FC = () => {
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [selectedItemForHistory, setSelectedItemForHistory] = useState<InventoryItem | null>(null);
   
-  // NOVO: Estado para gerenciar a exclusão com dependências
   const [isAlertDialogOpen, setIsAlertDialogOpen] = useState(false);
   const [alertMessage, setAlertMessage] = useState('');
   const [pendingDeletion, setPendingDeletion] = useState<{ type: 'item' | 'category' | 'location'; id: string; name: string } | null>(null);
   const { data: movements = [] } = useInventoryMovementHistory(pendingDeletion?.type === 'item' ? pendingDeletion.id : '');
-
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -282,25 +279,34 @@ export const Inventory: React.FC = () => {
     }
   };
 
-  const filteredItems = inventoryItems.filter(item => {
-    const term = searchTerm.toLowerCase();
-    const matchesSearch = (
-      item.name.toLowerCase().includes(term) ||
-      item.description?.toLowerCase().includes(term) ||
-      (item.categories?.name.toLowerCase() || '').includes(term) ||
-      (item.locations?.name.toLowerCase() || '').includes(term)
-    );
+  const filteredItems = useMemo(() => {
+    return allInventoryItems.filter(item => {
+      const term = searchTerm.toLowerCase();
+      const matchesSearch = (
+        item.name.toLowerCase().includes(term) ||
+        item.description?.toLowerCase().includes(term) ||
+        (item.categories?.name.toLowerCase() || '').includes(term) ||
+        (item.locations?.name.toLowerCase() || '').includes(term)
+      );
 
-    const matchesFilters = (
-      (activeFilters.status === 'all' || item.status === activeFilters.status) &&
-      (activeFilters.category_id === 'all' || item.category_id === activeFilters.category_id) &&
-      (activeFilters.location_id === 'all' || item.location_id === activeFilters.location_id)
-    );
-    
-    return matchesSearch && matchesFilters;
-  });
+      const matchesFilters = (
+        (activeFilters.status === 'all' || item.status === activeFilters.status) &&
+        (activeFilters.category_id === 'all' || item.category_id === activeFilters.category_id) &&
+        (activeFilters.location_id === 'all' || item.location_id === activeFilters.location_id)
+      );
+      
+      return matchesSearch && matchesFilters;
+    });
+  }, [allInventoryItems, searchTerm, activeFilters]);
 
-  const pageCount = Math.ceil(totalItems / itemsPerPage);
+  const paginatedAndFilteredItems = useMemo(() => {
+    const startIndex = (page - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    return filteredItems.slice(startIndex, endIndex);
+  }, [filteredItems, page, itemsPerPage]);
+
+  const pageCount = Math.ceil(filteredItems.length / itemsPerPage);
+
   const handlePageChange = (newPage: number) => {
     if (newPage > 0 && newPage <= pageCount) {
       setPage(newPage);
@@ -309,7 +315,7 @@ export const Inventory: React.FC = () => {
 
 
   const stats = {
-    totalItems: totalItems,
+    totalItems: allInventoryItems.length,
     lowStockItems: allInventoryItems.filter(item => item.status === 'baixo' || item.status === 'critico').length,
     criticalItems: allInventoryItems.filter(item => item.status === 'critico').length,
     normalItems: allInventoryItems.filter(item => item.status === 'normal').length
@@ -427,7 +433,6 @@ export const Inventory: React.FC = () => {
     }
   };
 
-  // NOVO: Função para confirmar a exclusão
   const handleConfirmDelete = () => {
     if (!pendingDeletion) return;
     
@@ -470,7 +475,6 @@ export const Inventory: React.FC = () => {
     }
   };
 
-  // MODIFICADO: Função handleDelete com verificação de dependência
   const handleDelete = (id: string, name: string) => {
     const hasMovements = movements.some(m => m.inventory_item_id === id);
     
@@ -486,7 +490,6 @@ export const Inventory: React.FC = () => {
     setIsAlertDialogOpen(true);
   };
 
-  // NOVO: Funções de exclusão de categoria e localização com alerta de dependência
   const handleDeleteCategory = (id: string, name: string) => {
     const hasItems = allInventoryItems.some(item => item.category_id === id);
     let message = '';
@@ -544,7 +547,7 @@ export const Inventory: React.FC = () => {
   };
 
 
-  if (isLoading || countLoading || allItemsLoading) {
+  if (allItemsLoading) {
     return (
       <div className="p-6 space-y-6">
         <div className="animate-pulse space-y-4">
@@ -1014,6 +1017,12 @@ export const Inventory: React.FC = () => {
       )}
 
       <Card className="shadow-card">
+        <CardHeader>
+            <CardTitle>Itens do Inventário</CardTitle>
+            <CardDescription>
+              Visualize e gerencie todos os itens em estoque
+            </CardDescription>
+        </CardHeader>
         <CardContent className="p-6">
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="relative flex-1">
@@ -1116,7 +1125,7 @@ export const Inventory: React.FC = () => {
       {/* Condicionalmente renderiza a tabela ou os cards */}
       {isMobile ? (
         <div className="flex flex-col gap-4">
-          {filteredItems.map((item) => {
+          {paginatedAndFilteredItems.map((item) => {
             const category = categories.find(c => c.id === item.category_id);
             const location = locations.find(l => l.id === item.location_id);
             const itemStatus = calculateStatus(item.current_quantity, item.minimum_quantity);
@@ -1215,7 +1224,7 @@ export const Inventory: React.FC = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredItems.map((item) => {
+                  {paginatedAndFilteredItems.map((item) => {
                     const category = categories.find(c => c.id === item.category_id);
                     const location = locations.find(l => l.id === item.location_id);
                     const itemStatus = calculateStatus(item.current_quantity, item.minimum_quantity);
