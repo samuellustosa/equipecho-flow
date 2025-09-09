@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { Outlet } from "react-router-dom";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Bell, Package, Wrench, AlertTriangle, CalendarClock, AlertCircle } from "lucide-react";
+import { Bell, Package, Wrench, AlertTriangle, Users, CalendarClock, AlertCircle, TrendingUp, Clock, ArrowRight, FileClock, PieChartIcon, BarChartIcon, Circle, ChevronRight, Settings, ArrowUpCircle, ArrowDownCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -22,6 +22,10 @@ import {
   DrawerTrigger,
 } from '@/components/ui/drawer';
 import { AppSidebar } from './AppSidebar';
+import { Link } from 'react-router-dom';
+import { Badge } from '@/components/ui/badge';
+import { format, differenceInDays, parseISO } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 const HEADER_HEIGHT_PX = 64;
 
@@ -229,13 +233,13 @@ export const MainLayout: React.FC = () => {
       </PopoverContent>
     </Popover>
   );
-
+  
   return (
     <SidebarProvider>
-      <div className="min-h-screen flex w-full">
+      <div className="flex h-screen w-full"> {/* Usar h-screen e flex-col para uma gestão de altura mais consistente */}
         <AppSidebar />
-          
-        <div className="flex-1 flex flex-col">
+        
+        <div className="flex-1 flex flex-col overflow-hidden"> {/* Adicionado overflow-hidden para conter o conteúdo */}
           {/* Header fixo no topo */}
           <header className="fixed top-0 right-0 z-50 w-full lg:w-[calc(100%-16rem)] h-16 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 shadow-header lg:left-64">
             <div className="flex h-full items-center justify-between px-6">
@@ -361,15 +365,12 @@ export const MainLayout: React.FC = () => {
             </div>
           </header>
 
-          <div className="mt-16">
+          <div className="flex-1 overflow-y-auto pt-16"> {/* Adicionado pt-16 para compensar a altura do header fixo e overflow-y-auto para rolagem */}
             <AnnouncementBanner />
-          </div>
-          
-          <main className="flex-1 overflow-auto max-w-full">
-            <div className="max-w-full">
+            <main className="max-w-full">
               <Outlet />
-            </div>
-          </main>
+            </main>
+          </div>
         </div>
       </div>
     </SidebarProvider>
