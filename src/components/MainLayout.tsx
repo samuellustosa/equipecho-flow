@@ -31,7 +31,7 @@ import { useToast } from "./ui/use-toast";
 
 const HEADER_HEIGHT_PX = 64;
 // Define o tempo de inatividade em milissegundos (ex: 30 minutos)
-const INACTIVITY_TIME = 60 * 1000;
+const INACTIVITY_TIME = 15 * 60 * 1000;
 
 export const MainLayout: React.FC = () => {
   const { authState, logout } = useAuth();
