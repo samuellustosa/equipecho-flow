@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useEffect, useRef, useCallback } from 'react';
 import { Outlet } from "react-router-dom";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Bell, Package, Wrench, AlertTriangle, Users, CalendarClock, AlertCircle, TrendingUp, Clock, ArrowRight, FileClock, PieChartIcon, BarChartIcon, Circle, ChevronRight, Settings, ArrowUpCircle, ArrowDownCircle } from "lucide-react";
@@ -26,14 +26,58 @@ import { Link } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
 import { format, differenceInDays, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { useToast } from "./ui/use-toast";
+
 
 const HEADER_HEIGHT_PX = 64;
+// Define o tempo de inatividade em milissegundos (ex: 30 minutos)
+const INACTIVITY_TIME = 60 * 1000;
 
 export const MainLayout: React.FC = () => {
-  const { authState } = useAuth();
+  const { authState, logout } = useAuth();
+  const { toast } = useToast();
   const isMobile = useIsMobile();
   const { data: equipmentAlerts = [] } = useEquipmentAlerts();
   const { data: inventoryAlerts = [] } = useInventoryAlerts();
+
+  const timerRef = useRef<number | null>(null);
+
+  const resetTimer = useCallback(() => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+    }
+    timerRef.current = window.setTimeout(() => {
+      logout();
+      toast({
+        title: "Sessão Expirada",
+        description: "Você foi desconectado por inatividade.",
+        variant: "destructive",
+      });
+    }, INACTIVITY_TIME);
+  }, [logout, toast]);
+
+  useEffect(() => {
+    // Inicia o temporizador quando o componente é montado
+    resetTimer();
+
+    // Adiciona event listeners para monitorar a atividade do usuário
+    const events = ["mousemove", "mousedown", "keypress", "scroll", "touchstart"];
+
+    events.forEach((event) => {
+      window.addEventListener(event, resetTimer);
+    });
+
+    // Função de limpeza para remover os listeners e o timer
+    return () => {
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+      }
+      events.forEach((event) => {
+        window.removeEventListener(event, resetTimer);
+      });
+    };
+  }, [resetTimer]);
+
 
   const readAlertsIdsFromProfile = authState.user?.read_notification_ids || [];
   
