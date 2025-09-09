@@ -22,7 +22,7 @@ export const RedirectAfterAuth = () => {
                     title: "Conta confirmada!",
                     description: "Aguardando aprovação de um administrador.",
                 });
-                navigate("/pending-approval", { replace: true });
+                navigate("/waiting-for-approval", { replace: true });
             } else {
                 // Usuários autenticados e não pendentes são redirecionados para a dashboard.
                 toast({

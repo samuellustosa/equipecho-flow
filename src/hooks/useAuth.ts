@@ -5,9 +5,7 @@ import { useQueryClient, useMutation } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 
 // Define a URL base dinamicamente.
-const BASE_URL = window.location.hostname.includes('localhost')
-  ? `http://${window.location.hostname}:8080`
-  : `https://${window.location.hostname}`;
+const BASE_URL = window.location.origin;
 
 // User types
 export interface User {
