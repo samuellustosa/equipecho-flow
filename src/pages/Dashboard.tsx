@@ -331,7 +331,7 @@ export const Dashboard: React.FC = () => {
                 <span>Novo Equipamento</span>
               </Button>
             </Link>
-            <Link to="/inventory/new">
+            <Link to="/inventory">
               <Button className="h-20 flex-col gap-2 w-full" variant="outline">
                 <Package className="h-6 w-6" />
                 <span>Adicionar Item</span>
