@@ -47,7 +47,10 @@ export default function App() {
                 <Route path="dashboard" element={<Dashboard />} />
                 <Route path="equipments" element={<Equipments />} />
                 <Route path="inventory" element={<Inventory />} />
-                <Route path="users" element={<Users />} />
+                
+                {/* Alteração para proteger a rota de usuários */}
+                <Route path="users" element={<ProtectedRoute allowedRoles={['admin']}><Users /></ProtectedRoute>} />
+                
                 <Route path="audit-logs" element={<AuditLogs />} />
                 <Route path="settings" element={<Settings />} />
                 <Route path="announcements" element={<Announcements />} />
