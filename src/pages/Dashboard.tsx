@@ -43,7 +43,7 @@ import {
   CartesianGrid,
 } from 'recharts';
 import { Badge } from '@/components/ui/badge';
-import { format, differenceInDays } from 'date-fns';
+import { format, differenceInDays, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
@@ -72,9 +72,10 @@ export const Dashboard: React.FC = () => {
 
   const maintenanceStatusData = useMemo(() => {
     const today = new Date();
+    today.setHours(0, 0, 0, 0);
     const counts = { vencido: 0, aviso: 0, emDia: 0 };
     allEquipments.forEach((eq) => {
-      const daysUntilDue = differenceInDays(new Date(eq.next_cleaning), today);
+      const daysUntilDue = differenceInDays(parseISO(eq.next_cleaning), today);
       if (daysUntilDue < 0) {
         counts.vencido++;
       } else if (daysUntilDue <= 7) {
@@ -109,13 +110,13 @@ export const Dashboard: React.FC = () => {
 
     return allEquipments
       .filter((eq) => {
-        const nextCleaningDate = new Date(eq.next_cleaning);
+        const nextCleaningDate = parseISO(eq.next_cleaning);
         const daysUntilDue = differenceInDays(nextCleaningDate, today);
         return daysUntilDue >= 0 && daysUntilDue <= 30;
       })
       .sort((a, b) => {
-        const daysA = differenceInDays(new Date(a.next_cleaning), today);
-        const daysB = differenceInDays(new Date(b.next_cleaning), today);
+        const daysA = differenceInDays(parseISO(a.next_cleaning), today);
+        const daysB = differenceInDays(parseISO(b.next_cleaning), today);
         return daysA - daysB;
       })
       .slice(0, 5);
@@ -231,7 +232,8 @@ export const Dashboard: React.FC = () => {
           </CardHeader>
           <CardContent className="flex flex-col md:flex-row items-center space-y-4 md:space-y-0 md:space-x-4">
             {/* Gráfico */}
-            <div className="h-48 w-full md:h-full md:w-1/2">
+            {/* Correção do gráfico: usar uma altura fixa para que ele apareça no PC */}
+            <div className="h-72 w-full md:w-1/2">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
@@ -259,7 +261,7 @@ export const Dashboard: React.FC = () => {
                     <div className="space-y-3">
                         {upcomingMaintenances.length > 0 ? (
                             upcomingMaintenances.map((eq) => {
-                                const daysUntilDue = differenceInDays(new Date(eq.next_cleaning), new Date());
+                                const daysUntilDue = differenceInDays(parseISO(eq.next_cleaning), new Date());
                                 const daysBadgeVariant = getDaysBadgeVariant(daysUntilDue);
                                 return (
                                     <div key={eq.id} className="flex items-center justify-between">
