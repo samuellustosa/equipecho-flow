@@ -528,7 +528,7 @@ export const Settings: React.FC = () => {
                   <span className="text-sm font-medium">{packageJson.version}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-sm text-muted-foreground">Última Atualização:</span>
+                  <span className="text-sm text-muted-foreground">Última Atualização Do Seu Perfil:</span>
                   <span className="text-sm font-medium">
                     {authState.user?.updated_at ? new Date(authState.user.updated_at).toLocaleDateString('pt-BR') : 'N/A'}
                   </span>
