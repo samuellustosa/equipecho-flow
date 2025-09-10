@@ -31,49 +31,13 @@ import { SessionExpiredDialog } from './SessionExpiredDialog';
 
 
 const HEADER_HEIGHT_PX = 64;
-// Define o tempo de inatividade em milissegundos (ex: 30 minutos)
-const INACTIVITY_TIME = 15 * 60 * 1000;
 
 export const MainLayout: React.FC = () => {
-  const { authState, logout, setShowSessionExpiredDialog } = useAuth();
+  const { authState, setShowSessionExpiredDialog } = useAuth();
   const { toast } = useToast();
   const isMobile = useIsMobile();
   const { data: equipmentAlerts = [] } = useEquipmentAlerts();
   const { data: inventoryAlerts = [] } = useInventoryAlerts();
-
-  const timerRef = useRef<number | null>(null);
-
-  const resetTimer = useCallback(() => {
-    if (timerRef.current) {
-      clearTimeout(timerRef.current);
-    }
-    timerRef.current = window.setTimeout(() => {
-      logout();
-      setShowSessionExpiredDialog(true);
-    }, INACTIVITY_TIME);
-  }, [logout]);
-
-  useEffect(() => {
-    // Inicia o temporizador quando o componente é montado
-    resetTimer();
-
-    // Adiciona event listeners para monitorar a atividade do usuário
-    const events = ["mousemove", "mousedown", "keypress", "scroll", "touchstart"];
-
-    events.forEach((event) => {
-      window.addEventListener(event, resetTimer);
-    });
-
-    // Função de limpeza para remover os listeners e o timer
-    return () => {
-      if (timerRef.current) {
-        clearTimeout(timerRef.current);
-      }
-      events.forEach((event) => {
-        window.removeEventListener(event, resetTimer);
-      });
-    };
-  }, [resetTimer]);
 
 
   const readAlertsIdsFromProfile = authState.user?.read_notification_ids || [];
