@@ -1,5 +1,5 @@
-import { useState, useContext, createContext, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { useState, useContext, createContext, useEffect, useRef } from 'react';
+import { supabase, TEST_SESSION_TIMEOUT } from '@/integrations/supabase/client';
 import type { Session } from '@supabase/supabase-js';
 import { useQueryClient, useMutation } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
@@ -83,6 +83,7 @@ export const useAuthProvider = () => {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const testTimerRef = useRef<number | null>(null);
   
   const fetchUserProfile = async (userId: string) => {
     try {
@@ -126,7 +127,29 @@ export const useAuthProvider = () => {
         
         if (session?.user) {
           fetchUserProfile(session.user.id);
+          
+          // Configurar timer de teste para expiração da sessão (apenas para teste)
+          if (TEST_SESSION_TIMEOUT && testTimerRef.current) {
+            clearTimeout(testTimerRef.current);
+          }
+          
+          if (TEST_SESSION_TIMEOUT) {
+            testTimerRef.current = window.setTimeout(() => {
+              console.log('Sessão expirada por timer de teste');
+              setAuthState(prev => ({
+                ...prev,
+                showSessionExpiredDialog: true
+              }));
+              supabase.auth.signOut();
+            }, TEST_SESSION_TIMEOUT);
+          }
         } else {
+          // Limpar timer de teste
+          if (testTimerRef.current) {
+            clearTimeout(testTimerRef.current);
+            testTimerRef.current = null;
+          }
+          
           // Detecta se é uma desconexão por token expirado
           if (event === 'SIGNED_OUT' && wasAuthenticated) {
             setAuthState(prev => ({
@@ -162,7 +185,12 @@ export const useAuthProvider = () => {
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      subscription.unsubscribe();
+      if (testTimerRef.current) {
+        clearTimeout(testTimerRef.current);
+      }
+    };
   }, []);
 
   const login = async (email: string, password: string) => {
