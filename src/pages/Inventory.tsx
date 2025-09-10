@@ -269,16 +269,6 @@ export const Inventory: React.FC = () => {
     }
   };
 
-  const calculateStatus = (current: number, minimum: number): 'normal' | 'baixo' | 'critico' => {
-    if (current <= minimum * 0.5) {
-      return 'critico';
-    } else if (current <= minimum) {
-      return 'baixo';
-    } else {
-      return 'normal';
-    }
-  };
-
   const filteredItems = useMemo(() => {
     return allInventoryItems.filter(item => {
       const term = searchTerm.toLowerCase();
@@ -316,18 +306,9 @@ export const Inventory: React.FC = () => {
 
   const stats = {
     totalItems: allInventoryItems.length,
-    lowStockItems: allInventoryItems.filter(item => {
-      const calculatedStatus = calculateStatus(item.current_quantity, item.minimum_quantity);
-      return calculatedStatus === 'baixo' || calculatedStatus === 'critico';
-    }).length,
-    criticalItems: allInventoryItems.filter(item => {
-      const calculatedStatus = calculateStatus(item.current_quantity, item.minimum_quantity);
-      return calculatedStatus === 'critico';
-    }).length,
-    normalItems: allInventoryItems.filter(item => {
-      const calculatedStatus = calculateStatus(item.current_quantity, item.minimum_quantity);
-      return calculatedStatus === 'normal';
-    }).length
+    lowStockItems: allInventoryItems.filter(item => item.status === 'baixo' || item.status === 'critico').length,
+    criticalItems: allInventoryItems.filter(item => item.status === 'critico').length,
+    normalItems: allInventoryItems.filter(item => item.status === 'normal').length
   };
 
   const canEdit = authState.user?.role === 'admin' || authState.user?.role === 'manager';
@@ -430,7 +411,7 @@ export const Inventory: React.FC = () => {
         }
       });
     } else {
-      createItem({ ...itemData, current_quantity: 0, status: 'normal' }, {
+      createItem({ ...itemData, current_quantity: 0 }, {
         onSuccess: () => {
           toast({ title: "Item do inventário criado com sucesso!" });
           setIsModalOpen(false);
@@ -1105,7 +1086,7 @@ export const Inventory: React.FC = () => {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">Todas</SelectItem>
-                        {locations.map(location => (
+                        {locations.map((location) => (
                           <SelectItem key={location.id} value={location.id}>
                             {location.name}
                           </SelectItem>
@@ -1137,9 +1118,7 @@ export const Inventory: React.FC = () => {
           {paginatedAndFilteredItems.map((item) => {
             const category = categories.find(c => c.id === item.category_id);
             const location = locations.find(l => l.id === item.location_id);
-            const itemStatus = calculateStatus(item.current_quantity, item.minimum_quantity);
-
-            const statusColor = getStatusColor(itemStatus);
+            const statusColor = getStatusColor(item.status);
 
             return (
               <Card key={item.id} className="shadow-card flex flex-col">
@@ -1148,7 +1127,7 @@ export const Inventory: React.FC = () => {
                     {item.name}
                   </CardTitle>
                   <Badge className={statusColor}>
-                    {getStatusLabel(itemStatus)}
+                    {getStatusLabel(item.status)}
                   </Badge>
                 </CardHeader>
                 <CardContent className="flex-1 p-4 pt-2 space-y-3 text-sm">
@@ -1236,7 +1215,6 @@ export const Inventory: React.FC = () => {
                   {paginatedAndFilteredItems.map((item) => {
                     const category = categories.find(c => c.id === item.category_id);
                     const location = locations.find(l => l.id === item.location_id);
-                    const itemStatus = calculateStatus(item.current_quantity, item.minimum_quantity);
                     return (
                       <TableRow key={item.id}>
                         <TableCell className="font-medium">
@@ -1259,8 +1237,8 @@ export const Inventory: React.FC = () => {
                           {item.minimum_quantity} {item.unit}
                         </TableCell>
                         <TableCell>
-                          <Badge className={getStatusColor(itemStatus)}>
-                            {getStatusLabel(itemStatus)}
+                          <Badge className={getStatusColor(item.status)}>
+                            {getStatusLabel(item.status)}
                           </Badge>
                         </TableCell>
                         <TableCell>{location?.name || 'N/A'}</TableCell>

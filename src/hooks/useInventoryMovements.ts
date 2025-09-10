@@ -29,7 +29,9 @@ export const useCreateInventoryMovement = () => {
     },
     onSuccess: (newMovement) => {
       // Invalida as queries de inventário e de alertas para forçar a atualização dos dados
+      // CORREÇÃO: Adicionado a invalidação para 'allInventory'
       queryClient.invalidateQueries({ queryKey: ['inventory'] });
+      queryClient.invalidateQueries({ queryKey: ['allInventory'] });
       queryClient.invalidateQueries({ queryKey: ['inventoryAlerts'] });
       // Opcionalmente, invalida a query de histórico do item específico para refletir a nova movimentação
       queryClient.invalidateQueries({ queryKey: ['inventoryMovements', newMovement.inventory_item_id] });
