@@ -34,11 +34,52 @@ export const Auth: React.FC = () => {
   const [passwordConfirmation, setPasswordConfirmation] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showPasswordConfirmation, setShowPasswordConfirmation] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   
   const { toast } = useToast();
 
+  // Validação de email
+  const isValidEmail = (email: string): boolean => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
+  // Validação de senha
+  const validatePassword = (password: string): { isValid: boolean; errors: string[] } => {
+    const errors: string[] = [];
+    
+    if (password.length < 6) {
+      errors.push("A senha deve ter pelo menos 6 caracteres");
+    }
+    
+    if (!/[A-Za-z]/.test(password)) {
+      errors.push("A senha deve conter pelo menos uma letra");
+    }
+    
+    if (!/[0-9]/.test(password)) {
+      errors.push("A senha deve conter pelo menos um número");
+    }
+
+    return {
+      isValid: errors.length === 0,
+      errors
+    };
+  };
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validação básica de email
+    if (!isValidEmail(email)) {
+      toast({
+        variant: "destructive",
+        title: "Email inválido",
+        description: "Por favor, insira um endereço de email válido.",
+      });
+      return;
+    }
+
+    setIsLoading(true);
     try {
       await login(email, password);
       toast({
@@ -47,17 +88,56 @@ export const Auth: React.FC = () => {
       });
       navigate(from, { replace: true });
     } catch (error: any) {
+      let errorMessage = "Credenciais inválidas";
+      let errorTitle = "Erro de login";
+
+      if (error.message) {
+        if (error.message.includes("Invalid login credentials")) {
+          errorMessage = "Email ou senha incorretos. Verifique suas credenciais.";
+        } else if (error.message.includes("Email not confirmed")) {
+          errorTitle = "Email não confirmado";
+          errorMessage = "Confirme seu email antes de fazer login.";
+        } else {
+          errorMessage = error.message;
+        }
+      }
+
       toast({
         variant: "destructive",
-        title: "Erro de login",
-        description: error.message,
+        title: errorTitle,
+        description: errorMessage,
         action: <ToastAction altText="Tentar novamente">Tentar novamente</ToastAction>,
       });
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validação de email
+    if (!isValidEmail(email)) {
+      toast({
+        variant: "destructive",
+        title: "Email inválido",
+        description: "Por favor, insira um endereço de email válido.",
+      });
+      return;
+    }
+
+    // Validação de senha
+    const passwordValidation = validatePassword(password);
+    if (!passwordValidation.isValid) {
+      toast({
+        variant: "destructive",
+        title: "Senha inválida",
+        description: passwordValidation.errors.join(". "),
+      });
+      return;
+    }
+
+    // Validação de confirmação de senha
     if (password !== passwordConfirmation) {
       toast({
         variant: "destructive",
@@ -66,6 +146,8 @@ export const Auth: React.FC = () => {
       });
       return;
     }
+
+    setIsLoading(true);
     try {
       await signUp(email, password, "");
       toast({
@@ -75,11 +157,41 @@ export const Auth: React.FC = () => {
       });
       setAuthView("login");
     } catch (error: any) {
+      let errorMessage = "Erro desconhecido ao criar conta";
+      let errorTitle = "Erro de inscrição";
+
+      // Tratamento específico para diferentes tipos de erro
+      if (error.message) {
+        if (error.message.includes("User already registered") || 
+            error.message.includes("email already in use") ||
+            error.message.includes("already registered")) {
+          errorTitle = "Email já cadastrado";
+          errorMessage = "Este email já está em uso. Tente fazer login ou use outro email.";
+        } else if (error.message.includes("Password")) {
+          errorTitle = "Erro na senha";
+          errorMessage = "A senha não atende aos requisitos mínimos.";
+        } else if (error.message.includes("Email")) {
+          errorTitle = "Erro no email";
+          errorMessage = "Email inválido ou não permitido.";
+        } else if (error.message.includes("Invalid")) {
+          errorTitle = "Dados inválidos";
+          errorMessage = "Verifique se todos os dados estão corretos.";
+        } else {
+          errorMessage = error.message;
+        }
+      }
+
       toast({
         variant: "destructive",
-        title: "Erro de inscrição",
-        description: error.message,
+        title: errorTitle,
+        description: errorMessage,
+        action: error.message?.includes("already") ? 
+          <ToastAction altText="Ir para login" onClick={() => setAuthView("login")}>
+            Fazer login
+          </ToastAction> : undefined,
       });
+    } finally {
+      setIsLoading(false);
     }
   };
   
@@ -183,8 +295,8 @@ export const Auth: React.FC = () => {
                     </Button>
                   </div>
                 </div>
-                <Button type="submit" className="w-full">
-                  Entrar
+                <Button type="submit" className="w-full" disabled={isLoading}>
+                  {isLoading ? "Entrando..." : "Entrar"}
                 </Button>
               </form>
             )}
@@ -263,8 +375,8 @@ export const Auth: React.FC = () => {
                     </Button>
                   </div>
                 </div>
-                <Button type="submit" className="w-full">
-                  Cadastrar
+                <Button type="submit" className="w-full" disabled={isLoading}>
+                  {isLoading ? "Cadastrando..." : "Cadastrar"}
                 </Button>
               </form>
             )}
