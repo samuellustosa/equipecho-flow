@@ -1,4 +1,4 @@
-import { useState, useContext, createContext, useEffect, useRef } from 'react';
+import { useState, useContext, createContext, useEffect, useRef, useCallback, ReactNode } from 'react';
 import { supabase, TEST_SESSION_TIMEOUT } from '@/integrations/supabase/client';
 import type { Session } from '@supabase/supabase-js';
 import { useQueryClient, useMutation } from '@tanstack/react-query';
@@ -28,7 +28,6 @@ export interface AuthState {
   isLoading: boolean;
   isAuthenticated: boolean;
   isPending: boolean;
-  showSessionExpiredDialog?: boolean;
 }
 
 // Auth Context
@@ -40,7 +39,6 @@ export const AuthContext = createContext<{
   setAuthUser: (updates: Partial<User>) => void;
   resetPassword: (email: string) => Promise<void>;
   useUpdateUserNotifications: () => ReturnType<typeof useMutation>;
-  setShowSessionExpiredDialog: (show: boolean) => void;
 } | null>(null);
 
 // Hook para atualizar notificações lidas
@@ -75,7 +73,6 @@ export const useAuthProvider = () => {
     isLoading: true,
     isAuthenticated: false,
     isPending: false,
-    showSessionExpiredDialog: false,
   });
 
   const queryClient = useQueryClient();
@@ -105,36 +102,40 @@ export const useAuthProvider = () => {
     }
   };
 
-  useEffect(() => {
-    let wasAuthenticated = false;
+  const logout = useCallback(async () => {
+    await supabase.auth.signOut();
+    setAuthState({
+      user: null,
+      session: null,
+      isLoading: false,
+      isAuthenticated: false,
+      isPending: false,
+    });
+    queryClient.clear();
+    navigate('/auth', { replace: true });
+  }, [navigate, queryClient]);
 
+  useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
-        setAuthState((prev) => {
-          wasAuthenticated = prev.isAuthenticated;
-          return {
-            ...prev,
-            session,
-            isAuthenticated: !!session,
-            isLoading: false,
-          };
-        });
+        setAuthState((prev) => ({
+          ...prev,
+          session,
+          isAuthenticated: !!session,
+          isLoading: false,
+        }));
 
         if (session?.user) {
           fetchUserProfile(session.user.id);
-
-          if (TEST_SESSION_TIMEOUT && testTimerRef.current) {
-            clearTimeout(testTimerRef.current);
-          }
-
+          
           if (TEST_SESSION_TIMEOUT) {
+            if (testTimerRef.current) {
+              clearTimeout(testTimerRef.current);
+            }
+
             testTimerRef.current = window.setTimeout(() => {
               console.log('Sessão expirada por timer de teste');
-              setAuthState((prev) => ({
-                ...prev,
-                showSessionExpiredDialog: true,
-              }));
-              // não faz signOut automático
+              logout();
             }, TEST_SESSION_TIMEOUT);
           }
         } else {
@@ -142,24 +143,13 @@ export const useAuthProvider = () => {
             clearTimeout(testTimerRef.current);
             testTimerRef.current = null;
           }
-
-          if (event === 'SIGNED_OUT' && wasAuthenticated) {
-            // apenas mostra o diálogo
-            setAuthState((prev) => ({
-              ...prev,
-              showSessionExpiredDialog: true,
-            }));
-          } else {
-            // logout manual → limpa tudo
-            setAuthState((prev) => ({
-              ...prev,
-              user: null,
-              session: null,
-              isLoading: false,
-              isAuthenticated: false,
-              isPending: false,
-            }));
-          }
+          setAuthState({
+            user: null,
+            session: null,
+            isLoading: false,
+            isAuthenticated: false,
+            isPending: false,
+          });
         }
       }
     );
@@ -174,7 +164,6 @@ export const useAuthProvider = () => {
           isLoading: false,
           isAuthenticated: false,
           isPending: false,
-          showSessionExpiredDialog: false,
         });
       }
     });
@@ -185,7 +174,7 @@ export const useAuthProvider = () => {
         clearTimeout(testTimerRef.current);
       }
     };
-  }, []);
+  }, [logout, queryClient]);
 
   const login = async (email: string, password: string) => {
     setAuthState((prev) => ({ ...prev, isLoading: true }));
@@ -200,7 +189,6 @@ export const useAuthProvider = () => {
         isLoading: false,
         isAuthenticated: false,
         isPending: false,
-        showSessionExpiredDialog: false,
       });
       throw new Error(error.message || 'Credenciais inválidas');
     }
@@ -226,22 +214,9 @@ export const useAuthProvider = () => {
         isLoading: false,
         isAuthenticated: false,
         isPending: false,
-        showSessionExpiredDialog: false,
       });
       throw new Error(error.message || 'Erro ao criar conta');
     }
-  };
-
-  const logout = async () => {
-    await supabase.auth.signOut();
-    setAuthState({
-      user: null,
-      session: null,
-      isLoading: false,
-      isAuthenticated: false,
-      isPending: false,
-      showSessionExpiredDialog: false,
-    });
   };
 
   const resetPassword = async (email: string) => {
@@ -258,14 +233,7 @@ export const useAuthProvider = () => {
     }));
   };
 
-  const setShowSessionExpiredDialog = (show: boolean) => {
-    setAuthState((prev) => ({
-      ...prev,
-      showSessionExpiredDialog: show,
-    }));
-  };
-
-  return {
+  const value = {
     authState,
     login,
     signUp,
@@ -273,8 +241,9 @@ export const useAuthProvider = () => {
     setAuthUser,
     resetPassword,
     useUpdateUserNotifications,
-    setShowSessionExpiredDialog,
   };
+
+  return value;
 };
 
 // O gancho para consumir o contexto

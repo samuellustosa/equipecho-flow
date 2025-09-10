@@ -13,7 +13,7 @@ const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiO
 // Tempo de teste para expiração da sessão (em milissegundos)
 // Para teste: 2 minutos = 2 * 60 * 1000 = 120000
 // Para produção: comentar ou remover esta linha
-export const TEST_SESSION_TIMEOUT = 2 * 60 * 1000; // 2 minutos
+export const TEST_SESSION_TIMEOUT = 15 * 60 * 1000; // 2 minutos
 
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: {
