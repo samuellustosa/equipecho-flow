@@ -372,7 +372,7 @@ export const MainLayout: React.FC = () => {
             </div>
           </header>
 
-          <div className="flex-1 overflow-y-auto pt-16"> {/* Adicionado pt-16 para compensar a altura do header fixo e overflow-y-auto para rolagem */}
+          <div className="flex-1 overflow-y-auto pt-16"> 
             <AnnouncementBanner />
             <main className="max-w-full">
               <Outlet />

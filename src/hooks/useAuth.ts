@@ -35,7 +35,7 @@ export interface AuthState {
 export const AuthContext = createContext<{
   authState: AuthState;
   login: (email: string, password: string) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
   signUp: (email: string, password: string, name: string) => Promise<void>;
   setAuthUser: (updates: Partial<User>) => void;
   resetPassword: (email: string) => Promise<void>;
@@ -46,7 +46,7 @@ export const AuthContext = createContext<{
 // Hook para atualizar notificações lidas
 export const useUpdateUserNotifications = () => {
   const queryClient = useQueryClient();
-  const { authState, setAuthUser } = useAuth(); // Modificação aqui: obtenha setAuthUser
+  const { authState, setAuthUser } = useAuth();
 
   return useMutation({
     mutationFn: async (readNotificationIds: string[]) => {
@@ -61,13 +61,11 @@ export const useUpdateUserNotifications = () => {
     },
     onSuccess: (updatedProfile) => {
       if (updatedProfile) {
-        // Atualiza o estado local do usuário após a mutação usando setAuthUser
         setAuthUser({ read_notification_ids: updatedProfile.read_notification_ids });
       }
     },
   });
 };
-
 
 // O gancho que contém a lógica do provedor.
 export const useAuthProvider = () => {
@@ -84,7 +82,7 @@ export const useAuthProvider = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const testTimerRef = useRef<number | null>(null);
-  
+
   const fetchUserProfile = async (userId: string) => {
     try {
       const { data: profile, error } = await supabase
@@ -92,16 +90,14 @@ export const useAuthProvider = () => {
         .select(`*, read_notification_ids, low_stock_alerts_enabled, overdue_maintenance_alerts_enabled`)
         .eq('id', userId)
         .single();
-        
-      if (error) {
-          throw error;
-      }
-      
+
+      if (error) throw error;
+
       if (profile) {
-        setAuthState(prev => ({
+        setAuthState((prev) => ({
           ...prev,
           user: profile as User,
-          isPending: profile.role === 'pending'
+          isPending: profile.role === 'pending',
         }));
       }
     } catch (error) {
@@ -111,61 +107,59 @@ export const useAuthProvider = () => {
 
   useEffect(() => {
     let wasAuthenticated = false;
-    
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
-        
-        setAuthState(prev => {
+        setAuthState((prev) => {
           wasAuthenticated = prev.isAuthenticated;
           return {
             ...prev,
             session,
             isAuthenticated: !!session,
-            isLoading: false
+            isLoading: false,
           };
         });
-        
+
         if (session?.user) {
           fetchUserProfile(session.user.id);
-          
-          // Configurar timer de teste para expiração da sessão (apenas para teste)
+
           if (TEST_SESSION_TIMEOUT && testTimerRef.current) {
             clearTimeout(testTimerRef.current);
           }
-          
+
           if (TEST_SESSION_TIMEOUT) {
             testTimerRef.current = window.setTimeout(() => {
               console.log('Sessão expirada por timer de teste');
-              setAuthState(prev => ({
+              setAuthState((prev) => ({
                 ...prev,
-                showSessionExpiredDialog: true
+                showSessionExpiredDialog: true,
               }));
-              supabase.auth.signOut();
+              // não faz signOut automático
             }, TEST_SESSION_TIMEOUT);
           }
         } else {
-          // Limpar timer de teste
           if (testTimerRef.current) {
             clearTimeout(testTimerRef.current);
             testTimerRef.current = null;
           }
-          
-          // Detecta se é uma desconexão por token expirado
+
           if (event === 'SIGNED_OUT' && wasAuthenticated) {
-            setAuthState(prev => ({
+            // apenas mostra o diálogo
+            setAuthState((prev) => ({
               ...prev,
-              showSessionExpiredDialog: true
+              showSessionExpiredDialog: true,
+            }));
+          } else {
+            // logout manual → limpa tudo
+            setAuthState((prev) => ({
+              ...prev,
+              user: null,
+              session: null,
+              isLoading: false,
+              isAuthenticated: false,
+              isPending: false,
             }));
           }
-          
-          setAuthState(prev => ({
-            ...prev,
-            user: null,
-            session: null,
-            isLoading: false,
-            isAuthenticated: false,
-            isPending: false,
-          }));
         }
       }
     );
@@ -194,17 +188,11 @@ export const useAuthProvider = () => {
   }, []);
 
   const login = async (email: string, password: string) => {
-    setAuthState(prev => ({ ...prev, isLoading: true }));
-    
-    try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password
-      });
+    setAuthState((prev) => ({ ...prev, isLoading: true }));
 
-      if (error) {
-        throw error;
-      }
+    try {
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) throw error;
     } catch (error: any) {
       setAuthState({
         user: null,
@@ -219,23 +207,18 @@ export const useAuthProvider = () => {
   };
 
   const signUp = async (email: string, password: string, name: string) => {
-    setAuthState(prev => ({ ...prev, isLoading: true }));
-    
+    setAuthState((prev) => ({ ...prev, isLoading: true }));
+
     try {
       const { error } = await supabase.auth.signUp({
         email,
         password,
         options: {
           emailRedirectTo: `${BASE_URL}/auth/callback`,
-          data: {
-            name
-          }
-        }
+          data: { name },
+        },
       });
-
-      if (error) {
-        throw error;
-      }
+      if (error) throw error;
     } catch (error: any) {
       setAuthState({
         user: null,
@@ -251,8 +234,16 @@ export const useAuthProvider = () => {
 
   const logout = async () => {
     await supabase.auth.signOut();
+    setAuthState({
+      user: null,
+      session: null,
+      isLoading: false,
+      isAuthenticated: false,
+      isPending: false,
+      showSessionExpiredDialog: false,
+    });
   };
-  
+
   const resetPassword = async (email: string) => {
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${BASE_URL}/auth/update-password`,
@@ -261,14 +252,14 @@ export const useAuthProvider = () => {
   };
 
   const setAuthUser = (updates: Partial<User>) => {
-    setAuthState(prev => ({
+    setAuthState((prev) => ({
       ...prev,
       user: prev.user ? { ...prev.user, ...updates } : prev.user,
     }));
   };
 
   const setShowSessionExpiredDialog = (show: boolean) => {
-    setAuthState(prev => ({
+    setAuthState((prev) => ({
       ...prev,
       showSessionExpiredDialog: show,
     }));
@@ -290,7 +281,7 @@ export const useAuthProvider = () => {
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (context === undefined) {
-    throw new Error("useAuth must be used within an AuthProvider");
+    throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
 };

@@ -15,7 +15,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
 }) => {
   const { authState } = useAuth();
   const location = useLocation();
-  const { isAuthenticated, isLoading, user, isPending } = authState;
+  const { isAuthenticated, isLoading, user, isPending, showSessionExpiredDialog } = authState;
 
   if (isLoading) {
     return (
@@ -28,7 +28,10 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     );
   }
   
-  if (!isAuthenticated) {
+  // A LÓGICA DE PROTEÇÃO DE ROTA FOI AJUSTADA AQUI
+  // Só redireciona para a autenticação se a sessão não estiver autenticada
+  // E o diálogo de sessão expirada não estiver ativo.
+  if (!isAuthenticated && !showSessionExpiredDialog) {
     return <Navigate to="/auth" state={{ from: location }} replace />;
   }
   
@@ -36,8 +39,6 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     return <Navigate to="/waiting-for-approval" replace />;
   }
 
-  // O erro de tipo foi corrigido permitindo "pending" na definição do tipo de allowedRoles.
-  // A lógica abaixo agora é segura, pois a condição de isPending já foi tratada.
   if (user && !allowedRoles.includes(user.role)) {
     return (
       <div className="min-h-screen flex items-center justify-center">

@@ -169,7 +169,7 @@ export const Dashboard: React.FC = () => {
     <div className="p-6 space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold mb-2">Dashboard Profissional</h1>
+        <h1 className="text-3xl font-bold mb-2">Dashboard</h1>
         <p className="text-muted-foreground">
           Visão geral completa e detalhada do sistema de gestão de equipamentos
         </p>
