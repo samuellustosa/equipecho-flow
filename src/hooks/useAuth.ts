@@ -28,6 +28,7 @@ export interface AuthState {
   isLoading: boolean;
   isAuthenticated: boolean;
   isPending: boolean;
+  showSessionExpiredDialog?: boolean;
 }
 
 // Auth Context
@@ -39,6 +40,7 @@ export const AuthContext = createContext<{
   setAuthUser: (updates: Partial<User>) => void;
   resetPassword: (email: string) => Promise<void>;
   useUpdateUserNotifications: () => ReturnType<typeof useMutation>;
+  setShowSessionExpiredDialog: (show: boolean) => void;
 } | null>(null);
 
 // Hook para atualizar notificações lidas
@@ -75,6 +77,7 @@ export const useAuthProvider = () => {
     isLoading: true,
     isAuthenticated: false,
     isPending: false,
+    showSessionExpiredDialog: false,
   });
 
   const queryClient = useQueryClient();
@@ -126,12 +129,10 @@ export const useAuthProvider = () => {
         } else {
           // Detecta se é uma desconexão por token expirado
           if (event === 'SIGNED_OUT' && wasAuthenticated) {
-            toast({
-              title: "Sessão Expirada",
-              description: "Sua sessão expirou. Faça login novamente.",
-              variant: "destructive",
-            });
-            navigate('/auth');
+            setAuthState(prev => ({
+              ...prev,
+              showSessionExpiredDialog: true
+            }));
           }
           
           setAuthState(prev => ({
@@ -156,6 +157,7 @@ export const useAuthProvider = () => {
           isLoading: false,
           isAuthenticated: false,
           isPending: false,
+          showSessionExpiredDialog: false,
         });
       }
     });
@@ -182,6 +184,7 @@ export const useAuthProvider = () => {
         isLoading: false,
         isAuthenticated: false,
         isPending: false,
+        showSessionExpiredDialog: false,
       });
       throw new Error(error.message || 'Credenciais inválidas');
     }
@@ -212,6 +215,7 @@ export const useAuthProvider = () => {
         isLoading: false,
         isAuthenticated: false,
         isPending: false,
+        showSessionExpiredDialog: false,
       });
       throw new Error(error.message || 'Erro ao criar conta');
     }
@@ -235,6 +239,13 @@ export const useAuthProvider = () => {
     }));
   };
 
+  const setShowSessionExpiredDialog = (show: boolean) => {
+    setAuthState(prev => ({
+      ...prev,
+      showSessionExpiredDialog: show,
+    }));
+  };
+
   return {
     authState,
     login,
@@ -243,6 +254,7 @@ export const useAuthProvider = () => {
     setAuthUser,
     resetPassword,
     useUpdateUserNotifications,
+    setShowSessionExpiredDialog,
   };
 };
 

@@ -35,14 +35,13 @@ const HEADER_HEIGHT_PX = 64;
 const INACTIVITY_TIME = 15 * 60 * 1000;
 
 export const MainLayout: React.FC = () => {
-  const { authState, logout } = useAuth();
+  const { authState, logout, setShowSessionExpiredDialog } = useAuth();
   const { toast } = useToast();
   const isMobile = useIsMobile();
   const { data: equipmentAlerts = [] } = useEquipmentAlerts();
   const { data: inventoryAlerts = [] } = useInventoryAlerts();
 
   const timerRef = useRef<number | null>(null);
-  const [showSessionExpiredDialog, setShowSessionExpiredDialog] = React.useState(false);
 
   const resetTimer = useCallback(() => {
     if (timerRef.current) {
@@ -418,7 +417,7 @@ export const MainLayout: React.FC = () => {
         </div>
         
         <SessionExpiredDialog
-          isOpen={showSessionExpiredDialog}
+          isOpen={authState.showSessionExpiredDialog || false}
           onClose={() => setShowSessionExpiredDialog(false)}
         />
       </div>

@@ -2,7 +2,7 @@ import React, { ReactNode } from 'react';
 import { AuthContext, useAuthProvider } from '../hooks/useAuth';
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const { authState, login, signUp, logout, setAuthUser, resetPassword, useUpdateUserNotifications } = useAuthProvider();
+  const { authState, login, signUp, logout, setAuthUser, resetPassword, useUpdateUserNotifications, setShowSessionExpiredDialog } = useAuthProvider();
 
   const value = {
     authState,
@@ -12,6 +12,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setAuthUser,
     resetPassword,
     useUpdateUserNotifications,
+    setShowSessionExpiredDialog,
   };
 
   return (
