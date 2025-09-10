@@ -26,7 +26,8 @@ import { Link } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
 import { format, differenceInDays, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { useToast } from "./ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
+import { SessionExpiredDialog } from './SessionExpiredDialog';
 
 
 const HEADER_HEIGHT_PX = 64;
@@ -41,6 +42,7 @@ export const MainLayout: React.FC = () => {
   const { data: inventoryAlerts = [] } = useInventoryAlerts();
 
   const timerRef = useRef<number | null>(null);
+  const [showSessionExpiredDialog, setShowSessionExpiredDialog] = React.useState(false);
 
   const resetTimer = useCallback(() => {
     if (timerRef.current) {
@@ -48,13 +50,9 @@ export const MainLayout: React.FC = () => {
     }
     timerRef.current = window.setTimeout(() => {
       logout();
-      toast({
-        title: "Sessão Expirada",
-        description: "Você foi desconectado por inatividade.",
-        variant: "destructive",
-      });
+      setShowSessionExpiredDialog(true);
     }, INACTIVITY_TIME);
-  }, [logout, toast]);
+  }, [logout]);
 
   useEffect(() => {
     // Inicia o temporizador quando o componente é montado
@@ -418,6 +416,11 @@ export const MainLayout: React.FC = () => {
             </main>
           </div>
         </div>
+        
+        <SessionExpiredDialog
+          isOpen={showSessionExpiredDialog}
+          onClose={() => setShowSessionExpiredDialog(false)}
+        />
       </div>
     </SidebarProvider>
   );

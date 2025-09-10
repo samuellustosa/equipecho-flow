@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import type { Session } from '@supabase/supabase-js';
 import { useQueryClient, useMutation } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
+import { useToast } from '@/hooks/use-toast';
 
 // Define a URL base dinamicamente.
 const BASE_URL = window.location.origin;
@@ -78,6 +79,7 @@ export const useAuthProvider = () => {
 
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const { toast } = useToast();
   
   const fetchUserProfile = async (userId: string) => {
     try {
@@ -104,19 +106,34 @@ export const useAuthProvider = () => {
   };
 
   useEffect(() => {
+    let wasAuthenticated = false;
+    
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         
-        setAuthState(prev => ({
-          ...prev,
-          session,
-          isAuthenticated: !!session,
-          isLoading: false
-        }));
+        setAuthState(prev => {
+          wasAuthenticated = prev.isAuthenticated;
+          return {
+            ...prev,
+            session,
+            isAuthenticated: !!session,
+            isLoading: false
+          };
+        });
         
         if (session?.user) {
           fetchUserProfile(session.user.id);
         } else {
+          // Detecta se é uma desconexão por token expirado
+          if (event === 'SIGNED_OUT' && wasAuthenticated) {
+            toast({
+              title: "Sessão Expirada",
+              description: "Sua sessão expirou. Faça login novamente.",
+              variant: "destructive",
+            });
+            navigate('/auth');
+          }
+          
           setAuthState(prev => ({
             ...prev,
             user: null,
