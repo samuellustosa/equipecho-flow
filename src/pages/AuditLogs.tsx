@@ -20,6 +20,14 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useIsMobile } from '@/hooks/use-mobile';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious, PaginationEllipsis } from '@/components/ui/pagination';
 
 // Componente para o modal de detalhes
 const AuditLogDetailsDialog = ({ log, isOpen, onOpenChange }) => {
@@ -60,9 +68,16 @@ const AuditLogDetailsDialog = ({ log, isOpen, onOpenChange }) => {
 
 
 export const AuditLogs: React.FC = () => {
-  const { data: auditLogs = [], isLoading, error } = useAuditLogs();
-  const { authState } = useAuth();
+  const isMobile = useIsMobile();
+  const [page, setPage] = useState(1);
+  const itemsPerPage = 20;
 
+  const { data, isLoading, error } = useAuditLogs(page, itemsPerPage);
+  const auditLogs = data?.logs || [];
+  const totalCount = data?.totalCount || 0;
+
+  const { authState } = useAuth();
+  
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [selectedLog, setSelectedLog] = useState(null);
   const [actionFilter, setActionFilter] = useState('all');
@@ -70,9 +85,9 @@ export const AuditLogs: React.FC = () => {
   
   const getBadgeColor = (action: string) => {
     switch (action) {
-      case 'INSERT': return 'bg-green-500 hover:bg-green-600 text-white';
-      case 'UPDATE': return 'bg-yellow-500 hover:bg-yellow-600 text-white';
-      case 'DELETE': return 'bg-red-500 hover:bg-red-600 text-white';
+      case 'INSERT': return 'bg-success hover:bg-green-600 text-white';
+      case 'UPDATE': return 'bg-warning hover:bg-yellow-600 text-white';
+      case 'DELETE': return 'bg-destructive hover:bg-red-600 text-white';
       default: return 'bg-muted text-foreground';
     }
   };
@@ -93,7 +108,66 @@ export const AuditLogs: React.FC = () => {
     setIsDetailsModalOpen(true);
   };
   
-  const uniqueTables = [...new Set(auditLogs.map(log => log.table_name))];
+  const uniqueTables = useMemo(() => [...new Set(auditLogs.map(log => log.table_name))].sort(), [auditLogs]);
+  const totalPages = Math.ceil(totalCount / itemsPerPage);
+
+  const handlePageChange = (newPage: number) => {
+    if (newPage > 0 && newPage <= totalPages) {
+      setPage(newPage);
+    }
+  };
+  
+  // Lógica de renderização dos itens de paginação com suporte a mobile
+  const renderPaginationItems = () => {
+    const items = [];
+    if (isMobile) {
+      items.push(
+        <PaginationItem key="current">
+          <span className="text-sm font-medium text-foreground">
+            Página {page} de {totalPages}
+          </span>
+        </PaginationItem>
+      );
+    } else {
+      const maxPageButtons = 5;
+      const startPage = Math.max(1, page - Math.floor(maxPageButtons / 2));
+      const endPage = Math.min(totalPages, startPage + maxPageButtons - 1);
+  
+      if (startPage > 1) {
+        items.push(
+          <PaginationItem key={1}>
+            <PaginationLink onClick={() => handlePageChange(1)} isActive={page === 1}>1</PaginationLink>
+          </PaginationItem>
+        );
+        if (startPage > 2) {
+          items.push(<PaginationEllipsis key="start-ellipsis" />);
+        }
+      }
+  
+      for (let i = startPage; i <= endPage; i++) {
+        items.push(
+          <PaginationItem key={i}>
+            <PaginationLink onClick={() => handlePageChange(i)} isActive={page === i}>
+              {i}
+            </PaginationLink>
+          </PaginationItem>
+        );
+      }
+  
+      if (endPage < totalPages) {
+        if (endPage < totalPages - 1) {
+          items.push(<PaginationEllipsis key="end-ellipsis" />);
+        }
+        items.push(
+          <PaginationItem key={totalPages}>
+            <PaginationLink onClick={() => handlePageChange(totalPages)} isActive={page === totalPages}>{totalPages}</PaginationLink>
+          </PaginationItem>
+        );
+      }
+    }
+    return items;
+  };
+  
 
   if (authState.isLoading || authState.user?.role !== 'admin') {
     return (
@@ -164,55 +238,120 @@ export const AuditLogs: React.FC = () => {
               Erro ao carregar os logs: {error.message}
             </div>
           ) : getFilteredLogs.length > 0 ? (
-            <ScrollArea className="h-[60vh] rounded-md border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-[150px]">Data</TableHead>
-                    <TableHead>Ação</TableHead>
-                    <TableHead>Tabela</TableHead>
-                    <TableHead>Usuário</TableHead>
-                    <TableHead>ID do Registro</TableHead>
-                    <TableHead className="text-right">Ações</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
+            <>
+              {isMobile ? (
+                // Layout Mobile com Accordion
+                <Accordion type="single" collapsible className="w-full">
                   {getFilteredLogs.map(log => (
-                    <TableRow key={log.id}>
-                      <TableCell className="font-medium text-xs">
-                        {format(new Date(log.created_at), 'dd/MM/yyyy HH:mm:ss', { locale: ptBR })}
-                      </TableCell>
-                      <TableCell>
-                        <Badge className={getBadgeColor(log.action_type)}>
-                          {log.action_type}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>{log.table_name}</TableCell>
-                      <TableCell>{log.profiles?.name || 'Usuário Desconhecido'}</TableCell>
-                      <TableCell className="text-xs font-mono">{log.record_id}</TableCell>
-                      <TableCell className="text-right">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" className="h-8 w-8 p-0">
-                              <span className="sr-only">Abrir menu</span>
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuLabel>Ações</DropdownMenuLabel>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem onSelect={() => handleViewDetails(log)}>
-                              <Eye className="h-3 w-3 mr-2" />
-                              Ver Detalhes
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
+                    <AccordionItem key={log.id} value={log.id}>
+                      <AccordionTrigger className="flex items-center justify-between py-4 text-left font-medium">
+                        <div className="flex flex-col items-start gap-1">
+                          <Badge className={cn('capitalize', getBadgeColor(log.action_type))}>
+                            {log.action_type}
+                          </Badge>
+                          <span className="font-semibold">{log.table_name}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {format(new Date(log.created_at), 'dd/MM/yyyy HH:mm', { locale: ptBR })}
+                          </span>
+                        </div>
+                      </AccordionTrigger>
+                      <AccordionContent className="p-4 space-y-3 bg-muted/50 rounded-b-lg">
+                        <div className="flex flex-col gap-1 text-sm">
+                          <p>
+                            <span className="font-semibold">Usuário:</span> {log.profiles?.name || 'Desconhecido'}
+                          </p>
+                          <p>
+                            <span className="font-semibold">ID do Registro:</span> {log.record_id}
+                          </p>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="w-full"
+                          onClick={() => handleViewDetails(log)}
+                        >
+                          <Eye className="h-4 w-4 mr-2" />
+                          Ver Detalhes
+                        </Button>
+                      </AccordionContent>
+                    </AccordionItem>
                   ))}
-                </TableBody>
-              </Table>
-            </ScrollArea>
+                </Accordion>
+              ) : (
+                // Layout Desktop com Tabela
+                <ScrollArea className="h-[60vh] rounded-md border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-[150px]">Data</TableHead>
+                        <TableHead>Ação</TableHead>
+                        <TableHead>Tabela</TableHead>
+                        <TableHead>Usuário</TableHead>
+                        <TableHead>ID do Registro</TableHead>
+                        <TableHead className="text-right">Ações</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {getFilteredLogs.map(log => (
+                        <TableRow key={log.id}>
+                          <TableCell className="font-medium text-xs">
+                            {format(new Date(log.created_at), 'dd/MM/yyyy HH:mm:ss', { locale: ptBR })}
+                          </TableCell>
+                          <TableCell>
+                            <Badge className={getBadgeColor(log.action_type)}>
+                              {log.action_type}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>{log.table_name}</TableCell>
+                          <TableCell>{log.profiles?.name || 'Usuário Desconhecido'}</TableCell>
+                          <TableCell className="text-xs font-mono">{log.record_id}</TableCell>
+                          <TableCell className="text-right">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" className="h-8 w-8 p-0">
+                                  <span className="sr-only">Abrir menu</span>
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuLabel>Ações</DropdownMenuLabel>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem onSelect={() => handleViewDetails(log)}>
+                                  <Eye className="h-3 w-3 mr-2" />
+                                  Ver Detalhes
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </ScrollArea>
+              )}
+              {totalPages > 1 && (
+                // Adiciona flex-wrap e justify-center para quebrar a linha em telas pequenas
+                <div className="mt-4 flex flex-wrap justify-center sm:justify-end">
+                  <Pagination>
+                    <PaginationContent>
+                      <PaginationItem>
+                        <PaginationPrevious
+                          onClick={() => handlePageChange(Math.max(1, page - 1))}
+                          className={cn({ 'pointer-events-none opacity-50': page === 1 })}
+                        />
+                      </PaginationItem>
+                      {renderPaginationItems()}
+                      <PaginationItem>
+                        <PaginationNext
+                          onClick={() => handlePageChange(Math.min(totalPages, page + 1))}
+                          className={cn({ 'pointer-events-none opacity-50': page === totalPages })}
+                        />
+                      </PaginationItem>
+                    </PaginationContent>
+                  </Pagination>
+                </div>
+              )}
+            </>
           ) : (
             <div className="p-6 text-center text-muted-foreground">
               Nenhum log de auditoria encontrado.
