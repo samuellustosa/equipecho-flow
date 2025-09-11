@@ -2,13 +2,11 @@ import React, { useMemo } from 'react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { useEquipmentsCount, useAllEquipments, useEquipmentGrowth } from '@/hooks/useEquipments';
-import { useInventoryCount, useAllInventory } from '@/hooks/useInventory';
+import { useEquipmentsCount, useAllEquipments, useEquipmentGrowth, useMTTR, useMaintenanceMetrics } from '@/hooks/useEquipments';
+import { useInventoryCount, useAllInventory, useInventoryMovementMetrics } from '@/hooks/useInventory';
 import { useEquipmentAlerts, useInventoryAlerts } from '@/hooks/useNotifications';
-import { useSectors } from '@/hooks/useSectors';
-import { useCategories } from '@/hooks/useCategories';
 import { useAuth } from '@/hooks/useAuth';
-import { useAuditLogs } from '@/hooks/useAuditLogs';
+import { useAuditLogs, useAuditLogMetrics } from '@/hooks/useAuditLogs';
 import {
   Wrench,
   Package,
@@ -27,6 +25,8 @@ import {
   Settings,
   ArrowUpCircle,
   ArrowDownCircle,
+  PlusCircle,
+  MinusCircle
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import {
@@ -41,6 +41,8 @@ import {
   XAxis,
   YAxis,
   CartesianGrid,
+  LineChart,
+  Line
 } from 'recharts';
 import { Badge } from '@/components/ui/badge';
 import { format, differenceInDays, parseISO } from 'date-fns';
@@ -52,23 +54,41 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 export const Dashboard: React.FC = () => {
   const { authState } = useAuth();
   const isAdmin = authState.user?.role === 'admin';
+  const isManager = authState.user?.role === 'manager';
+  const canViewInventory = isAdmin || isManager;
+  const canViewEquipmentMetrics = isAdmin || isManager;
+  const canViewAuditLogs = isAdmin;
 
   const { data: totalEquipments = 0, isLoading: equipmentsCountLoading } = useEquipmentsCount();
+  const { data: totalInventoryItems = 0, isLoading: inventoryCountLoading } = useInventoryCount();
   const { data: allEquipments = [], isLoading: allEquipmentsLoading } = useAllEquipments();
   const { data: allInventoryItems = [], isLoading: allInventoryLoading } = useAllInventory();
   const { data: equipmentAlerts = [], isLoading: equipmentAlertsLoading } = useEquipmentAlerts();
   const { data: inventoryAlerts = [], isLoading: inventoryAlertsLoading } = useInventoryAlerts();
   const { data: equipmentGrowth, isLoading: growthLoading } = useEquipmentGrowth(7);
-  const { data: latestAuditLogs = [], isLoading: auditLogsLoading } = useAuditLogs();
+  const { data: auditLogsData, isLoading: auditLogsLoading } = useAuditLogs(1, 5);
+  const latestAuditLogs = auditLogsData?.logs || [];
+  
+  // Novos hooks para os gráficos
+  const { data: mttrInMinutes, isLoading: mttrLoading } = useMTTR();
+  const { data: maintenanceMetrics = { bySector: [], byResponsible: [] }, isLoading: maintenanceMetricsLoading } = useMaintenanceMetrics();
+  const { data: auditLogMetrics = [], isLoading: auditLogMetricsLoading } = useAuditLogMetrics();
+  const { data: inventoryMovementMetrics = [], isLoading: inventoryMovementMetricsLoading } = useInventoryMovementMetrics(30);
+
 
   const isLoading =
     equipmentsCountLoading ||
+    inventoryCountLoading ||
     equipmentAlertsLoading ||
     inventoryAlertsLoading ||
     allEquipmentsLoading ||
     allInventoryLoading ||
     auditLogsLoading ||
-    growthLoading;
+    growthLoading ||
+    mttrLoading ||
+    maintenanceMetricsLoading ||
+    auditLogMetricsLoading ||
+    inventoryMovementMetricsLoading;
 
   const maintenanceStatusData = useMemo(() => {
     const today = new Date();
@@ -122,22 +142,16 @@ export const Dashboard: React.FC = () => {
       .slice(0, 5);
   }, [allEquipments]);
   
-  const getDaysLabel = (daysUntilDue) => {
+  const getDaysLabel = (daysUntilDue: number) => {
     if (daysUntilDue === 0) return 'Hoje';
     if (daysUntilDue === 1) return 'Amanhã';
     return `Em ${daysUntilDue} dias`;
   };
   
-  const getDaysBadgeVariant = (daysUntilDue) => {
+  const getDaysBadgeVariant = (daysUntilDue: number) => {
     if (daysUntilDue < 0) return 'destructive';
     if (daysUntilDue < 7) return 'warning';
     return 'default';
-  };
-
-  const stats = {
-    totalEquipments,
-    maintenanceNeeded: equipmentAlerts.length,
-    lowStockItems: inventoryAlerts.length,
   };
 
   const getLogColor = (action: string) => {
@@ -164,6 +178,10 @@ export const Dashboard: React.FC = () => {
       </div>
     );
   }
+  
+  const formattedMttr = mttrInMinutes !== null
+    ? `${Math.floor(mttrInMinutes / 60)}h ${Math.round(mttrInMinutes % 60)}m`
+    : 'N/A';
 
   return (
     <div className="p-6 space-y-6">
@@ -175,147 +193,265 @@ export const Dashboard: React.FC = () => {
         </p>
       </div>
 
-      {/* Stats Cards (KPIs) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-        <Card className="shadow-card">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total de Equipamentos</CardTitle>
-            <Wrench className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.totalEquipments}</div>
-            <p className="text-xs text-muted-foreground">
-              <span className={cn(
-                equipmentGrowth?.isPositive ? 'text-success' : 'text-destructive',
-                'font-semibold'
-              )}>
-                {equipmentGrowth?.isPositive ? '+' : ''}
-                {equipmentGrowth?.percentage?.toFixed(1)}%
-              </span>{' '}
-              em 7 dias
-            </p>
-          </CardContent>
-        </Card>
-        <Card className="shadow-card">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Manutenções Pendentes</CardTitle>
-            <AlertTriangle className="h-4 w-4 text-warning" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.maintenanceNeeded}</div>
-            <p className="text-xs text-muted-foreground">Atenção imediata</p>
-          </CardContent>
-        </Card>
-        <Card className="shadow-card">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Itens com Estoque Baixo</CardTitle>
-            <Package className="h-4 w-4 text-destructive" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.lowStockItems}</div>
-            <p className="text-xs text-muted-foreground">Necessita reposição</p>
-          </CardContent>
-        </Card>
-      </div>
+      {/* --- KPIs de Equipamentos e Alertas --- */}
+      <section>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            <Card className="shadow-card">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Total de Equipamentos</CardTitle>
+                <Wrench className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{totalEquipments}</div>
+                <p className="text-xs text-muted-foreground">
+                  <span className={cn(
+                    equipmentGrowth?.isPositive ? 'text-success' : 'text-destructive',
+                    'font-semibold'
+                  )}>
+                    {equipmentGrowth?.isPositive ? '+' : ''}
+                    {equipmentGrowth?.percentage?.toFixed(1)}%
+                  </span>{' '}
+                  em 7 dias
+                </p>
+              </CardContent>
+            </Card>
+            {canViewEquipmentMetrics && (
+                <>
+                  <Card className="shadow-card">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">Manutenções Pendentes</CardTitle>
+                      <AlertTriangle className="h-4 w-4 text-warning" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">{equipmentAlerts.length}</div>
+                      <p className="text-xs text-muted-foreground">Atenção imediata</p>
+                    </CardContent>
+                  </Card>
+                  <Card className="shadow-card">
+                      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                          <CardTitle className="text-sm font-medium">MTTR (Tempo Médio de Reparo)</CardTitle>
+                          <Clock className="h-4 w-4 text-muted-foreground" />
+                      </CardHeader>
+                      <CardContent>
+                          <div className="text-2xl font-bold">
+                              {formattedMttr}
+                          </div>
+                          <p className="text-xs text-muted-foreground">Baseado em reparos recentes</p>
+                      </CardContent>
+                  </Card>
+                </>
+            )}
+        </div>
+      </section>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Painel de Manutenção: Gráfico e Lista */}
-        <Card className="col-span-1 shadow-card">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Clock className="h-5 w-5" />
-              Visão Geral de Manutenção
-            </CardTitle>
-            <CardDescription>
-              Acompanhe o status e as próximas manutenções.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-col md:flex-row items-center space-y-4 md:space-y-0 md:space-x-4">
-            {/* Gráfico */}
-            {/* Correção do gráfico: usar uma altura fixa para que ele apareça no PC */}
-            <div className="h-72 w-full md:w-1/2">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={maintenanceStatusData}
-                    dataKey="value"
-                    nameKey="name"
-                    cx="50%"
-                    cy="50%"
-                    outerRadius={60}
-                    label
-                  >
-                    {maintenanceStatusData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                  <Legend layout="horizontal" verticalAlign="bottom" align="center" />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-            {/* Lista */}
-            <div className="h-full w-full md:w-1/2">
-                <h4 className="text-sm font-semibold mb-2">Próximas Manutenções</h4>
-                <ScrollArea className="h-44 pr-4">
-                    <div className="space-y-3">
-                        {upcomingMaintenances.length > 0 ? (
-                            upcomingMaintenances.map((eq) => {
-                                const daysUntilDue = differenceInDays(parseISO(eq.next_cleaning), new Date());
-                                const daysBadgeVariant = getDaysBadgeVariant(daysUntilDue);
-                                return (
-                                    <div key={eq.id} className="flex items-center justify-between">
-                                        <div className="flex items-center gap-2">
-                                            <div className="h-2 w-2 rounded-full bg-primary" />
-                                            <div className="space-y-0.5">
-                                                <p className="font-medium text-sm">{eq.name}</p>
-                                                <p className="text-xs text-muted-foreground">{eq.sectors?.name || 'Sem setor'}</p>
-                                            </div>
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            <Badge variant={daysBadgeVariant} className="font-semibold text-xs">
-                                                {getDaysLabel(daysUntilDue)}
-                                            </Badge>
-                                            <Link to={`/equipments?id=${eq.id}`} className="text-muted-foreground hover:text-primary transition-colors">
-                                                <ChevronRight className="h-4 w-4" />
-                                            </Link>
-                                        </div>
-                                    </div>
-                                );
-                            })
-                        ) : (
-                            <p className="text-muted-foreground text-sm">Nenhuma manutenção agendada nos próximos 30 dias.</p>
-                        )}
-                    </div>
-                </ScrollArea>
-            </div>
-          </CardContent>
-        </Card>
+      {/* --- KPIs e Gráficos de Inventário --- */}
+      {canViewInventory && (
+          <section className="space-y-6">
+              <h2 className="text-2xl font-bold">Inventário</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-6">
+                  <Card className="shadow-card">
+                      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                          <CardTitle className="text-sm font-medium">Total de Itens em Estoque</CardTitle>
+                          <Package className="h-4 w-4 text-muted-foreground" />
+                      </CardHeader>
+                      <CardContent>
+                          <div className="text-2xl font-bold">{totalInventoryItems}</div>
+                          <p className="text-xs text-muted-foreground">Itens registrados</p>
+                      </CardContent>
+                  </Card>
+                  <Card className="shadow-card">
+                      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                          <CardTitle className="text-sm font-medium">Itens em Nível Crítico</CardTitle>
+                          <AlertCircle className="h-4 w-4 text-destructive" />
+                      </CardHeader>
+                      <CardContent>
+                          <div className="text-2xl font-bold">{inventoryAlerts.length}</div>
+                          <p className="text-xs text-muted-foreground">Necessita reposição</p>
+                      </CardContent>
+                  </Card>
+              </div>
+              
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <Card className="shadow-card">
+                      <CardHeader>
+                          <CardTitle>Movimentação de Estoque (últimos 30 dias)</CardTitle>
+                          <CardDescription>Entradas e saídas de itens.</CardDescription>
+                      </CardHeader>
+                      <CardContent className="h-72">
+                          <ResponsiveContainer width="100%" height="100%">
+                              <LineChart data={inventoryMovementMetrics} margin={{ top: 5, right: 20, left: -20, bottom: 5 }}>
+                                  <CartesianGrid strokeDasharray="3 3" />
+                                  <XAxis dataKey="date" tickFormatter={(date) => format(parseISO(date), 'dd/MM')} />
+                                  <YAxis />
+                                  <Tooltip formatter={(value, name) => [value, name === 'entrada' ? 'Entrada' : 'Saída']} />
+                                  <Legend />
+                                  <Line type="monotone" dataKey="entrada" stroke="hsl(var(--success))" name="Entrada" />
+                                  <Line type="monotone" dataKey="saida" stroke="hsl(var(--destructive))" name="Saída" />
+                              </LineChart>
+                          </ResponsiveContainer>
+                      </CardContent>
+                  </Card>
+                  <Card className="shadow-card">
+                      <CardHeader>
+                          <CardTitle>Manutenções por Setor (últimos 6 meses)</CardTitle>
+                          <CardDescription>Volume de manutenções por setor.</CardDescription>
+                      </CardHeader>
+                      <CardContent className="h-72">
+                          <ResponsiveContainer width="100%" height="100%">
+                              <BarChart data={maintenanceMetrics.bySector} margin={{ top: 5, right: 20, left: -20, bottom: 5 }}>
+                                  <CartesianGrid strokeDasharray="3 3" />
+                                  <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                                  <YAxis />
+                                  <Tooltip />
+                                  <Legend />
+                                  <Bar dataKey="count" fill="hsl(var(--primary))" name="Manutenções" />
+                              </BarChart>
+                          </ResponsiveContainer>
+                      </CardContent>
+                  </Card>
+              </div>
+          </section>
+      )}
 
-        {/* Gráfico de Inventário por Categoria */}
-        <Card className="shadow-card">
-          <CardHeader>
-            <CardTitle>Inventário por Categoria</CardTitle>
-            <CardDescription>
-              Distribuição de itens do inventário por categoria.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="h-72">
+      {/* --- Gráfico de Atividade de Usuários --- */}
+      {canViewAuditLogs && (
+          <section className="space-y-6">
+              <h2 className="text-2xl font-bold">Atividade do Sistema</h2>
+              <Card className="shadow-card">
+                  <CardHeader>
+                      <CardTitle>Atividade de Usuários por Tipo</CardTitle>
+                      <CardDescription>
+                          Distribuição de ações realizadas no sistema.
+                      </CardDescription>
+                  </CardHeader>
+                  <CardContent className="h-72">
+                      <ResponsiveContainer width="100%" height="100%">
+                          <PieChart>
+                              <Pie
+                                  data={auditLogMetrics}
+                                  dataKey="count"
+                                  nameKey="name"
+                                  cx="50%"
+                                  cy="50%"
+                                  outerRadius={80}
+                                  label
+                              >
+                                  {auditLogMetrics.map((entry, index) => (
+                                      <Cell 
+                                          key={`cell-${index}`} 
+                                          fill={
+                                              entry.name === 'INSERT' ? 'hsl(var(--success))' :
+                                              entry.name === 'UPDATE' ? 'hsl(var(--warning))' :
+                                              entry.name === 'DELETE' ? 'hsl(var(--destructive))' :
+                                              'hsl(var(--muted))'
+                                          } 
+                                      />
+                                  ))}
+                              </Pie>
+                              <Tooltip />
+                              <Legend />
+                          </PieChart>
+                      </ResponsiveContainer>
+                  </CardContent>
+              </Card>
+          </section>
+      )}
+
+      {/* Painel de Manutenção: Gráfico e Lista (Seção original, mantida) */}
+      <Card className="col-span-1 shadow-card">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Clock className="h-5 w-5" />
+            Visão Geral de Manutenção
+          </CardTitle>
+          <CardDescription>
+            Acompanhe o status e as próximas manutenções.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col md:flex-row items-center space-y-4 md:space-y-0 md:space-x-4">
+          {/* Gráfico */}
+          <div className="h-72 w-full md:w-1/2">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={inventoryByCategoryData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-                <YAxis />
+              <PieChart>
+                <Pie
+                  data={maintenanceStatusData}
+                  dataKey="value"
+                  nameKey="name"
+                  cx="50%"
+                  cy="50%"
+                  outerRadius={60}
+                  label
+                >
+                  {maintenanceStatusData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  ))}
+                </Pie>
                 <Tooltip />
-                <Legend />
-                <Bar dataKey="items" fill="#8884d8" />
-              </BarChart>
+                <Legend layout="horizontal" verticalAlign="bottom" align="center" />
+              </PieChart>
             </ResponsiveContainer>
-          </CardContent>
-        </Card>
-      </div>
+          </div>
+          {/* Lista */}
+          <div className="h-full w-full md:w-1/2">
+              <h4 className="text-sm font-semibold mb-2">Próximas Manutenções</h4>
+              <ScrollArea className="h-44 pr-4">
+                  <div className="space-y-3">
+                      {upcomingMaintenances.length > 0 ? (
+                          upcomingMaintenances.map((eq) => {
+                              const daysUntilDue = differenceInDays(parseISO(eq.next_cleaning), new Date());
+                              const daysBadgeVariant = getDaysBadgeVariant(daysUntilDue);
+                              return (
+                                  <div key={eq.id} className="flex items-center justify-between">
+                                      <div className="flex items-center gap-2">
+                                          <div className="h-2 w-2 rounded-full bg-primary" />
+                                          <div className="space-y-0.5">
+                                              <p className="font-medium text-sm">{eq.name}</p>
+                                              <p className="text-xs text-muted-foreground">{eq.sectors?.name || 'Sem setor'}</p>
+                                          </div>
+                                      </div>
+                                      <div className="flex items-center gap-2">
+                                          <Badge variant={daysBadgeVariant} className="font-semibold text-xs">
+                                              {getDaysLabel(daysUntilDue)}
+                                          </Badge>
+                                          <Link to={`/equipments?id=${eq.id}`} className="text-muted-foreground hover:text-primary transition-colors">
+                                              <ChevronRight className="h-4 w-4" />
+                                          </Link>
+                                      </div>
+                                  </div>
+                              );
+                          })
+                      ) : (
+                          <p className="text-muted-foreground text-sm">Nenhuma manutenção agendada nos próximos 30 dias.</p>
+                      )}
+                  </div>
+              </ScrollArea>
+          </div>
+        </CardContent>
+      </Card>
+      
+      {/* Gráfico de Inventário por Categoria (Seção original, mantida) */}
+      <Card className="shadow-card">
+        <CardHeader>
+          <CardTitle>Inventário por Categoria</CardTitle>
+          <CardDescription>
+            Distribuição de itens do inventário por categoria.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="h-72">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={inventoryByCategoryData}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+              <YAxis />
+              <Tooltip />
+              <Legend />
+              <Bar dataKey="items" fill="#8884d8" />
+            </BarChart>
+          </ResponsiveContainer>
+        </CardContent>
+      </Card>
 
-      {/* Botões de Ações Rápidas */}
+      {/* Botões de Ações Rápidas (Seção original, mantida) */}
       <Card className="shadow-card">
         <CardHeader>
           <CardTitle>Ações Rápidas</CardTitle>

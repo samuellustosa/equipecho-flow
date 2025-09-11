@@ -1,7 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
-import { subDays } from 'date-fns';
+import { subDays, differenceInMinutes } from 'date-fns';
+import { Maintenance } from './useMaintenances';
 
 export interface Equipment {
   id: string;
@@ -122,6 +123,81 @@ export const useEquipmentGrowth = (days: number = 30) => {
   });
 };
 
+// NOVO HOOK: Calcula o MTTR (Tempo Médio de Reparo)
+// Nota: A implementação é uma aproximação baseada nos dados disponíveis.
+// Ele calcula a média de tempo (em minutos) que os equipamentos ficam em status de 'manutencao'.
+// Para uma precisão ideal, seria necessário um campo 'start_maintenance_at' na tabela de equipamentos.
+export const useMTTR = () => {
+  return useQuery({
+    queryKey: ['mttr'],
+    queryFn: async () => {
+      const { data: maintenances, error } = await supabase
+        .from('maintenances')
+        .select('performed_at, equipment_id, updated_at:equipments(updated_at)')
+        .eq('service_type', 'reparo')
+        .order('performed_at', { ascending: false });
+
+      if (error) throw new Error(error.message);
+
+      const repairsWithEndTime = maintenances.filter(m => m.updated_at);
+      if (repairsWithEndTime.length === 0) return null;
+
+      const totalRepairTime = repairsWithEndTime.reduce((sum, m) => {
+        const repairStart = new Date(m.performed_at);
+        const repairEnd = new Date((m.updated_at as any).updated_at);
+        const durationInMinutes = differenceInMinutes(repairEnd, repairStart);
+        return sum + durationInMinutes;
+      }, 0);
+
+      const averageRepairTime = totalRepairTime / repairsWithEndTime.length;
+      return averageRepairTime; // Retorna em minutos
+    },
+  });
+};
+
+
+// NOVO HOOK: Busca e agrega manutenções por setor ou responsável nos últimos 6 meses
+export const useMaintenanceMetrics = () => {
+    const cutoffDate = subDays(new Date(), 180).toISOString();
+    return useQuery({
+        queryKey: ['maintenanceMetrics'],
+        queryFn: async () => {
+            const { data: maintenances, error } = await supabase
+                .from('maintenances')
+                .select(`
+                    equipment_id,
+                    performed_at,
+                    equipments (
+                        sector_id,
+                        responsible_id,
+                        sectors (name),
+                        responsibles (name)
+                    )
+                `)
+                .gte('performed_at', cutoffDate);
+
+            if (error) throw new Error(error.message);
+
+            const bySector = maintenances.reduce((acc, m) => {
+                const sectorName = m.equipments?.sectors?.name || 'Sem Setor';
+                acc[sectorName] = (acc[sectorName] || 0) + 1;
+                return acc;
+            }, {} as { [key: string]: number });
+
+            const byResponsible = maintenances.reduce((acc, m) => {
+                const responsibleName = m.equipments?.responsibles?.name || 'Não Atribuído';
+                acc[responsibleName] = (acc[responsibleName] || 0) + 1;
+                return acc;
+            }, {} as { [key: string]: number });
+
+            return {
+                bySector: Object.keys(bySector).map(name => ({ name, count: bySector[name] })),
+                byResponsible: Object.keys(byResponsible).map(name => ({ name, count: byResponsible[name] }))
+            };
+        }
+    });
+};
+
 export const useCreateEquipment = () => {
   const queryClient = useQueryClient();
 
@@ -164,6 +240,8 @@ export const useUpdateEquipment = () => {
       queryClient.invalidateQueries({ queryKey: ['equipments'] });
       queryClient.invalidateQueries({ queryKey: ['allEquipments'] });
       queryClient.invalidateQueries({ queryKey: ['equipmentAlerts'] });
+      queryClient.invalidateQueries({ queryKey: ['mttr'] });
+      queryClient.invalidateQueries({ queryKey: ['maintenanceMetrics'] });
     }
   });
 };

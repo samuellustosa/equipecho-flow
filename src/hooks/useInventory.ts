@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Tables, TablesInsert, TablesUpdate } from '@/integrations/supabase/types';
+import { subDays, startOfDay, endOfDay, format } from 'date-fns';
 
 // Tipos
 export type InventoryItem = Tables<'inventory'>;
@@ -70,6 +71,44 @@ export const useInventoryMovements = ({ limit, enabled = true }: GetMovementsOpt
       return data as InventoryMovement[];
     },
     enabled,
+  });
+};
+
+// NOVO HOOK: Busca e agrega dados de movimentação de inventário por dia
+export const useInventoryMovementMetrics = (days: number = 30) => {
+  const cutoffDate = subDays(new Date(), days);
+  return useQuery({
+    queryKey: ['inventoryMovementMetrics', days],
+    queryFn: async () => {
+      const { data: movements, error } = await supabase
+        .from('inventory_movements')
+        .select('created_at, quantity, type')
+        .gte('created_at', cutoffDate.toISOString());
+
+      if (error) throw new Error(error.message);
+
+      const aggregatedData = movements.reduce((acc, movement) => {
+        const dateKey = format(startOfDay(new Date(movement.created_at)), 'yyyy-MM-dd');
+        if (!acc[dateKey]) {
+          acc[dateKey] = { date: dateKey, entrada: 0, saida: 0, total: 0 };
+        }
+        if (movement.type === 'entrada') {
+          acc[dateKey].entrada += movement.quantity;
+        } else {
+          acc[dateKey].saida += movement.quantity;
+        }
+        return acc;
+      }, {} as { [key: string]: { date: string, entrada: number, saida: number, total: number } });
+
+      const sortedDates = Object.keys(aggregatedData).sort();
+      const dailyData = sortedDates.map(date => {
+        const entry = aggregatedData[date];
+        entry.total = entry.entrada - entry.saida;
+        return entry;
+      });
+      
+      return dailyData;
+    },
   });
 };
 

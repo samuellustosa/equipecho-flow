@@ -45,3 +45,32 @@ export const useAuditLogs = (page: number, limit: number) => {
     placeholderData: (previousData) => previousData,
   });
 };
+
+// NOVO HOOK: Agrega dados de logs de auditoria por tipo de ação
+export const useAuditLogMetrics = () => {
+  const { authState } = useAuth();
+  const isAdmin = authState.user?.role === 'admin';
+  return useQuery({
+    queryKey: ['auditLogMetrics'],
+    queryFn: async () => {
+      if (!isAdmin) return [];
+
+      const { data, error } = await supabase
+        .from('audit_logs')
+        .select('action_type', { count: 'exact' });
+      
+      if (error) throw new Error(error.message);
+
+      const actionCounts = data.reduce((acc, log) => {
+        acc[log.action_type] = (acc[log.action_type] || 0) + 1;
+        return acc;
+      }, {} as { [key: string]: number });
+
+      return Object.keys(actionCounts).map(action => ({
+        name: action,
+        count: actionCounts[action],
+      }));
+    },
+    enabled: isAdmin,
+  });
+};
