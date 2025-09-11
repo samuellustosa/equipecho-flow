@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
-import { subDays, differenceInMinutes, parseISO } from 'date-fns';
+import { subDays, differenceInMinutes, parseISO, differenceInDays } from 'date-fns';
 import { Maintenance } from './useMaintenances';
 
 export interface Equipment {
@@ -123,35 +123,46 @@ export const useEquipmentGrowth = (days: number = 30) => {
   });
 };
 
-// NOVO HOOK: Calcula o MTTC (Tempo Médio de Limpeza)
-export const useMTTC = () => {
+// NOVO HOOK: Calcula o tempo que um equipamento fica atrasado, usando a nova tabela.
+export const useOverdueTime = () => {
   return useQuery({
-    queryKey: ['mttc'],
+    queryKey: ['overdueTime'],
     queryFn: async () => {
-      const { data: maintenances, error } = await supabase
-        .from('maintenances')
-        .select('performed_at, equipment_id, updated_at:equipments(updated_at)')
-        .eq('service_type', 'limpeza') // <-- Altera a condição para 'limpeza'
-        .order('performed_at', { ascending: false });
+      const { data, error } = await supabase
+        .from('equipment_status_history')
+        .select('*')
+        .order('timestamp', { ascending: true });
 
       if (error) throw new Error(error.message);
 
-      const repairsWithEndTime = maintenances.filter(m => m.updated_at);
-      if (repairsWithEndTime.length === 0) return null;
+      let totalOverdueTimeInMinutes = 0;
+      let overdueStart: Date | null = null;
+      let overdueCount = 0;
 
-      const totalRepairTime = repairsWithEndTime.reduce((sum, m) => {
-        const repairStart = parseISO(m.performed_at);
-        const repairEnd = parseISO((m.updated_at as any).updated_at);
-        const durationInMinutes = differenceInMinutes(repairEnd, repairStart);
-        return sum + durationInMinutes;
-      }, 0);
+      data.forEach((entry, index) => {
+        if (entry.status === 'atrasado' && !overdueStart) {
+          overdueStart = parseISO(entry.timestamp);
+        } else if (entry.status === 'em_dia' && overdueStart) {
+          const overdueEnd = parseISO(entry.timestamp);
+          const duration = differenceInMinutes(overdueEnd, overdueStart);
+          totalOverdueTimeInMinutes += duration;
+          overdueCount++;
+          overdueStart = null;
+        }
+      });
+      
+      // Considerar o caso em que o último status é 'atrasado' e ainda não foi resolvido.
+      if (overdueStart) {
+          const now = new Date();
+          const duration = differenceInMinutes(now, overdueStart);
+          totalOverdueTimeInMinutes += duration;
+          overdueCount++;
+      }
 
-      const averageRepairTime = totalRepairTime / repairsWithEndTime.length;
-      return averageRepairTime; // Retorna em minutos
+      return overdueCount > 0 ? totalOverdueTimeInMinutes / overdueCount : null;
     },
   });
 };
-
 
 // NOVO HOOK: Busca e agrega manutenções por setor ou responsável nos últimos 6 meses
 export const useMaintenanceMetrics = () => {
@@ -237,7 +248,7 @@ export const useUpdateEquipment = () => {
       queryClient.invalidateQueries({ queryKey: ['equipments'] });
       queryClient.invalidateQueries({ queryKey: ['allEquipments'] });
       queryClient.invalidateQueries({ queryKey: ['equipmentAlerts'] });
-      queryClient.invalidateQueries({ queryKey: ['mttr'] });
+      queryClient.invalidateQueries({ queryKey: ['overdueTime'] });
       queryClient.invalidateQueries({ queryKey: ['maintenanceMetrics'] });
     }
   });

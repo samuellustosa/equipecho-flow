@@ -81,7 +81,7 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
-      },
+      }
       categories: {
         Row: {
           created_at: string
@@ -159,6 +159,38 @@ export type Database = {
             columns: ["sector_id"]
             isOneToOne: false
             referencedRelation: "sectors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      equipment_status_history: {
+        Row: {
+          created_at: string
+          equipment_id: string
+          id: string
+          status: string
+          timestamp: string
+        }
+        Insert: {
+          created_at?: string
+          equipment_id: string
+          id?: string
+          status: string
+          timestamp?: string
+        }
+        Update: {
+          created_at?: string
+          equipment_id?: string
+          id?: string
+          status?: string
+          timestamp?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "equipment_status_history_equipment_id_fkey"
+            columns: ["equipment_id"]
+            isOneToOne: false
+            referencedRelation: "equipments"
             referencedColumns: ["id"]
           },
         ]
@@ -348,6 +380,42 @@ export type Database = {
           },
         ]
       }
+      notifications_queue: {
+        Row: {
+          body: string
+          created_at: string
+          id: string
+          sent_at: string | null
+          status: string
+          target_user_ids: string[] | null
+          title: string
+          type: Database["public"]["Enums"]["notification_type"]
+          url: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          id?: string
+          sent_at?: string | null
+          status?: string
+          target_user_ids?: string[] | null
+          title: string
+          type: Database["public"]["Enums"]["notification_type"]
+          url?: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          id?: string
+          sent_at?: string | null
+          status?: string
+          target_user_ids?: string[] | null
+          title?: string
+          type?: Database["public"]["Enums"]["notification_type"]
+          url?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -491,6 +559,10 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }
+      handle_equipment_status_change: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
     }
     Enums: {
       equipment_status: "operacional" | "manutencao" | "parado"
@@ -504,6 +576,7 @@ export type Database = {
         | "inspecao"
         | "outro"
       user_role: "admin" | "manager" | "user" | "pending"
+      notification_type: "info" | "warning" | "danger" | "success" // <-- Adicionado o novo enum aqui
     }
     CompositeTypes: {
       [_ in never]: never
@@ -643,6 +716,7 @@ export const Constants = {
         "outro",
       ],
       user_role: ["admin", "manager", "user", "pending"],
+      notification_type: ["info", "warning", "danger", "success"],
     },
   },
 } as const
