@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
-import { subDays, differenceInMinutes } from 'date-fns';
+import { subDays, differenceInMinutes, parseISO } from 'date-fns';
 import { Maintenance } from './useMaintenances';
 
 export interface Equipment {
@@ -123,18 +123,15 @@ export const useEquipmentGrowth = (days: number = 30) => {
   });
 };
 
-// NOVO HOOK: Calcula o MTTR (Tempo Médio de Reparo)
-// Nota: A implementação é uma aproximação baseada nos dados disponíveis.
-// Ele calcula a média de tempo (em minutos) que os equipamentos ficam em status de 'manutencao'.
-// Para uma precisão ideal, seria necessário um campo 'start_maintenance_at' na tabela de equipamentos.
-export const useMTTR = () => {
+// NOVO HOOK: Calcula o MTTC (Tempo Médio de Limpeza)
+export const useMTTC = () => {
   return useQuery({
-    queryKey: ['mttr'],
+    queryKey: ['mttc'],
     queryFn: async () => {
       const { data: maintenances, error } = await supabase
         .from('maintenances')
         .select('performed_at, equipment_id, updated_at:equipments(updated_at)')
-        .eq('service_type', 'reparo')
+        .eq('service_type', 'limpeza') // <-- Altera a condição para 'limpeza'
         .order('performed_at', { ascending: false });
 
       if (error) throw new Error(error.message);
@@ -143,8 +140,8 @@ export const useMTTR = () => {
       if (repairsWithEndTime.length === 0) return null;
 
       const totalRepairTime = repairsWithEndTime.reduce((sum, m) => {
-        const repairStart = new Date(m.performed_at);
-        const repairEnd = new Date((m.updated_at as any).updated_at);
+        const repairStart = parseISO(m.performed_at);
+        const repairEnd = parseISO((m.updated_at as any).updated_at);
         const durationInMinutes = differenceInMinutes(repairEnd, repairStart);
         return sum + durationInMinutes;
       }, 0);

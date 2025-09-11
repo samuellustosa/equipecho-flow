@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { useEquipmentsCount, useAllEquipments, useEquipmentGrowth, useMTTR, useMaintenanceMetrics } from '@/hooks/useEquipments';
+import { useEquipmentsCount, useAllEquipments, useEquipmentGrowth, useMTTC, useMaintenanceMetrics } from '@/hooks/useEquipments';
 import { useInventoryCount, useAllInventory, useInventoryMovementMetrics } from '@/hooks/useInventory';
 import { useEquipmentAlerts, useInventoryAlerts } from '@/hooks/useNotifications';
 import { useAuth } from '@/hooks/useAuth';
@@ -70,7 +70,7 @@ export const Dashboard: React.FC = () => {
   const latestAuditLogs = auditLogsData?.logs || [];
   
   // Novos hooks para os gráficos
-  const { data: mttrInMinutes, isLoading: mttrLoading } = useMTTR();
+  const { data: mttcInMinutes, isLoading: mttcLoading } = useMTTC(); // <-- Alterado para useMTTC
   const { data: maintenanceMetrics = { bySector: [], byResponsible: [] }, isLoading: maintenanceMetricsLoading } = useMaintenanceMetrics();
   const { data: auditLogMetrics = [], isLoading: auditLogMetricsLoading } = useAuditLogMetrics();
   const { data: inventoryMovementMetrics = [], isLoading: inventoryMovementMetricsLoading } = useInventoryMovementMetrics(30);
@@ -85,7 +85,7 @@ export const Dashboard: React.FC = () => {
     allInventoryLoading ||
     auditLogsLoading ||
     growthLoading ||
-    mttrLoading ||
+    mttcLoading || // <-- Alterado para mttcLoading
     maintenanceMetricsLoading ||
     auditLogMetricsLoading ||
     inventoryMovementMetricsLoading;
@@ -179,8 +179,8 @@ export const Dashboard: React.FC = () => {
     );
   }
   
-  const formattedMttr = mttrInMinutes !== null
-    ? `${Math.floor(mttrInMinutes / 60)}h ${Math.round(mttrInMinutes % 60)}m`
+  const formattedMttc = mttcInMinutes !== null // <-- Alterado para formattedMttc
+    ? `${Math.floor(mttcInMinutes / 60)}h ${Math.round(mttcInMinutes % 60)}m`
     : 'N/A';
 
   return (
@@ -229,14 +229,14 @@ export const Dashboard: React.FC = () => {
                   </Card>
                   <Card className="shadow-card">
                       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                          <CardTitle className="text-sm font-medium">MTTR (Tempo Médio de Reparo)</CardTitle>
+                          <CardTitle className="text-sm font-medium">MTTC (Tempo Médio de Limpeza)</CardTitle> {/* <-- Alterado para MTTC */}
                           <Clock className="h-4 w-4 text-muted-foreground" />
                       </CardHeader>
                       <CardContent>
                           <div className="text-2xl font-bold">
-                              {formattedMttr}
+                              {formattedMttc}
                           </div>
-                          <p className="text-xs text-muted-foreground">Baseado em reparos recentes</p>
+                          <p className="text-xs text-muted-foreground">Baseado em limpezas recentes</p> {/* <-- Alterado para limpezas */}
                       </CardContent>
                   </Card>
                 </>
