@@ -123,47 +123,6 @@ export const useEquipmentGrowth = (days: number = 30) => {
   });
 };
 
-// NOVO HOOK: Calcula o tempo que um equipamento fica atrasado, usando a nova tabela.
-export const useOverdueTime = () => {
-  return useQuery({
-    queryKey: ['overdueTime'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('equipment_status_history')
-        .select('*')
-        .order('timestamp', { ascending: true });
-
-      if (error) throw new Error(error.message);
-
-      let totalOverdueTimeInMinutes = 0;
-      let overdueStart: Date | null = null;
-      let overdueCount = 0;
-
-      data.forEach((entry, index) => {
-        if (entry.status === 'atrasado' && !overdueStart) {
-          overdueStart = parseISO(entry.timestamp);
-        } else if (entry.status === 'em_dia' && overdueStart) {
-          const overdueEnd = parseISO(entry.timestamp);
-          const duration = differenceInMinutes(overdueEnd, overdueStart);
-          totalOverdueTimeInMinutes += duration;
-          overdueCount++;
-          overdueStart = null;
-        }
-      });
-      
-      // Considerar o caso em que o último status é 'atrasado' e ainda não foi resolvido.
-      if (overdueStart) {
-          const now = new Date();
-          const duration = differenceInMinutes(now, overdueStart);
-          totalOverdueTimeInMinutes += duration;
-          overdueCount++;
-      }
-
-      return overdueCount > 0 ? totalOverdueTimeInMinutes / overdueCount : null;
-    },
-  });
-};
-
 // NOVO HOOK: Busca e agrega manutenções por setor ou responsável nos últimos 6 meses
 export const useMaintenanceMetrics = () => {
     const cutoffDate = subDays(new Date(), 180).toISOString();
